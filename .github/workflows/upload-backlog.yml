@@ -1,27 +1,23 @@
-name: Upload backlog to Issues
+name: Sync backlog to Project v2
 
 on:
   push:
     paths:
-      - "backlog.json"
+      - backlog.json
 
 jobs:
-  upload:
+  sync:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm install node-fetch
+      - run: npm install @octokit/graphql
 
-      - name: Run backlog sync
-        run: node .github/workflows/sync-backlog.js
+      - run: node .github/workflows/sync-backlog.js
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PROJECT_SYNC_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}

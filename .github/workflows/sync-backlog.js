@@ -1,77 +1,154 @@
 import fs from "fs";
-import fetch from "node-fetch";
+import { graphql } from "@octokit/graphql";
 
 const token = process.env.GITHUB_TOKEN;
-const repo = process.env.GITHUB_REPOSITORY;
+const repoFull = process.env.GITHUB_REPOSITORY;
 
-const headers = {
-    Authorization: `token ${token}`,
-    "Content-Type": "application/json"
-};
+const PROJECT_ID = "PVT_kwHOAg280c4BKdGd";
+const STATUS_FIELD_ID = "PVTSSF_lAHOAg280c4BKdGdzg6UWKY";
+const STATUS_BACKLOG_ID = "b9855712";
+const PARENT_FIELD_ID = "PVTF_lAHOAg280c4BKdGdzg6UWKw";
+
+const graphqlWithAuth = graphql.defaults({
+  headers: { authorization: `bearer ${token}` }
+});
 
 const backlog = JSON.parse(fs.readFileSync("backlog.json", "utf8"));
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
+/* ---------------- helpers ---------------- */
 
-async function getExistingIssues() {
-    const issues = [];
-    let page = 1;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    while (true) {
-        const res = await fetch(
-            `https://api.github.com/repos/${repo}/issues?state=all&per_page=100&page=${page}`,
-            { headers }
-        );
-
-        const data = await res.json();
-
-        if (!data.length) break;
-
-        issues.push(...data);
-        page++;
+async function getRepoId() {
+  const [owner, name] = repoFull.split("/");
+  const res = await graphqlWithAuth(`
+    query ($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) { id }
     }
-
-    return issues;
+  `, { owner, name });
+  return res.repository.id;
 }
 
-async function createIssue(task) {
-    const body = {
-        title: `[${task.id}] ${task.title}`,
-        body: task.body,
-        labels: task.labels || []
-    };
-
-    const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body)
-    });
-
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to create issue: ${res.status} ${text}`);
+async function findIssueByTitle(title) {
+  const [owner, name] = repoFull.split("/");
+  const res = await graphqlWithAuth(`
+    query ($owner: String!, $name: String!, $q: String!) {
+      search(type: ISSUE, query: $q, first: 1) {
+        nodes {
+          ... on Issue {
+            id
+            title
+          }
+        }
+      }
     }
+  `, {
+    owner,
+    name,
+    q: `repo:${owner}/${name} "${title}"`
+  });
 
-    const data = await res.json();
-    console.log(`Created issue: ${data.title}`);
+  return res.search.nodes[0] ?? null;
 }
+
+async function createIssue(repoId, title, body) {
+  const res = await graphqlWithAuth(`
+    mutation ($repoId: ID!, $title: String!, $body: String!) {
+      createIssue(input: {
+        repositoryId: $repoId,
+        title: $title,
+        body: $body
+      }) {
+        issue { id title }
+      }
+    }
+  `, { repoId, title, body });
+
+  return res.createIssue.issue;
+}
+
+async function addToProject(issueId, parentItemId = null) {
+  const res = await graphqlWithAuth(`
+    mutation ($projectId: ID!, $contentId: ID!) {
+      addProjectV2Item(input: {
+        projectId: $projectId,
+        contentId: $contentId
+      }) {
+        item { id }
+      }
+    }
+  `, { projectId: PROJECT_ID, contentId: issueId });
+
+  const itemId = res.addProjectV2Item.item.id;
+
+  // Status = Backlog
+  await graphqlWithAuth(`
+    mutation {
+      updateProjectV2ItemFieldValue(input: {
+        projectId: "${PROJECT_ID}",
+        itemId: "${itemId}",
+        fieldId: "${STATUS_FIELD_ID}",
+        value: { singleSelectOptionId: "${STATUS_BACKLOG_ID}" }
+      }) { clientMutationId }
+    }
+  `);
+
+  // Parent link
+  if (parentItemId) {
+    await graphqlWithAuth(`
+      mutation {
+        updateProjectV2ItemFieldValue(input: {
+          projectId: "${PROJECT_ID}",
+          itemId: "${itemId}",
+          fieldId: "${PARENT_FIELD_ID}",
+          value: { itemId: "${parentItemId}" }
+        }) { clientMutationId }
+      }
+    `);
+  }
+
+  return itemId;
+}
+
+/* ---------------- main ---------------- */
 
 async function run() {
-    const existing = await getExistingIssues();
+  const repoId = await getRepoId();
 
-    for (const task of backlog.tasks) {
-        const title = `[${task.id}] ${task.title}`;
-        if (existing.some(issue => issue.title === title)) {
-            console.log(`Skipping existing issue: ${title}`);
-            continue;
-        }
-        await createIssue(task);
-        await sleep(500); // To avoid hitting rate limits
+  for (const us of backlog.userStories) {
+    const usTitle = `[${us.id}] ${us.title}`;
+
+    let usIssue = await findIssueByTitle(usTitle);
+    if (!usIssue) {
+      usIssue = await createIssue(repoId, usTitle, "User Story");
+      console.log("Created US:", usTitle);
+    } else {
+      console.log("US exists:", usTitle);
     }
 
-    console.log("Backlog sync complete!");
+    const usItemId = await addToProject(usIssue.id);
+
+    for (const task of us.tasks) {
+      const taskTitle = `[${task.id}] ${task.title}`;
+
+      let taskIssue = await findIssueByTitle(taskTitle);
+      if (!taskIssue) {
+        taskIssue = await createIssue(
+          repoId,
+          taskTitle,
+          `Sub-task of ${us.id}`
+        );
+        console.log("  Created task:", taskTitle);
+      } else {
+        console.log("  Task exists:", taskTitle);
+      }
+
+      await addToProject(taskIssue.id, usItemId);
+      await sleep(600); // анти rate-limit
+    }
+  }
+
+  console.log("✅ Backlog synced");
 }
 
-run().catch(err => console.error(err));
+run().catch(console.error);
