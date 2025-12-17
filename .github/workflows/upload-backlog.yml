@@ -12,23 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create issues from backlog
-        uses: actions/github-script@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          script: |
-            const fs = require('fs');
-            const backlog = JSON.parse(fs.readFileSync('backlog.json', 'utf8'));
+          node-version: 20
 
-            for (const task of backlog.tasks) {
-              const title = `[${task.id}] ${task.title}`;
+      - name: Install dependencies
+        run: npm install node-fetch
 
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body: task.body,
-                labels: task.labels || []
-              });
-
-              console.log(`Created issue: ${title}`);
-            }
+      - name: Run backlog sync
+        run: node .github/workflows/sync-backlog.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
