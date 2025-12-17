@@ -8,8 +8,8 @@ import { graphql } from "@octokit/graphql";
 const CONFIG = {
   token: process.env.GITHUB_TOKEN,
   repository: process.env.GITHUB_REPOSITORY,
-  projectId: "PVT_kwHOAg280c4BKdGd",
-  statusFieldId: "PVTSSF_lAHOAg280c4BKdGdzg6UWKY",
+  projectId: "PVT_kwDODumK2s4BK0LO",
+  statusFieldId: "PVTSSF_lADODumK2s4BK0LOzg6ktDU",
   statusBacklogId: "c463424b",
   sleepMs: 300
 };
