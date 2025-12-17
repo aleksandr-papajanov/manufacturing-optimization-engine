@@ -1,0 +1,34 @@
+name: Upload backlog to Issues
+
+on:
+  push:
+    paths:
+      - "backlog.json"
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create issues from backlog
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const backlog = JSON.parse(fs.readFileSync('backlog.json', 'utf8'));
+
+            for (const task of backlog.tasks) {
+              const title = `[${task.id}] ${task.title}`;
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: task.body,
+                labels: task.labels || []
+              });
+
+              console.log(`Created issue: ${title}`);
+            }

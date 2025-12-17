@@ -1,0 +1,958 @@
+{
+  "tasks": [
+    {
+      "id": "US-01-1",
+      "title": "Design capability data model with attributes",
+      "body": "As a Technology Provider, I want to submit my process capabilities to the system (e.g., Grinding, Turning, Cleaning), so that I can be included in the production chain.\n\nTask: Design capability data model with attributes (tolerance, length, diameter)",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-01-2",
+      "title": "Create REST API endpoint for capability registration",
+      "body": "Task: Create REST API endpoint for capability registration\nEndpoint: POST /providers/capabilities",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "api"]
+    },
+    {
+      "id": "US-01-3",
+      "title": "Implement validation logic for TP1, TP2, TP3 types",
+      "body": "Task: Implement validation logic for TP1, TP2, TP3 types\nValidate that submitted capabilities match provider type requirements",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-01-4",
+      "title": "Set up RabbitMQ topic for tp.capability.submitted events",
+      "body": "Task: Set up RabbitMQ topic for tp.capability.submitted events\nConfigure message broker to publish capability registration events",
+      "labels": ["epic-1-provider-management", "high-priority", "communication", "backend"]
+    },
+    {
+      "id": "US-01-5",
+      "title": "Build provider registration UI form",
+      "body": "Task: Build provider registration UI form\nCreate user interface for technology providers to register their capabilities",
+      "labels": ["epic-1-provider-management", "high-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-01-6",
+      "title": "Store validated capabilities in database",
+      "body": "Task: Store validated capabilities in database\nImplement database persistence for provider capabilities",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "database"]
+    },
+    {
+      "id": "US-02-1",
+      "title": "Add strategy field to TP data model",
+      "body": "As a Technology Provider, I want to specify which Strategy I support (Upgrade vs. Refurbish) and be flexible in the number of steps I cover (1 or more).\n\nTask: Add strategy field to TP data model (Upgrade/Refurbish/Both)",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-02-2",
+      "title": "Map Upgrade to 8 steps, Refurbish to 5 steps",
+      "body": "Task: Map Upgrade to 8 steps, Refurbish to 5 steps\nDefine workflow mappings for each strategy type",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-02-3",
+      "title": "Allow TP to select multiple capabilities",
+      "body": "Task: Allow TP to select multiple capabilities\nEnable providers to register for multiple process steps",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-02-4",
+      "title": "Validate step combinations for feasibility",
+      "body": "Task: Validate step combinations for feasibility\nEnsure selected capability combinations make sense for provider type",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-03-1",
+      "title": "Add capacity tracking fields to data model",
+      "body": "As a Technology Provider, I want to set and update my current and planned capacity for different steps.\n\nTask: Add capacity tracking fields (current load, max capacity, planned availability)",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-03-2",
+      "title": "Create REST API for capacity updates",
+      "body": "Task: Create REST API for capacity updates\nEndpoint: PATCH /providers/{id}/capacity",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "api"]
+    },
+    {
+      "id": "US-03-3",
+      "title": "Implement scheduled job to expire stale capacity data",
+      "body": "Task: Implement scheduled job to expire stale capacity data\nAutomatically reset or flag outdated capacity information",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "scheduler"]
+    },
+    {
+      "id": "US-03-4",
+      "title": "Build capacity dashboard UI for providers",
+      "body": "Task: Build capacity dashboard UI for providers\nCreate interface for providers to view and update their capacity",
+      "labels": ["epic-1-provider-management", "medium-priority", "frontend", "ui", "dashboard"]
+    },
+    {
+      "id": "US-03-5",
+      "title": "Publish tp.capacity.updated events",
+      "body": "Task: Publish tp.capacity.updated events\nEmit events when provider capacity changes",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-04-1",
+      "title": "Add cost fields to capability model",
+      "body": "As a Technology Provider, I want to set and change costs for my work, and see average costs for my specialty.\n\nTask: Add cost fields to capability model (per step, per hour, fixed)",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-04-2",
+      "title": "Implement cost history tracking",
+      "body": "Task: Implement cost history tracking\nStore historical cost data for analytics and trends",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "database"]
+    },
+    {
+      "id": "US-04-3",
+      "title": "Calculate and display average market costs per process step",
+      "body": "Task: Calculate and display average market costs per process step\nAggregate and show market pricing for each capability",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-04-4",
+      "title": "Create cost management UI",
+      "body": "Task: Create cost management UI\nBuild interface for providers to manage their pricing",
+      "labels": ["epic-1-provider-management", "medium-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-04-5",
+      "title": "Publish tp.cost.updated events",
+      "body": "Task: Publish tp.cost.updated events\nEmit events when provider costs change",
+      "labels": ["epic-1-provider-management", "medium-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-05-1",
+      "title": "Implement auto-approval rules",
+      "body": "As a Technology Provider, I want to auto-approve, change, or refuse my participation in suggested chains.\n\nTask: Implement auto-approval rules (capacity threshold, preferred customers)",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-05-2",
+      "title": "Build proposal acceptance/rejection UI",
+      "body": "Task: Build proposal acceptance/rejection UI\nCreate interface for providers to respond to job proposals",
+      "labels": ["epic-1-provider-management", "high-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-05-3",
+      "title": "Add manual override option for auto-approval",
+      "body": "Task: Add manual override option\nAllow providers to manually accept/reject even with auto-approval enabled",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-05-4",
+      "title": "Set timeout for proposal responses",
+      "body": "Task: Set timeout for proposal responses\nAutomatically reject proposals if no response within X hours",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-05-5",
+      "title": "Track acceptance rates per provider",
+      "body": "Task: Track acceptance rates per provider\nMonitor and store provider response history for optimization",
+      "labels": ["epic-1-provider-management", "high-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-06-1",
+      "title": "Design customer request data model",
+      "body": "As a Customer, I want to submit a request for a motor with specific attributes (Power, Axis Height, Efficiency Class, budget, priorities).\n\nTask: Design customer request data model (power, axis_height, efficiency_class, budget, timeline)",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-06-2",
+      "title": "Add optional fields for motor assessment",
+      "body": "Task: Add optional fields (lifetime, usage, malfunction specs, current vs planned)\nEnable detailed motor condition assessment",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-06-3",
+      "title": "Create REST API endpoint for customer requests",
+      "body": "Task: Create REST API endpoint\nEndpoint: POST /requests",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "api"]
+    },
+    {
+      "id": "US-06-4",
+      "title": "Build customer request submission UI",
+      "body": "Task: Build customer request submission UI\nCreate user-friendly form for customers to submit motor remanufacturing requests",
+      "labels": ["epic-2-customer-management", "high-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-06-5",
+      "title": "Validate input against system capabilities",
+      "body": "Task: Validate input against system capabilities\nCheck if requested specifications can be fulfilled by registered providers",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-06-6",
+      "title": "Publish customer.request.submitted events",
+      "body": "Task: Publish customer.request.submitted events\nEmit events to trigger optimization process",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-07-1",
+      "title": "Implement strategy recommendation engine",
+      "body": "As a Customer, I want to receive a strategy/list of strategies with costs (time, money, emissions, insurance) based on my priorities.\n\nTask: Implement strategy recommendation engine",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "optimization"]
+    },
+    {
+      "id": "US-07-2",
+      "title": "Calculate total cost, time, emissions for each strategy",
+      "body": "Task: Calculate total cost, time, emissions for each strategy\nAggregate metrics across all process steps",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-07-3",
+      "title": "Generate multiple options when possible",
+      "body": "Task: Generate multiple options when possible\nProvide alternative strategies for customer comparison",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "optimization"]
+    },
+    {
+      "id": "US-07-4",
+      "title": "Display strategy comparison UI",
+      "body": "Task: Display strategy comparison UI\nShow side-by-side comparison of available strategies",
+      "labels": ["epic-2-customer-management", "high-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-07-5",
+      "title": "Allow customer to select preferred strategy",
+      "body": "Task: Allow customer to select preferred strategy\nEnable customer choice from recommended options",
+      "labels": ["epic-2-customer-management", "high-priority", "frontend", "backend"]
+    },
+    {
+      "id": "US-07-6",
+      "title": "Add insurance/warranty information",
+      "body": "Task: Add insurance/warranty information\nInclude warranty details for each strategy option",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-08-1",
+      "title": "Implement strategy validation logic",
+      "body": "As a Customer, I want to receive confirmation that a valid production strategy was found (IE4→Upgrade, IE2→Refurbish).\n\nTask: Implement strategy validation logic",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-08-2",
+      "title": "Map IE4 requests to Upgrade strategy",
+      "body": "Task: Map IE4 requests to Upgrade strategy\nAutomatically route high-efficiency requests to upgrade workflow",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-08-3",
+      "title": "Map IE2 requests to Refurbish strategy",
+      "body": "Task: Map IE2 requests to Refurbish strategy\nAutomatically route baseline requests to refurbish workflow",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-08-4",
+      "title": "Send confirmation via UI and email",
+      "body": "Task: Send confirmation via UI and email\nNotify customer when valid strategy is found",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "frontend", "notifications"]
+    },
+    {
+      "id": "US-08-5",
+      "title": "Handle cases where no strategy is available",
+      "body": "Task: Handle cases where no strategy is available\nProvide clear feedback when request cannot be fulfilled",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "error-handling"]
+    },
+    {
+      "id": "US-09-1",
+      "title": "Implement capacity reservation system",
+      "body": "As a Customer, I want to 'subscribe' to a process chain with priority/booked capacity from partners.\n\nTask: Implement capacity reservation system",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-09-2",
+      "title": "Allow customers to book future slots",
+      "body": "Task: Allow customers to book future slots\nEnable advance booking of provider capacity",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-09-3",
+      "title": "Send booking confirmations to all providers",
+      "body": "Task: Send booking confirmations to all providers\nNotify providers when capacity is reserved",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "messaging", "notifications"]
+    },
+    {
+      "id": "US-09-4",
+      "title": "Track reserved vs available capacity",
+      "body": "Task: Track reserved vs available capacity\nMaintain accurate capacity availability across all providers",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "database"]
+    },
+    {
+      "id": "US-09-5",
+      "title": "Handle booking cancellations",
+      "body": "Task: Handle booking cancellations\nImplement cancellation workflow and capacity release",
+      "labels": ["epic-2-customer-management", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-10-1",
+      "title": "Implement notification service subscribing to process events",
+      "body": "As a Customer, I want real-time updates on my motor's progress.\n\nTask: Implement notification service subscribing to process events",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "messaging", "notifications"]
+    },
+    {
+      "id": "US-10-2",
+      "title": "Build WebSocket for real-time updates",
+      "body": "Task: Build WebSocket for real-time updates\nEnable push notifications to customer UI",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "frontend", "websocket"]
+    },
+    {
+      "id": "US-10-3",
+      "title": "Create customer dashboard showing job status",
+      "body": "Task: Create customer dashboard showing job status\nDisplay current progress of remanufacturing job",
+      "labels": ["epic-2-customer-management", "high-priority", "frontend", "ui", "dashboard"]
+    },
+    {
+      "id": "US-10-4",
+      "title": "Add email/SMS notification options",
+      "body": "Task: Add email/SMS notification options\nEnable multi-channel notifications for customers",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "notifications"]
+    },
+    {
+      "id": "US-10-5",
+      "title": "Display estimated completion date",
+      "body": "Task: Display estimated completion date\nCalculate and show expected delivery timeline",
+      "labels": ["epic-2-customer-management", "high-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-11-1",
+      "title": "Implement capability validation rules",
+      "body": "As the Optimization Engine, I want to validate incoming TP capabilities (TP1 for functional upgrade, TP2 for redesign, TP3 for turning/grinding).\n\nTask: Implement capability validation rules",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-11-2",
+      "title": "Check TP1 can do: Cleaning, Disassembly, PartSub, Reassembly, Certification",
+      "body": "Task: Check TP1 can do: Cleaning, Disassembly, PartSub, Reassembly, Certification\nValidate TP1 capabilities",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-11-3",
+      "title": "Check TP2 can do: Redesign",
+      "body": "Task: Check TP2 can do: Redesign\nValidate TP2 capabilities",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-11-4",
+      "title": "Check TP3 can do: Turning, Grinding",
+      "body": "Task: Check TP3 can do: Turning, Grinding\nValidate TP3 capabilities",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-11-5",
+      "title": "Validate technical requirements",
+      "body": "Task: Validate technical requirements (axis_height, power, tolerance)\nEnsure provider specifications match job requirements",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-11-6",
+      "title": "Reject invalid submissions with clear error messages",
+      "body": "Task: Reject invalid submissions with clear error messages\nProvide actionable feedback for invalid provider registrations",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "error-handling"]
+    },
+    {
+      "id": "US-12-1",
+      "title": "Implement workflow matching algorithm",
+      "body": "As the Optimization Engine, I want to match Customer Requests to correct Workflow Strategy (8-step for Upgrade, 5-step for Refurbish).\n\nTask: Implement workflow matching algorithm",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "optimization"]
+    },
+    {
+      "id": "US-12-2",
+      "title": "Trigger 8-step chain for IE4/Upgrade requests",
+      "body": "Task: Trigger 8-step chain for IE4/Upgrade requests\nActivate upgrade workflow for high-efficiency requests",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-12-3",
+      "title": "Trigger 5-step chain for IE2/Refurbish requests",
+      "body": "Task: Trigger 5-step chain for IE2/Refurbish requests\nActivate refurbish workflow for baseline requests",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-12-4",
+      "title": "Handle edge cases (custom requests)",
+      "body": "Task: Handle edge cases (custom requests)\nSupport non-standard customer requirements",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-12-5",
+      "title": "Log matching decisions for audit",
+      "body": "Task: Log matching decisions for audit\nTrack workflow selection rationale",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "logging"]
+    },
+    {
+      "id": "US-13-1",
+      "title": "Integrate optimization library (Pymoo or similar)",
+      "body": "As the Platform Owner, I want to compute optimal assignment of steps to available providers considering cost, time, emissions, availability, and quality.\n\nTask: Integrate optimization library (Pymoo or similar)",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "optimization", "library"]
+    },
+    {
+      "id": "US-13-2",
+      "title": "Define multi-objective function (cost, time, emissions)",
+      "body": "Task: Define multi-objective function (cost, time, emissions)\nCreate optimization objective balancing multiple criteria",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "optimization"]
+    },
+    {
+      "id": "US-13-3",
+      "title": "Implement constraint checking (capabilities vs requirements)",
+      "body": "Task: Implement constraint checking (capabilities vs requirements)\nEnsure assigned providers can fulfill job requirements",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "optimization"]
+    },
+    {
+      "id": "US-13-4",
+      "title": "Consider provider availability and capacity",
+      "body": "Task: Consider provider availability and capacity\nInclude real-time capacity in optimization algorithm",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "optimization"]
+    },
+    {
+      "id": "US-13-5",
+      "title": "Calculate quality scores based on provider history",
+      "body": "Task: Calculate quality scores based on provider history\nIncorporate past performance into provider selection",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-13-6",
+      "title": "Generate ranked list of possible assignments",
+      "body": "Task: Generate ranked list of possible assignments\nProvide multiple optimization solutions",
+      "labels": ["epic-3-optimization", "high-priority", "backend", "optimization"]
+    },
+    {
+      "id": "US-14-1",
+      "title": "Build admin UI for chain management",
+      "body": "As the Platform Owner, I want to manually approve, refuse, add, or delete a TP from the suggested chain.\n\nTask: Build admin UI for chain management",
+      "labels": ["epic-3-optimization", "medium-priority", "frontend", "ui", "admin"]
+    },
+    {
+      "id": "US-14-2",
+      "title": "Allow override of optimization results",
+      "body": "Task: Allow override of optimization results\nEnable manual intervention in automated assignments",
+      "labels": ["epic-3-optimization", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-14-3",
+      "title": "Implement manual TP selection/removal",
+      "body": "Task: Implement manual TP selection/removal\nProvide controls to modify provider assignments",
+      "labels": ["epic-3-optimization", "medium-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-14-4",
+      "title": "Recalculate costs and timelines after changes",
+      "body": "Task: Recalculate costs and timelines after changes\nUpdate job estimates when assignments are modified",
+      "labels": ["epic-3-optimization", "medium-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-14-5",
+      "title": "Log all manual interventions",
+      "body": "Task: Log all manual interventions\nTrack admin overrides for audit and analysis",
+      "labels": ["epic-3-optimization", "medium-priority", "backend", "logging"]
+    },
+    {
+      "id": "US-14-6",
+      "title": "Notify affected TPs of changes",
+      "body": "Task: Notify affected TPs of changes\nInform providers when assignments are modified",
+      "labels": ["epic-3-optimization", "medium-priority", "backend", "messaging", "notifications"]
+    },
+    {
+      "id": "US-15-1",
+      "title": "Set up RabbitMQ infrastructure",
+      "body": "As a Technology Provider, I want to receive job proposals matching my capabilities via Message Broker.\n\nTask: Set up RabbitMQ infrastructure",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "infrastructure", "rabbitmq"]
+    },
+    {
+      "id": "US-15-2",
+      "title": "Design process.proposal event schema",
+      "body": "Task: Design process.proposal event schema\nDefine message structure for job proposals",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-15-3",
+      "title": "Implement provider-specific queues",
+      "body": "Task: Implement provider-specific queues\nCreate dedicated message queues for each provider",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "messaging", "rabbitmq"]
+    },
+    {
+      "id": "US-15-4",
+      "title": "Build proposal notification UI",
+      "body": "Task: Build proposal notification UI\nDisplay incoming job proposals to providers",
+      "labels": ["epic-4-workflow", "high-priority", "frontend", "ui", "notifications"]
+    },
+    {
+      "id": "US-15-5",
+      "title": "Add accept/reject buttons",
+      "body": "Task: Add accept/reject buttons\nEnable provider response to proposals",
+      "labels": ["epic-4-workflow", "high-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-15-6",
+      "title": "Publish process.accepted or process.rejected events",
+      "body": "Task: Publish process.accepted or process.rejected events\nEmit provider response events",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-15-7",
+      "title": "Implement timeout handling (default reject after X hours)",
+      "body": "Task: Implement timeout handling (default reject after X hours)\nAutomatically handle unresponsive providers",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-16-1",
+      "title": "Design process coordination state machine",
+      "body": "As the Platform Owner, I want to coordinate multi-step jobs across multiple providers with proper handoffs.\n\nTask: Design process coordination state machine",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-16-2",
+      "title": "Implement Plan Coordinator service",
+      "body": "Task: Implement Plan Coordinator service\nCreate central service for workflow orchestration",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "service"]
+    },
+    {
+      "id": "US-16-3",
+      "title": "Subscribe to process.accepted and process.completed events",
+      "body": "Task: Subscribe to process.accepted and process.completed events\nListen for workflow progression events",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-16-4",
+      "title": "Publish process.ready events for next step",
+      "body": "Task: Publish process.ready events for next step\nTrigger subsequent workflow steps",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-16-5",
+      "title": "Handle failures and rerouting",
+      "body": "Task: Handle failures and rerouting\nImplement failure recovery and alternative provider selection",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "error-handling"]
+    },
+    {
+      "id": "US-16-6",
+      "title": "Track job status (pending, in-progress, completed, failed)",
+      "body": "Task: Track job status (pending, in-progress, completed, failed)\nMaintain job state across workflow",
+      "labels": ["epic-4-workflow", "high-priority", "backend", "database"]
+    },
+    {
+      "id": "US-16-7",
+      "title": "Create job monitoring dashboard",
+      "body": "Task: Create job monitoring dashboard\nBuild admin interface for job tracking",
+      "labels": ["epic-4-workflow", "high-priority", "frontend", "ui", "dashboard"]
+    },
+    {
+      "id": "US-17-1",
+      "title": "Implement handoff from Disassembly to Redesign",
+      "body": "As TP1, I want to coordinate with TP2 for component redesign during upgrade.\n\nTask: Implement handoff from Disassembly to Redesign",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-17-2",
+      "title": "Define component specification format",
+      "body": "Task: Define component specification format\nCreate standard format for component data exchange",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-17-3",
+      "title": "Publish redesign.requested events",
+      "body": "Task: Publish redesign.requested events\nNotify TP2 when redesign is needed",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-17-4",
+      "title": "Subscribe to redesign.completed events",
+      "body": "Task: Subscribe to redesign.completed events\nReceive notification when TP2 finishes redesign",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-17-5",
+      "title": "Track component lifecycle",
+      "body": "Task: Track component lifecycle\nMonitor components through redesign and manufacturing",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "database"]
+    },
+    {
+      "id": "US-18-1",
+      "title": "Implement TP3 actor simulator",
+      "body": "As TP3, I want to receive redesign specifications from TP2 and manufacture components to exact tolerances.\n\nTask: Implement TP3 actor simulator",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "service"]
+    },
+    {
+      "id": "US-18-2",
+      "title": "Subscribe to redesign.completed events",
+      "body": "Task: Subscribe to redesign.completed events\nReceive specifications from TP2",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-18-3",
+      "title": "Validate specifications (150mm x 70mm, tolerance)",
+      "body": "Task: Validate specifications (150mm x 70mm, tolerance)\nCheck if specifications are manufacturable",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-18-4",
+      "title": "Simulate machining process",
+      "body": "Task: Simulate machining process\nModel turning and grinding operations",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-18-5",
+      "title": "Publish machining.completed events",
+      "body": "Task: Publish machining.completed events\nNotify TP1 when components are ready",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "messaging"]
+    },
+    {
+      "id": "US-18-6",
+      "title": "Add quality control checks",
+      "body": "Task: Add quality control checks\nValidate manufactured components meet specifications",
+      "labels": ["epic-4-workflow", "medium-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-19-1",
+      "title": "Add Inspector role to system",
+      "body": "As an Inspector Service Provider, I want to be a 'human in the loop' for initial assessment.\n\nTask: Add Inspector role to system",
+      "labels": ["epic-4-workflow", "low-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-19-2",
+      "title": "Create inspection request workflow",
+      "body": "Task: Create inspection request workflow\nImplement workflow for manual inspection steps",
+      "labels": ["epic-4-workflow", "low-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-19-3",
+      "title": "Build assessment UI for inspectors",
+      "body": "Task: Build assessment UI for inspectors\nCreate interface for inspector evaluations",
+      "labels": ["epic-4-workflow", "low-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-19-4",
+      "title": "Allow inspector to approve/reject/modify requests",
+      "body": "Task: Allow inspector to approve/reject/modify requests\nEnable inspector decision-making controls",
+      "labels": ["epic-4-workflow", "low-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-19-5",
+      "title": "Track inspection results and recommendations",
+      "body": "Task: Track inspection results and recommendations\nStore inspector feedback for quality improvement",
+      "labels": ["epic-4-workflow", "low-priority", "backend", "database"]
+    },
+    {
+      "id": "US-20-1",
+      "title": "Use modular microservices architecture",
+      "body": "As the Platform Owner, I want my system to be flexible and extensible (architecture, communication brokers).\n\nTask: Use modular microservices architecture",
+      "labels": ["epic-5-platform", "high-priority", "backend", "architecture"]
+    },
+    {
+      "id": "US-20-2",
+      "title": "Define clear service interfaces (REST APIs)",
+      "body": "Task: Define clear service interfaces (REST APIs)\nCreate well-documented API contracts",
+      "labels": ["epic-5-platform", "high-priority", "backend", "api", "documentation"]
+    },
+    {
+      "id": "US-20-3",
+      "title": "Use message broker for loose coupling",
+      "body": "Task: Use message broker for loose coupling\nImplement event-driven architecture",
+      "labels": ["epic-5-platform", "high-priority", "backend", "architecture", "messaging"]
+    },
+    {
+      "id": "US-20-4",
+      "title": "Create plugin system for custom strategies",
+      "body": "Task: Create plugin system for custom strategies\nEnable extensibility for different remanufacturing scenarios",
+      "labels": ["epic-5-platform", "high-priority", "backend", "architecture"]
+    },
+    {
+      "id": "US-20-5",
+      "title": "Document APIs for third-party integration",
+      "body": "Task: Document APIs for third-party integration\nCreate comprehensive API documentation",
+      "labels": ["epic-5-platform", "high-priority", "documentation"]
+    },
+    {
+      "id": "US-20-6",
+      "title": "Support multiple deployment options (cloud, on-premise)",
+      "body": "Task: Support multiple deployment options (cloud, on-premise)\nEnsure platform can run in various environments",
+      "labels": ["epic-5-platform", "high-priority", "devops", "infrastructure"]
+    },
+    {
+      "id": "US-21-1",
+      "title": "Build file upload UI",
+      "body": "As the Platform Owner, I want to handle requests via UI or upload multiple requests via file (JSON, CSV).\n\nTask: Build file upload UI",
+      "labels": ["epic-5-platform", "medium-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-21-2",
+      "title": "Implement JSON/CSV parser",
+      "body": "Task: Implement JSON/CSV parser\nParse bulk request files",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "parser"]
+    },
+    {
+      "id": "US-21-3",
+      "title": "Validate batch requests",
+      "body": "Task: Validate batch requests\nCheck all entries in bulk upload",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "validation"]
+    },
+    {
+      "id": "US-21-4",
+      "title": "Process requests asynchronously",
+      "body": "Task: Process requests asynchronously\nHandle bulk requests in background",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "async"]
+    },
+    {
+      "id": "US-21-5",
+      "title": "Provide batch status dashboard",
+      "body": "Task: Provide batch status dashboard\nShow progress of bulk upload processing",
+      "labels": ["epic-5-platform", "medium-priority", "frontend", "ui", "dashboard"]
+    },
+    {
+      "id": "US-21-6",
+      "title": "Export results in multiple formats",
+      "body": "Task: Export results in multiple formats\nEnable download of results as JSON, CSV, PDF",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "export"]
+    },
+    {
+      "id": "US-22-1",
+      "title": "Create product catalog feature",
+      "body": "As the Platform Owner, I want most common motors/products preregistered in the system.\n\nTask: Create product catalog feature",
+      "labels": ["epic-5-platform", "low-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-22-2",
+      "title": "Preload common motor specifications",
+      "body": "Task: Preload common motor specifications\nPopulate catalog with standard motor types",
+      "labels": ["epic-5-platform", "low-priority", "backend", "database"]
+    },
+    {
+      "id": "US-22-3",
+      "title": "Allow customers to select from catalog",
+      "body": "Task: Allow customers to select from catalog\nEnable quick selection of common motors",
+      "labels": ["epic-5-platform", "low-priority", "frontend", "ui"]
+    },
+    {
+      "id": "US-22-4",
+      "title": "Support custom configurations",
+      "body": "Task: Support custom configurations\nAllow customization of catalog items",
+      "labels": ["epic-5-platform", "low-priority", "backend", "frontend"]
+    },
+    {
+      "id": "US-22-5",
+      "title": "Maintain catalog with versioning",
+      "body": "Task: Maintain catalog with versioning\nTrack changes to product specifications over time",
+      "labels": ["epic-5-platform", "low-priority", "backend", "database"]
+    },
+    {
+      "id": "US-23-1",
+      "title": "Add malfunction type field",
+      "body": "As the Platform Owner, I want to differentiate between malfunction vs end-of-life scenarios.\n\nTask: Add malfunction type field (repair, refurbish, upgrade, recycle)",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "data-model"]
+    },
+    {
+      "id": "US-23-2",
+      "title": "Implement assessment logic based on condition",
+      "body": "Task: Implement assessment logic based on condition\nDetermine appropriate strategy based on motor condition",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-23-3",
+      "title": "Route to appropriate strategy automatically",
+      "body": "Task: Route to appropriate strategy automatically\nAutomatic workflow selection based on condition assessment",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "business-logic"]
+    },
+    {
+      "id": "US-23-4",
+      "title": "Track failure patterns for analytics",
+      "body": "Task: Track failure patterns for analytics\nCollect data on motor failures for insights",
+      "labels": ["epic-5-platform", "medium-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-24-1",
+      "title": "Implement comprehensive logging system",
+      "body": "As the Platform Owner, I want logs with results, stats, and reports from TPs.\n\nTask: Implement comprehensive logging system",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "logging"]
+    },
+    {
+      "id": "US-24-2",
+      "title": "Track all jobs (success rate, timelines, costs)",
+      "body": "Task: Track all jobs (success rate, timelines, costs)\nCapture complete job lifecycle data",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-24-3",
+      "title": "Generate TP performance reports",
+      "body": "Task: Generate TP performance reports\nCreate provider scorecards and metrics",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-24-4",
+      "title": "Calculate environmental impact (CO2 saved, waste reduced)",
+      "body": "Task: Calculate environmental impact (CO2 saved, waste reduced)\nCompute circular economy metrics",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "analytics"]
+    },
+    {
+      "id": "US-24-5",
+      "title": "Create analytics dashboard",
+      "body": "Task: Create analytics dashboard\nBuild comprehensive reporting interface",
+      "labels": ["epic-6-monitoring", "medium-priority", "frontend", "ui", "dashboard"]
+    },
+    {
+      "id": "US-24-6",
+      "title": "Export data for research/publications",
+      "body": "Task: Export data for research/publications\nEnable data export for academic use",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "export"]
+    },
+    {
+      "id": "US-24-7",
+      "title": "Generate circular economy impact reports",
+      "body": "Task: Generate circular economy impact reports\nCreate sustainability reports for stakeholders",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "reporting"]
+    },
+    {
+      "id": "US-25-1",
+      "title": "Integrate monitoring framework (Prometheus/Grafana)",
+      "body": "As the Platform Owner, I want to monitor health and performance of all containerized services.\n\nTask: Integrate monitoring framework (Prometheus/Grafana)",
+      "labels": ["epic-6-monitoring", "medium-priority", "devops", "monitoring"]
+    },
+    {
+      "id": "US-25-2",
+      "title": "Add structured logging to all services",
+      "body": "Task: Add structured logging to all services\nImplement consistent logging across microservices",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "logging"]
+    },
+    {
+      "id": "US-25-3",
+      "title": "Implement health check endpoints",
+      "body": "Task: Implement health check endpoints\nAdd health endpoints to all services",
+      "labels": ["epic-6-monitoring", "medium-priority", "backend", "api"]
+    },
+    {
+      "id": "US-25-4",
+      "title": "Create alerting rules for failures",
+      "body": "Task: Create alerting rules for failures\nSet up automated alerts for system issues",
+      "labels": ["epic-6-monitoring", "medium-priority", "devops", "monitoring"]
+    },
+    {
+      "id": "US-25-5",
+      "title": "Build monitoring dashboard",
+      "body": "Task: Build monitoring dashboard\nCreate real-time system health visualization",
+      "labels": ["epic-6-monitoring", "medium-priority", "devops", "dashboard"]
+    },
+    {
+      "id": "US-25-6",
+      "title": "Track key metrics (uptime, response time, throughput)",
+      "body": "Task: Track key metrics (uptime, response time, throughput)\nMonitor critical system performance indicators",
+      "labels": ["epic-6-monitoring", "medium-priority", "devops", "monitoring"]
+    },
+    {
+      "id": "US-26-1",
+      "title": "Create Dockerfile for each microservice",
+      "body": "As a Developer, I want all system components in Docker containers.\n\nTask: Create Dockerfile for each microservice",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "docker"]
+    },
+    {
+      "id": "US-26-2",
+      "title": "Create Dockerfile for actor simulators",
+      "body": "Task: Create Dockerfile for actor simulators\nContainerize TP1, TP2, TP3 simulators",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "docker"]
+    },
+    {
+      "id": "US-26-3",
+      "title": "Set up RabbitMQ container",
+      "body": "Task: Set up RabbitMQ container\nContainerize message broker",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "docker", "rabbitmq"]
+    },
+    {
+      "id": "US-26-4",
+      "title": "Create docker-compose.yml",
+      "body": "Task: Create docker-compose.yml\nDefine multi-container application setup",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "docker"]
+    },
+    {
+      "id": "US-26-5",
+      "title": "Configure networking and service discovery",
+      "body": "Task: Configure networking and service discovery\nSet up container communication",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "docker", "networking"]
+    },
+    {
+      "id": "US-26-6",
+      "title": "Document startup sequence",
+      "body": "Task: Document startup sequence\nWrite instructions for running the system",
+      "labels": ["epic-7-infrastructure", "high-priority", "documentation"]
+    },
+    {
+      "id": "US-26-7",
+      "title": "Add health checks to all containers",
+      "body": "Task: Add health checks to all containers\nImplement Docker health checks",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "docker"]
+    },
+    {
+      "id": "US-27-1",
+      "title": "Create test data for both scenarios",
+      "body": "As a Developer, I want automated end-to-end tests for both upgrade and refurbish processes.\n\nTask: Create test data for both scenarios",
+      "labels": ["epic-7-infrastructure", "high-priority", "testing"]
+    },
+    {
+      "id": "US-27-2",
+      "title": "Implement integration tests",
+      "body": "Task: Implement integration tests\nTest inter-service communication",
+      "labels": ["epic-7-infrastructure", "high-priority", "testing"]
+    },
+    {
+      "id": "US-27-3",
+      "title": "Build E2E test suite (request → optimization → execution → completion)",
+      "body": "Task: Build E2E test suite (request → optimization → execution → completion)\nTest complete workflow from start to finish",
+      "labels": ["epic-7-infrastructure", "high-priority", "testing"]
+    },
+    {
+      "id": "US-27-4",
+      "title": "Add performance benchmarks",
+      "body": "Task: Add performance benchmarks\nMeasure optimization time and system throughput",
+      "labels": ["epic-7-infrastructure", "high-priority", "testing", "performance"]
+    },
+    {
+      "id": "US-27-5",
+      "title": "Integrate with CI/CD pipeline",
+      "body": "Task: Integrate with CI/CD pipeline\nAutomate test execution on commits",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "ci-cd"]
+    },
+    {
+      "id": "US-27-6",
+      "title": "Document test scenarios",
+      "body": "Task: Document test scenarios\nWrite test case documentation",
+      "labels": ["epic-7-infrastructure", "high-priority", "testing", "documentation"]
+    },
+    {
+      "id": "US-28-1",
+      "title": "Choose cloud database (AWS RDS, Azure SQL, MongoDB Atlas)",
+      "body": "As the Platform Owner, I want a cloud database with authentication/security.\n\nTask: Choose cloud database (AWS RDS, Azure SQL, MongoDB Atlas)",
+      "labels": ["epic-7-infrastructure", "high-priority", "backend", "database", "cloud"]
+    },
+    {
+      "id": "US-28-2",
+      "title": "Implement authentication (OAuth2, JWT)",
+      "body": "Task: Implement authentication (OAuth2, JWT)\nSet up user authentication system",
+      "labels": ["epic-7-infrastructure", "high-priority", "backend", "security", "authentication"]
+    },
+    {
+      "id": "US-28-3",
+      "title": "Add role-based access control (Customer, Provider, Admin, Inspector)",
+      "body": "Task: Add role-based access control (Customer, Provider, Admin, Inspector)\nImplement authorization system",
+      "labels": ["epic-7-infrastructure", "high-priority", "backend", "security", "authorization"]
+    },
+    {
+      "id": "US-28-4",
+      "title": "Encrypt sensitive data (passwords, financial info)",
+      "body": "Task: Encrypt sensitive data (passwords, financial info)\nImplement data encryption at rest",
+      "labels": ["epic-7-infrastructure", "high-priority", "backend", "security", "encryption"]
+    },
+    {
+      "id": "US-28-5",
+      "title": "Set up backup and disaster recovery",
+      "body": "Task: Set up backup and disaster recovery\nConfigure automated backups",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "database", "backup"]
+    },
+    {
+      "id": "US-28-6",
+      "title": "Implement audit logging for security events",
+      "body": "Task: Implement audit logging for security events\nTrack authentication and authorization events",
+      "labels": ["epic-7-infrastructure", "high-priority", "backend", "security", "logging"]
+    },
+    {
+      "id": "US-28-7",
+      "title": "Configure firewall rules and network security",
+      "body": "Task: Configure firewall rules and network security\nSecure network perimeter",
+      "labels": ["epic-7-infrastructure", "high-priority", "devops", "security", "networking"]
+    }
+  ]
+}
