@@ -1,0 +1,33 @@
+name: Sync Backlog to GitHub Projects
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'backlog.json'
+      - '.github/workflows/sync-backlog.js'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install @octokit/graphql
+
+      - name: Sync backlog to GitHub Projects
+        env:
+          GITHUB_TOKEN: ${{ secrets.PROJECT_SYNC_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node .github/workflows/sync-backlog.js
