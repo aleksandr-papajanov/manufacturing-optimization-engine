@@ -1,48 +1,93 @@
 import fs from "fs";
 import { graphql } from "@octokit/graphql";
 
-const token = process.env.GITHUB_TOKEN;
-const repoFull = process.env.GITHUB_REPOSITORY;
+// ============================================================================
+// Configuration
+// ============================================================================
 
-const PROJECT_ID = "PVT_kwHOAg280c4BKdGd";
-const STATUS_FIELD_ID = "PVTSSF_lAHOAg280c4BKdGdzg6UWKY";
-const STATUS_BACKLOG_ID = "c463424b";
-const PARENT_FIELD_ID = "PVTF_lAHOAg280c4BKdGdzg6UWKw";
+const CONFIG = {
+  token: process.env.GITHUB_TOKEN,
+  repository: process.env.GITHUB_REPOSITORY,
+  projectId: "PVT_kwHOAg280c4BKdGd",
+  statusFieldId: "PVTSSF_lAHOAg280c4BKdGdzg6UWKY",
+  statusBacklogId: "c463424b",
+  sleepMs: 300
+};
 
-const graphqlWithAuth = graphql.defaults({
-  headers: { authorization: `bearer ${token}` }
+const LABEL_COLORS = {
+  backend: "0E8A16",
+  frontend: "1D76DB",
+  optimization: "5319E7",
+  communication: "FBCA04",
+  workflow: "D93F0B",
+  data: "0052CC",
+  infrastructure: "5A6378",
+  testing: "C5DEF5",
+  security: "B60205",
+  analytics: "006B75",
+  monitoring: "E99695",
+  documentation: "FEF2C0",
+  architecture: "D4C5F9",
+  deployment: "BFD4F2"
+};
+
+// ============================================================================
+// GraphQL Client
+// ============================================================================
+
+const graphqlClient = graphql.defaults({
+  headers: { authorization: `bearer ${CONFIG.token}` }
 });
+
+// ============================================================================
+// Data Models
+// ============================================================================
 
 const backlog = JSON.parse(fs.readFileSync("backlog.json", "utf8"));
 
-/* ---------------- helpers ---------------- */
+// ============================================================================
+// Utilities
+// ============================================================================
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const LABEL_COLORS = {
-  "backend": "0E8A16",
-  "frontend": "1D76DB",
-  "optimization": "5319E7",
-  "communication": "FBCA04",
-  "workflow": "D93F0B",
-  "data": "0052CC",
-  "infrastructure": "5A6378",
-  "testing": "C5DEF5",
-  "security": "B60205",
-  "analytics": "006B75",
-  "monitoring": "E99695",
-  "documentation": "FEF2C0",
-  "architecture": "D4C5F9",
-  "deployment": "BFD4F2"
-};
+function parseRepository() {
+  const [owner, name] = CONFIG.repository.split("/");
+  return { owner, name };
+}
 
-const createdLabels = new Set();
+// ============================================================================
+// GitHub API: Repository
+// ============================================================================
 
-async function ensureLabel(owner, name, labelName) {
-  if (createdLabels.has(labelName)) return;
+async function getRepositoryId() {
+  const { owner, name } = parseRepository();
+  const query = `
+    query ($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        id
+      }
+    }
+  `;
+  
+  const result = await graphqlClient(query, { owner, name });
+  return result.repository.id;
+}
+
+// ============================================================================
+// GitHub API: Labels
+// ============================================================================
+
+const labelCache = new Set();
+
+async function ensureLabel(labelName) {
+  if (labelCache.has(labelName)) return;
+  
+  const { owner, name } = parseRepository();
+  const color = LABEL_COLORS[labelName] || "EDEDED";
   
   try {
-    await graphqlWithAuth(`
+    const checkQuery = `
       query ($owner: String!, $name: String!, $labelName: String!) {
         repository(owner: $owner, name: $name) {
           label(name: $labelName) {
@@ -50,37 +95,47 @@ async function ensureLabel(owner, name, labelName) {
           }
         }
       }
-    `, { owner, name, labelName });
-    createdLabels.add(labelName);
+    `;
+    
+    await graphqlClient(checkQuery, { owner, name, labelName });
+    labelCache.add(labelName);
   } catch (err) {
-    // Label doesn't exist, create it
-    try {
-      const color = LABEL_COLORS[labelName] || "EDEDED";
-      await graphqlWithAuth(`
-        mutation ($repoId: ID!, $name: String!, $color: String!) {
-          createLabel(input: {
-            repositoryId: $repoId,
-            name: $name,
-            color: $color
-          }) {
-            label { id }
-          }
-        }
-      `, { repoId: await getRepoId(), name: labelName, color });
-      createdLabels.add(labelName);
-      console.log(`    Created label: ${labelName}`);
-    } catch (e) {
-      console.warn(`    Could not create label ${labelName}:`, e.message);
-    }
+    await createLabel(labelName, color);
   }
 }
 
-async function getLabelIds(owner, name, labelNames) {
+async function createLabel(labelName, color) {
+  const repoId = await getRepositoryId();
+  const mutation = `
+    mutation ($repoId: ID!, $name: String!, $color: String!) {
+      createLabel(input: {
+        repositoryId: $repoId,
+        name: $name,
+        color: $color
+      }) {
+        label { id }
+      }
+    }
+  `;
+  
+  try {
+    await graphqlClient(mutation, { repoId, name: labelName, color });
+    labelCache.add(labelName);
+    console.log(`    Created label: ${labelName}`);
+  } catch (err) {
+    console.warn(`    Could not create label ${labelName}:`, err.message);
+  }
+}
+
+async function getLabelIds(labelNames) {
+  const { owner, name } = parseRepository();
   const ids = [];
+  
   for (const labelName of labelNames) {
-    await ensureLabel(owner, name, labelName);
+    await ensureLabel(labelName);
+    
     try {
-      const res = await graphqlWithAuth(`
+      const query = `
         query ($owner: String!, $name: String!, $labelName: String!) {
           repository(owner: $owner, name: $name) {
             label(name: $labelName) {
@@ -88,30 +143,27 @@ async function getLabelIds(owner, name, labelNames) {
             }
           }
         }
-      `, { owner, name, labelName });
-      if (res.repository.label) {
-        ids.push(res.repository.label.id);
+      `;
+      
+      const result = await graphqlClient(query, { owner, name, labelName });
+      if (result.repository.label) {
+        ids.push(result.repository.label.id);
       }
     } catch (err) {
-      // Ignore if label not found
+      // Label not found, skip
     }
   }
+  
   return ids;
 }
 
-async function getRepoId() {
-  const [owner, name] = repoFull.split("/");
-  const res = await graphqlWithAuth(`
-    query ($owner: String!, $name: String!) {
-      repository(owner: $owner, name: $name) { id }
-    }
-  `, { owner, name });
-  return res.repository.id;
-}
+// ============================================================================
+// GitHub API: Issues
+// ============================================================================
 
 async function findIssueByTitle(title) {
-  const [owner, name] = repoFull.split("/");
-  const res = await graphqlWithAuth(`
+  const { owner, name } = parseRepository();
+  const query = `
     query ($q: String!) {
       search(type: ISSUE, query: $q, first: 1) {
         nodes {
@@ -123,241 +175,312 @@ async function findIssueByTitle(title) {
         }
       }
     }
-  `, {
+  `;
+  
+  const result = await graphqlClient(query, {
     q: `repo:${owner}/${name} in:title "${title}"`
   });
-
-  return res.search.nodes[0] ?? null;
+  
+  return result.search.nodes[0] || null;
 }
 
-async function createIssue(repoId, title, body, labelIds = []) {
+async function createIssue(title, body, labelIds = []) {
+  const repoId = await getRepositoryId();
+  const mutation = `
+    mutation ($input: CreateIssueInput!) {
+      createIssue(input: $input) {
+        issue {
+          id
+          title
+          number
+        }
+      }
+    }
+  `;
+  
   const input = {
     repositoryId: repoId,
-    title: title,
-    body: body
+    title,
+    body
   };
   
   if (labelIds.length > 0) {
     input.labelIds = labelIds;
   }
   
-  const res = await graphqlWithAuth(`
-    mutation ($input: CreateIssueInput!) {
-      createIssue(input: $input) {
-        issue { id title number }
-      }
-    }
-  `, { input });
-
-  return res.createIssue.issue;
+  const result = await graphqlClient(mutation, { input });
+  return result.createIssue.issue;
 }
 
-async function addSubIssue(parentIssueId, subIssueId) {
-  // Use GitHub's addSubIssue mutation to create proper sub-issue relationship
-  try {
-    await graphqlWithAuth(`
-      mutation ($issueId: ID!, $subIssueId: ID!) {
-        addSubIssue(input: {
-          issueId: $issueId,
-          subIssueId: $subIssueId
-        }) {
-          issue {
-            id
-            title
-          }
-        }
-      }
-    `, { issueId: parentIssueId, subIssueId: subIssueId });
-    
-    console.log(`      ✅ Linked as sub-issue`);
-  } catch (err) {
-    console.log("      ⚠️ Could not link as sub-issue:", err.message);
-  }
-}
+// ============================================================================
+// GitHub API: Sub-Issues
+// ============================================================================
 
-async function getProjectItemId(issueId) {
-  try {
-    const res = await graphqlWithAuth(`
-      query ($projectId: ID!, $contentId: ID!) {
-        node(id: $projectId) {
-          ... on ProjectV2 {
-            items(first: 1, filterBy: { contentId: $contentId }) {
-              nodes {
-                id
-              }
+async function getSubIssues(issueId) {
+  const query = `
+    query ($id: ID!) {
+      node(id: $id) {
+        ... on Issue {
+          subIssues(first: 100) {
+            nodes {
+              id
             }
           }
         }
       }
-    `, { projectId: PROJECT_ID, contentId: issueId });
-    
-    return res.node.items.nodes[0]?.id ?? null;
+    }
+  `;
+  
+  const result = await graphqlClient(query, { id: issueId });
+  return result.node?.subIssues?.nodes || [];
+}
+
+async function linkSubIssue(parentIssueId, subIssueId) {
+  const existingSubIssues = await getSubIssues(parentIssueId);
+  const alreadyLinked = existingSubIssues.some(sub => sub.id === subIssueId);
+  
+  if (alreadyLinked) {
+    console.log(`      ⏭️  Already linked as sub-issue`);
+    return;
+  }
+  
+  const mutation = `
+    mutation ($issueId: ID!, $subIssueId: ID!) {
+      addSubIssue(input: {
+        issueId: $issueId,
+        subIssueId: $subIssueId
+      }) {
+        issue {
+          id
+          title
+        }
+      }
+    }
+  `;
+  
+  try {
+    await graphqlClient(mutation, { issueId: parentIssueId, subIssueId });
+    console.log(`      ✅ Linked as sub-issue`);
+  } catch (err) {
+    if (err.message?.includes("duplicate")) {
+      console.log(`      ⏭️  Already linked as sub-issue`);
+    } else {
+      console.log("      ⚠️ Could not link as sub-issue:", err.message);
+    }
+  }
+}
+
+// ============================================================================
+// GitHub API: Projects
+// ============================================================================
+
+async function getProjectItemId(issueId) {
+  const query = `
+    query ($projectId: ID!, $contentId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          items(first: 1, filterBy: { contentId: $contentId }) {
+            nodes {
+              id
+            }
+          }
+        }
+      }
+    }
+  `;
+  
+  try {
+    const result = await graphqlClient(query, {
+      projectId: CONFIG.projectId,
+      contentId: issueId
+    });
+    return result.node.items.nodes[0]?.id || null;
   } catch (err) {
     return null;
   }
 }
 
-async function addToProject(issueId, parentItemId = null) {
-  // Check if already in project
-  let itemId = await getProjectItemId(issueId);
-  
-  if (!itemId) {
-    try {
-      const res = await graphqlWithAuth(`
-        mutation ($projectId: ID!, $contentId: ID!) {
-          addProjectV2ItemById(input: {
-            projectId: $projectId,
-            contentId: $contentId
-          }) {
-            item { id }
-          }
-        }
-      `, { projectId: PROJECT_ID, contentId: issueId });
-
-      itemId = res.addProjectV2ItemById.item.id;
-      await sleep(300);
-
-      // Status = Backlog
-      try {
-        await graphqlWithAuth(`
-          mutation ($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-            updateProjectV2ItemFieldValue(input: {
-              projectId: $projectId,
-              itemId: $itemId,
-              fieldId: $fieldId,
-              value: { singleSelectOptionId: $optionId }
-            }) { 
-              projectV2Item { id }
-            }
-          }
-        `, {
-          projectId: PROJECT_ID,
-          itemId: itemId,
-          fieldId: STATUS_FIELD_ID,
-          optionId: STATUS_BACKLOG_ID
-        });
-      } catch (statusErr) {
-        console.log("    Could not set status (field may not exist)");
-      }
-
-      await sleep(300);
-    } catch (err) {
-      if (err.message && err.message.includes("Content already exists")) {
-        console.log("    Item already in project (race condition)");
-        itemId = await getProjectItemId(issueId);
-      } else {
-        throw err;
+async function addIssueToProject(issueId) {
+  const mutation = `
+    mutation ($projectId: ID!, $contentId: ID!) {
+      addProjectV2ItemById(input: {
+        projectId: $projectId,
+        contentId: $contentId
+      }) {
+        item { id }
       }
     }
-  } else {
-    console.log("    Item already in project");
-  }
-
-  // Note: Parent link field is read-only in GitHub Projects API
-  // Sub-issue relationships are established via GitHub issue dependencies
-
-  return itemId;
+  `;
+  
+  const result = await graphqlClient(mutation, {
+    projectId: CONFIG.projectId,
+    contentId: issueId
+  });
+  
+  return result.addProjectV2ItemById.item.id;
 }
 
-/* ---------------- main ---------------- */
-
-async function addLabelsToIssue(issueId, labelIds) {
-  if (labelIds.length === 0) return;
+async function setProjectItemStatus(itemId) {
+  const mutation = `
+    mutation ($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+      updateProjectV2ItemFieldValue(input: {
+        projectId: $projectId,
+        itemId: $itemId,
+        fieldId: $fieldId,
+        value: { singleSelectOptionId: $optionId }
+      }) {
+        projectV2Item { id }
+      }
+    }
+  `;
   
   try {
-    await graphqlWithAuth(`
-      mutation ($id: ID!, $labelIds: [ID!]!) {
-        addLabelsToLabelable(input: {
-          labelableId: $id,
-          labelIds: $labelIds
-        }) {
-          labelable { ... on Issue { id } }
-        }
-      }
-    `, { id: issueId, labelIds });
+    await graphqlClient(mutation, {
+      projectId: CONFIG.projectId,
+      itemId,
+      fieldId: CONFIG.statusFieldId,
+      optionId: CONFIG.statusBacklogId
+    });
   } catch (err) {
-    console.log("      Could not add labels:", err.message);
+    console.log("    Could not set status");
   }
 }
 
-async function run() {
-  const repoId = await getRepoId();
-  const [owner, name] = repoFull.split("/");
+async function ensureIssueInProject(issueId) {
+  let itemId = await getProjectItemId(issueId);
   
-  console.log("Repository ID:", repoId);
-  console.log("Project ID:", PROJECT_ID);
+  if (itemId) {
+    console.log("    Item already in project");
+    return itemId;
+  }
+  
+  try {
+    itemId = await addIssueToProject(issueId);
+    await sleep(CONFIG.sleepMs);
+    
+    await setProjectItemStatus(itemId);
+    await sleep(CONFIG.sleepMs);
+    
+    return itemId;
+  } catch (err) {
+    if (err.message?.includes("Content already exists")) {
+      console.log("    Item already in project (race condition)");
+      return await getProjectItemId(issueId);
+    }
+    throw err;
+  }
+}
+
+// ============================================================================
+// Business Logic: User Stories
+// ============================================================================
+
+async function processUserStory(userStory) {
+  const title = `[${userStory.id}] ${userStory.title}`;
+  const body = `**Epic:** ${userStory.epic}
+    **Priority:** ${userStory.priority}
+
+    ${userStory.userStory}`;
+
+  let issue = await findIssueByTitle(title);
+  
+  if (!issue) {
+    const labelIds = await getLabelIds(userStory.labels);
+    issue = await createIssue(title, body, labelIds);
+    console.log("✅ Created US:", title);
+    await sleep(CONFIG.sleepMs);
+  } else {
+    console.log("⏭️  US exists:", title);
+  }
+
+  await ensureIssueInProject(issue.id);
+  await sleep(CONFIG.sleepMs);
+
+  return issue;
+}
+
+// ============================================================================
+// Business Logic: Tasks
+// ============================================================================
+
+async function processTask(task, parentIssue) {
+  const title = `[${task.id}] ${task.title}`;
+  const body = task.dependsOn.length > 0 
+    ? `**Dependencies:** ${task.dependsOn.join(", ")}` 
+    : "";
+
+  let issue = await findIssueByTitle(title);
+  
+  if (!issue) {
+    const labelIds = await getLabelIds(task.labels);
+    issue = await createIssue(title, body, labelIds);
+    console.log(`  ✅ Created task: ${title}`);
+    await sleep(CONFIG.sleepMs);
+  } else {
+    console.log(`  ⏭️  Task exists: ${title}`);
+  }
+  
+  await linkSubIssue(parentIssue.id, issue.id);
+  await sleep(CONFIG.sleepMs);
+
+  await ensureIssueInProject(issue.id);
+  await sleep(CONFIG.sleepMs);
+}
+
+// ============================================================================
+// Business Logic: Labels Setup
+// ============================================================================
+
+async function setupLabels() {
   console.log("Creating labels...\n");
   
-  // Pre-create all labels
   const allLabels = new Set();
   backlog.userStories.forEach(us => {
-    us.labels.forEach(l => allLabels.add(l));
-    us.tasks.forEach(t => t.labels.forEach(l => allLabels.add(l)));
+    us.labels.forEach(label => allLabels.add(label));
+    us.tasks.forEach(task => {
+      task.labels.forEach(label => allLabels.add(label));
+    });
   });
   
   for (const labelName of allLabels) {
-    await ensureLabel(owner, name, labelName);
+    await ensureLabel(labelName);
   }
   
-  console.log(`\n✅ Labels ready\n`);
+  console.log("\n✅ Labels ready\n");
+}
+
+// ============================================================================
+// Main Entry Point
+// ============================================================================
+
+async function run() {
+  const repoId = await getRepositoryId();
+  
+  console.log("Repository ID:", repoId);
+  console.log("Project ID:", CONFIG.projectId);
+  
+  await setupLabels();
+  
   console.log(`Processing ${backlog.userStories.length} user stories...\n`);
 
-  for (const us of backlog.userStories) {
-    const usTitle = `[${us.id}] ${us.title}`;
-    const usBody = `**Epic:** ${us.epic}
-**Priority:** ${us.priority}
-
-${us.userStory}`;
-
-    let usIssue = await findIssueByTitle(usTitle);
-    let isNewUS = false;
-    if (!usIssue) {
-      const labelIds = await getLabelIds(owner, name, us.labels);
-      usIssue = await createIssue(repoId, usTitle, usBody, labelIds);
-      console.log("✅ Created US:", usTitle);
-      isNewUS = true;
-      await sleep(1000);
-    } else {
-      console.log("⏭️  US exists:", usTitle);
-      // Add labels to existing issue
-      const labelIds = await getLabelIds(owner, name, us.labels);
-      await addLabelsToIssue(usIssue.id, labelIds);
+  for (const userStory of backlog.userStories) {
+    const usIssue = await processUserStory(userStory);
+    
+    for (const task of userStory.tasks) {
+      await processTask(task, usIssue);
     }
-
-    const usItemId = await addToProject(usIssue.id);
-    await sleep(800);
-
-    for (const task of us.tasks) {
-      const taskTitle = `[${task.id}] ${task.title}`;
-      const taskBody = task.dependsOn.length > 0 ? `**Dependencies:** ${task.dependsOn.join(", ")}` : "";
-
-      let taskIssue = await findIssueByTitle(taskTitle);
-      let isNewTask = false;
-      if (!taskIssue) {
-        const labelIds = await getLabelIds(owner, name, task.labels);
-        taskIssue = await createIssue(repoId, taskTitle, taskBody, labelIds);
-        console.log(`  ✅ Created task: ${taskTitle}`);
-        isNewTask = true;
-        await sleep(800);
-      } else {
-        console.log(`  ⏭️  Task exists: ${taskTitle}`);
-        // Add labels to existing task
-        const labelIds = await getLabelIds(owner, name, task.labels);
-        await addLabelsToIssue(taskIssue.id, labelIds);
-      }
-      
-      // Add as sub-issue to parent (both new and existing)
-      await addSubIssue(usIssue.id, taskIssue.id);
-      await sleep(500);
-
-      await addToProject(taskIssue.id, usItemId);
-      await sleep(800);
-    }
-
+    
     console.log("");
   }
 
   console.log("🎉 Backlog synced successfully!");
 }
 
-run().catch(console.error);
+// ============================================================================
+// Error Handling
+// ============================================================================
+
+run().catch(err => {
+  console.error("❌ Error:", err.message);
+  process.exit(1);
+});
