@@ -1,0 +1,112 @@
+services:
+  # Message Broker - RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - manufacturing-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Provider Registry - manages technology provider registry and orchestration
+  # Event-driven: слушает StartProviderCommand, StopProviderCommand
+  provider-registry:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.ProviderRegistry/Dockerfile
+    container_name: provider-registry
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Orchestration__Mode=Production
+      - Docker__ProviderImage=provider-simulator:latest
+      - Docker__Network=auto
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    volumes:
+      # Монтируем Docker socket для управления контейнерами провайдеров
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Монтируем providers.json для динамического чтения
+      - ./ManufacturingOptimization.ProviderRegistry/providers.json:/app/providers.json:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - manufacturing-network
+    restart: unless-stopped
+    privileged: true  # Необходимо для управления Docker контейнерами
+
+  # Manufacturing Optimization Engine - core optimization service
+  engine:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.Engine/Dockerfile
+    container_name: engine
+    ports:
+      - "5002:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      provider-registry:
+        condition: service_started
+    networks:
+      - manufacturing-network
+    restart: unless-stopped
+
+  # Gateway API - main entry point for customer requests
+  gateway:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.Gateway/Dockerfile
+    container_name: gateway
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - ProviderRegistry__Url=http://provider-registry:8080
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      engine:
+        condition: service_started
+      provider-registry:
+        condition: service_started
+    networks:
+      - manufacturing-network
+    restart: unless-stopped
+
+  # Провайдеры запускаются автоматически через provider-registry
+  # ProviderRegistry создаёт Docker контейнеры через Docker API
+
+volumes:
+  rabbitmq_data:
+    driver: local
+
+networks:
+  manufacturing-network:
+    driver: bridge

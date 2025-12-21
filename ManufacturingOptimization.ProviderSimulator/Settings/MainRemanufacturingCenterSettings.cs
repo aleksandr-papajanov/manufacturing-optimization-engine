@@ -1,0 +1,13 @@
+namespace ManufacturingOptimization.ProviderSimulator.Settings;
+
+/// <summary>
+/// Settings for Main Remanufacturing Center provider.
+/// Configure via environment variables: MainRemanufacturingCenter__ProviderId, MainRemanufacturingCenter__ProviderName
+/// </summary>
+public class MainRemanufacturingCenterSettings
+{
+    public const string SectionName = "MainRemanufacturingCenter";
+    
+    public string ProviderId { get; set; } = string.Empty;
+    public string ProviderName { get; set; } = string.Empty;
+}

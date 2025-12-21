@@ -1,0 +1,22 @@
+{
+  "providers": [
+    {
+      "id": "f93a2956-e430-4b50-b688-991b5c33f5f4",
+      "type": "MainRemanufacturingCenter",
+      "name": "Main Remanufacturing Center",
+      "enabled": true
+    },
+    {
+      "id": "f8127a26-e818-4d27-8812-10d422c45a6c",
+      "type": "EngineeringDesignFirm",
+      "name": "Engineering Design Firm",
+      "enabled": true
+    },
+    {
+      "id": "70564b7f-d634-4a90-b3f9-33224915dbc4",
+      "type": "PrecisionMachineShop",
+      "name": "Precision Machine Shop",
+      "enabled": true
+    }
+  ]
+}

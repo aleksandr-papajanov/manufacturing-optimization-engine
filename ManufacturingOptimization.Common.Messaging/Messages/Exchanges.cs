@@ -1,0 +1,9 @@
+﻿namespace ManufacturingOptimization.Common.Messaging.Messages
+{
+    public static class Exchanges
+    {
+        public const string Optimization = "optimization";
+        public const string Process = "process";
+        public const string Provider = "provider";
+    }
+}

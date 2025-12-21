@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Presentation": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "GATEWAY_API_URL": "http://localhost:5000"
+      }
+    }
+  }
+}

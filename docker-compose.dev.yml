@@ -1,0 +1,76 @@
+# docker-compose.override.yml
+# Этот файл автоматически применяется поверх docker-compose.yml при запуске docker-compose up
+# Используется для Development Mode с провайдерами в docker-compose
+
+services:
+  # Development Mode: переключаем на ComposeManagedOrchestrator
+  provider-registry:
+    environment:
+      - Orchestration__Mode=Development
+  
+  # Provider - Main Remanufacturing Center
+  provider-main-remanufacturing:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.ProviderSimulator/Dockerfile
+    container_name: provider-main-remanufacturing
+    environment:
+      - PROVIDER_TYPE=MainRemanufacturingCenter
+      - MainRemanufacturingCenter__ProviderId=f93a2956-e430-4b50-b688-991b5c33f5f4
+      - MainRemanufacturingCenter__ProviderName=Main Remanufacturing Center
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - manufacturing-network
+    labels:
+      orchestration-mode: "development"
+
+  # Provider - Engineering Design Firm
+  provider-engineering-design:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.ProviderSimulator/Dockerfile
+    container_name: provider-engineering-design
+    environment:
+      - PROVIDER_TYPE=EngineeringDesignFirm
+      - EngineeringDesignFirm__ProviderId=f8127a26-e818-4d27-8812-10d422c45a6c
+      - EngineeringDesignFirm__ProviderName=Engineering Design Firm
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - manufacturing-network
+    labels:
+      orchestration-mode: "development"
+
+  # Provider - Precision Machine Shop
+  provider-precision-machine:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.ProviderSimulator/Dockerfile
+    container_name: provider-precision-machine
+    environment:
+      - PROVIDER_TYPE=PrecisionMachineShop
+      - PrecisionMachineShop__ProviderId=70564b7f-d634-4a90-b3f9-33224915dbc4
+      - PrecisionMachineShop__ProviderName=Precision Machine Shop
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - manufacturing-network
+    labels:
+      orchestration-mode: "development"
+
