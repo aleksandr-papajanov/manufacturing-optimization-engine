@@ -1,9 +1,9 @@
 # docker-compose.override.yml
-# Этот файл автоматически применяется поверх docker-compose.yml при запуске docker-compose up
-# Используется для Development Mode с провайдерами в docker-compose
+# This file is used to override settings in docker-compose.yml
+# It is intended for development purposes to add additional services
 
 services:
-  # Development Mode: переключаем на ComposeManagedOrchestrator
+  # Development Mode: switch to ComposeManagedOrchestrator
   provider-registry:
     environment:
       - Orchestration__Mode=Development

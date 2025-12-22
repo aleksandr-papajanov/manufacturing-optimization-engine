@@ -21,7 +21,6 @@ services:
       retries: 5
 
   # Provider Registry - manages technology provider registry and orchestration
-  # Event-driven: слушает StartProviderCommand, StopProviderCommand
   provider-registry:
     build:
       context: .
@@ -37,9 +36,9 @@ services:
       - RabbitMQ__Username=admin
       - RabbitMQ__Password=admin123
     volumes:
-      # Монтируем Docker socket для управления контейнерами провайдеров
+      # Mount Docker socket for container management
       - /var/run/docker.sock:/var/run/docker.sock
-      # Монтируем providers.json для динамического чтения
+      # Mount providers.json for dynamic reading of providers
       - ./ManufacturingOptimization.ProviderRegistry/providers.json:/app/providers.json:ro
     depends_on:
       rabbitmq:
@@ -47,7 +46,7 @@ services:
     networks:
       - manufacturing-network
     restart: unless-stopped
-    privileged: true  # Необходимо для управления Docker контейнерами
+    privileged: true  # Required for managing Docker containers
 
   # Manufacturing Optimization Engine - core optimization service
   engine:
@@ -100,8 +99,8 @@ services:
       - manufacturing-network
     restart: unless-stopped
 
-  # Провайдеры запускаются автоматически через provider-registry
-  # ProviderRegistry создаёт Docker контейнеры через Docker API
+  # Providers are started automatically through provider-registry
+  # ProviderRegistry creates Docker containers via Docker API
 
 volumes:
   rabbitmq_data:
