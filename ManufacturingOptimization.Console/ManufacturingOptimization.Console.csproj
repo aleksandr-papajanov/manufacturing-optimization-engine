@@ -16,4 +16,10 @@
     <ProjectReference Include="..\ManufacturingOptimization.Common.Models\ManufacturingOptimization.Common.Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="test_request.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

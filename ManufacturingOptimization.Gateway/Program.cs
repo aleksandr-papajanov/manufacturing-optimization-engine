@@ -13,10 +13,17 @@ builder.Services.AddControllers();
 builder.Services.Configure<RabbitMqSettings>(
     builder.Configuration.GetSection(RabbitMqSettings.SectionName));
 
+// 1. Register the concrete service
 builder.Services.AddSingleton<RabbitMqService>();
-builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
-builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
-builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
+
+// 2. Register the specific interface required by your Controller (US-06 fix)
+// FIX: Use 'global::' to force the compiler to look at the ROOT namespace.
+// This prevents it from getting confused with the current project's namespace.
+builder.Services.AddSingleton<global::Common.Messaging.IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
+
+// 3. Register the other interfaces using fully qualified names to be safe
+builder.Services.AddSingleton<ManufacturingOptimization.Common.Messaging.Abstractions.IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
+builder.Services.AddSingleton<ManufacturingOptimization.Common.Messaging.Abstractions.IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 
 // Add in-memory repository
 builder.Services.AddSingleton<IRequestResponseRepository, InMemoryRequestResponseRepository>();
