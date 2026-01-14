@@ -1,5 +1,7 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Gateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,9 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient(); // Required for Legacy "Get Providers"
 
-// 2. Configure RabbitMQ Settings using the Options Pattern
-// The RabbitMqService constructor requires IOptions<RabbitMqSettings>, not the raw object.
+// --- FIX: Register ALL Legacy Repositories ---
+// 1. Provider Repository (For "Get Providers List")
+builder.Services.AddScoped<IProviderRepository, InMemoryProviderRepository>();
+
+// 2. Request/Response Repository (For "Run Random Demo")
+builder.Services.AddScoped<IRequestResponseRepository, InMemoryRequestResponseRepository>(); 
+
+// 3. Configure RabbitMQ Settings (For US-06)
 builder.Services.Configure<RabbitMqSettings>(options =>
 {
     options.Host = "rabbitmq";
@@ -18,23 +27,21 @@ builder.Services.Configure<RabbitMqSettings>(options =>
     options.Password = "admin123";
 });
 
-// 3. Register the Service
+// 4. Register RabbitMQ Service
 builder.Services.AddSingleton<RabbitMqService>();
 
-// 4. Map Interfaces to the Single Instance
+// 5. Map Messaging Interfaces
 builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
 
 var app = builder.Build();
 
-// 5. Configure Pipeline
+// 6. Configure Pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseAuthorization();
 app.MapControllers();
-
-// Note: No explicit .Connect() needed; the service connects lazily on first use.
 
 app.Run();
