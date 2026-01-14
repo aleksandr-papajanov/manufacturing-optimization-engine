@@ -1,20 +1,17 @@
 using System;
-using Common.Models;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
 
-namespace Common.Messaging
+namespace ManufacturingOptimization.Common.Messaging
 {
-    public class CustomerRequestSubmittedEvent : IEvent
+    public class CustomerRequestSubmittedEvent : IMessage
     {
-        public Guid EventId { get; set; } = Guid.NewGuid();
+        public Guid MessageId { get; set; } = Guid.NewGuid();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-        
-        // The Data payload
-        public MotorRequest Request { get; set; }
 
-        // Constructor for convenience
-        public CustomerRequestSubmittedEvent(MotorRequest request)
-        {
-            Request = request;
-        }
+        public string RequestId { get; set; } = string.Empty;
+        public string CustomerId { get; set; } = string.Empty;
+
+        // FIX: Use simple 'double' instead of 'MotorRequest' object to fix build errors
+        public double RequiredPowerKW { get; set; }
     }
 }

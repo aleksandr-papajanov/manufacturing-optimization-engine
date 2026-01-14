@@ -1,53 +1,61 @@
 using Microsoft.AspNetCore.Mvc;
-using Common.Messaging;
-using Common.Models;
-using System.Threading.Tasks;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages;
+using System.Text.RegularExpressions;
+using System.Globalization;
+
+using IMessagePublisher = ManufacturingOptimization.Common.Messaging.Abstractions.IMessagePublisher;
 
 namespace ManufacturingOptimization.Gateway.Controllers
 {
     [ApiController]
-    [Route("api/requests")] // Matches REST best practices
+    [Route("api/optimization")]
     public class OptimizationRequestController : ControllerBase
     {
-        private readonly IMessagePublisher _messagePublisher;
         private readonly ILogger<OptimizationRequestController> _logger;
+        private readonly IMessagePublisher _messagePublisher;
 
-        // Inject the RabbitMQ publisher service
-        public OptimizationRequestController(IMessagePublisher messagePublisher, ILogger<OptimizationRequestController> logger)
+        public OptimizationRequestController(
+            ILogger<OptimizationRequestController> logger,
+            IMessagePublisher messagePublisher)
         {
-            _messagePublisher = messagePublisher;
             _logger = logger;
+            _messagePublisher = messagePublisher;
         }
 
-        /// <summary>
-        /// US-06: Submit a new motor optimization request.
-        /// </summary>
-        [HttpPost]
-        public async Task<IActionResult> SubmitRequest([FromBody] MotorRequest request)
+        public class MotorRequestDto
         {
-            // 1. Basic Validation (T5 - Partial)
-            if (request.Specs == null)
+            public string RequestId { get; set; } = string.Empty;
+            public string CustomerId { get; set; } = string.Empty;
+            public string Power { get; set; } = string.Empty;
+            public string TargetEfficiency { get; set; } = string.Empty;
+        }
+
+        // FIX: Change route to "submit" to avoid conflict with the legacy controller
+        [HttpPost("submit")] 
+        public IActionResult SubmitRequest([FromBody] MotorRequestDto request)
+        {
+            _logger.LogInformation("Received request {RequestId}. Raw Power: {Power}", request.RequestId, request.Power);
+
+            double powerValue = 0;
+            if (!string.IsNullOrEmpty(request.Power))
             {
-                return BadRequest("Motor Specifications are required.");
+                string cleanedPower = Regex.Replace(request.Power, "[^0-9.,]", "").Replace(",", ".");
+                double.TryParse(cleanedPower, NumberStyles.Any, CultureInfo.InvariantCulture, out powerValue);
             }
 
-            // 2. Log reception
-            _logger.LogInformation("Received optimization request for Customer {CustomerId} (Req: {RequestId})", 
-                request.CustomerId, request.RequestId);
-
-            // 3. Create the Event
-            var eventMessage = new CustomerRequestSubmittedEvent(request);
-
-            // 4. Publish to RabbitMQ (T6 - Publish Event)
-            await _messagePublisher.PublishAsync(eventMessage);
-
-            // 5. Return 202 Accepted (Standard for async processing)
-            return Accepted(new 
-            { 
-                Message = "Request received and queued for processing.", 
+            var eventMessage = new global::ManufacturingOptimization.Common.Messaging.CustomerRequestSubmittedEvent
+            {
                 RequestId = request.RequestId,
-                Status = "Pending"
-            });
+                CustomerId = request.CustomerId,
+                RequiredPowerKW = powerValue
+            };
+
+            _messagePublisher.Publish(Exchanges.Optimization, "optimization.request", eventMessage);
+            
+            _logger.LogInformation("✓ Forwarded to Engine: {Power} kW", powerValue);
+
+            return Accepted(new { status = "Request submitted", requestId = request.RequestId });
         }
     }
 }

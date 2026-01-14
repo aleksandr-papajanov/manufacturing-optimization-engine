@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Common.Models; // Ensure this project reference exists!
 
+// 1. Ensure the Base Address matches your Docker port (5000 or 8080)
 var apiUrl = Environment.GetEnvironmentVariable("GATEWAY_API_URL") ?? "http://localhost:5000";
 var httpClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
 
@@ -82,11 +83,20 @@ async Task SubmitCustomRequest()
         
         AnsiConsole.Write(table);
 
-        // 4. Send to Gateway
+// 4. Send to Gateway
         await AnsiConsole.Status()
             .StartAsync("Submitting request to Gateway...", async ctx =>
             {
-                var response = await httpClient.PostAsJsonAsync("/api/requests", requestData);
+                var payload = new 
+                {
+                    RequestId = requestData.RequestId,
+                    CustomerId = requestData.CustomerId,
+                    Power = requestData.Specs.PowerKW.ToString(),
+                    TargetEfficiency = requestData.Specs.TargetEfficiency.ToString()
+                };
+
+                // FIX: Update URL to match the new route "api/optimization/submit"
+                var response = await httpClient.PostAsJsonAsync("/api/optimization/submit", payload);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -98,7 +108,6 @@ async Task SubmitCustomRequest()
                 {
                     AnsiConsole.MarkupLine($"[red]✗ Failed: {response.StatusCode}[/]");
                     string error = await response.Content.ReadAsStringAsync();
-                    //AnsiConsole.MarkupLine($"[dim]{error}[/]");
                     AnsiConsole.MarkupLine($"[dim]{Markup.Escape(error)}[/]");
                 }
             });
@@ -120,7 +129,6 @@ async Task RequestOptimization()
         {
             try
             {
-                // Note: This endpoint might need to be updated or removed later as we move to US-06
                 var response = await httpClient.PostAsync("/api/optimization/request", null);
                 
                 if (response.IsSuccessStatusCode)
@@ -239,7 +247,6 @@ async Task GetProviders()
 }
 
 // --- DTOs ---
-// Note: We use Common.Models for MotorRequest, but these response wrappers are specific to the API interactions
 record OptimizationRequestResponse(Guid CommandId);
 record ProvidersListResponse(int TotalProviders, List<ProviderInfo> Providers);
 record StatusResponse(string Status, JsonElement? Data);

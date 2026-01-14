@@ -1,42 +1,40 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Gateway;
-using ManufacturingOptimization.Gateway.Abstractions;
-using ManufacturingOptimization.Gateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 1. Add Services
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-// Configure RabbitMQ
-builder.Services.Configure<RabbitMqSettings>(
-    builder.Configuration.GetSection(RabbitMqSettings.SectionName));
+// 2. Configure RabbitMQ Settings using the Options Pattern
+// The RabbitMqService constructor requires IOptions<RabbitMqSettings>, not the raw object.
+builder.Services.Configure<RabbitMqSettings>(options =>
+{
+    options.Host = "rabbitmq";
+    options.Port = 5672;
+    options.Username = "admin";
+    options.Password = "admin123";
+});
 
-// 1. Register the concrete service
+// 3. Register the Service
 builder.Services.AddSingleton<RabbitMqService>();
 
-// 2. Register the specific interface required by your Controller (US-06 fix)
-// FIX: Use 'global::' to force the compiler to look at the ROOT namespace.
-// This prevents it from getting confused with the current project's namespace.
-builder.Services.AddSingleton<global::Common.Messaging.IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
-
-// 3. Register the other interfaces using fully qualified names to be safe
-builder.Services.AddSingleton<ManufacturingOptimization.Common.Messaging.Abstractions.IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
-builder.Services.AddSingleton<ManufacturingOptimization.Common.Messaging.Abstractions.IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
-
-// Add in-memory repository
-builder.Services.AddSingleton<IRequestResponseRepository, InMemoryRequestResponseRepository>();
-builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
-
-// Add background worker
-builder.Services.AddHostedService<GatewayWorker>();
+// 4. Map Interfaces to the Single Instance
+builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
+builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
+builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-app.UseHttpsRedirection();
+// 5. Configure Pipeline
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseAuthorization();
 app.MapControllers();
+
+// Note: No explicit .Connect() needed; the service connects lazily on first use.
 
 app.Run();
