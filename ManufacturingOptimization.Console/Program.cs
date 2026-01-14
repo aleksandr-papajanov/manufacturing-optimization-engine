@@ -15,19 +15,19 @@ while (true)
         new SelectionPrompt<string>()
             .Title("[green]What do you want to do?[/]")
             .AddChoices(
-                "Submit Request (US-06)", 
                 "Get Providers List", 
+                "Submit Request (US-06)",
                 "Run Random Demo (Legacy)", 
                 "Exit"
             ));
 
     switch (choice)
     {
-        case "Submit Request (US-06)":
-            await SubmitCustomRequest();
-            break;
         case "Get Providers List":
             await GetProviders();
+            break;
+        case "Submit Request (US-06)":
+            await SubmitCustomRequest();
             break;
         case "Run Random Demo (Legacy)":
             await RequestOptimization();
