@@ -99,6 +99,23 @@ services:
       - manufacturing-network
     restart: unless-stopped
 
+  analytics:
+    image: manufacturing-analytics
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.Analytics/Dockerfile
+    ports:                     
+      - "5003:8080"
+    environment:
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      - rabbitmq
+    networks:
+      - manufacturing-network
+
   # Providers are started automatically through provider-registry
   # ProviderRegistry creates Docker containers via Docker API
 
