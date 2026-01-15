@@ -5,11 +5,13 @@ public class OptimizationResult
     public string ProviderId { get; set; } = string.Empty;
     public string ProviderName { get; set; } = string.Empty;
     
-    // The "Score" determines the ranking (Higher is better)
+    // Existing metrics
     public double MatchScore { get; set; }
-
-    // Metrics (calculated in T2, placeholders for now)
     public decimal EstimatedCost { get; set; }
     public double EstimatedLeadTimeDays { get; set; }
-    public double SustainabilityRating { get; set; } 
+    public double SustainabilityRating { get; set; }
+
+    // NEW FIELDS [US-07-T5]
+    public string WarrantyTerms { get; set; } = string.Empty; // e.g., "12 Months Parts & Labor"
+    public bool IncludesInsurance { get; set; } = false;      // e.g., true/false
 }

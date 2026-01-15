@@ -82,10 +82,13 @@ public class EngineWorker : BackgroundService
          
          var recommendations = _recommendationEngine.GenerateRecommendations(motorRequest, capableProviders);
          
-         foreach (var rec in recommendations)
-         {
-             _logger.LogInformation($"Option: {rec.ProviderName} | Score: {rec.MatchScore:F1} | Cost: ${rec.EstimatedCost} | Time: {rec.EstimatedLeadTimeDays} days");
-         }
+        // 5. Log the Results
+        _logger.LogInformation("--- OPTIMIZATION RESULTS ---");
+        foreach (var rec in recommendations)
+        {
+            // UPDATED LOGGING FOR T5
+            _logger.LogInformation($"Option: {rec.ProviderName} | Score: {rec.MatchScore:F1} | Cost: ${rec.EstimatedCost:F0} | Warranty: {rec.WarrantyTerms} | Insured: {rec.IncludesInsurance}");
+        }
          
          if (recommendations.Any())
          {

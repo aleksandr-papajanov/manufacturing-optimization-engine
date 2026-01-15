@@ -21,8 +21,10 @@ public class RecommendationEngine : IRecommendationEngine
             var (baseCost, baseTime, baseEco) = CalculateBaseMetrics(request.Specs.PowerKW, isUpgrade);
 
             // 3. Apply Provider "Personality" Modifiers
-            // (In a real system, these would come from the database/contract)
             ApplyProviderModifiers(provider.Name, ref baseCost, ref baseTime, ref baseEco);
+
+            // 4. [US-07-T5] Determine Warranty & Insurance based on Provider Type
+            var (warranty, hasInsurance) = GetWarrantyAndInsurance(provider.Name, isUpgrade);
 
             var result = new OptimizationResult
             {
@@ -30,16 +32,20 @@ public class RecommendationEngine : IRecommendationEngine
                 ProviderName = provider.Name,
                 EstimatedCost = baseCost,
                 EstimatedLeadTimeDays = baseTime,
-                SustainabilityRating = baseEco
+                SustainabilityRating = baseEco,
+
+                // New Data for T5
+                WarrantyTerms = warranty,
+                IncludesInsurance = hasInsurance
             };
 
-            // 4. Calculate Match Score (0 to 100)
+            // 5. Calculate Match Score (0 to 100)
             result.MatchScore = CalculateScore(request.Constraints.Priority, result);
 
             results.Add(result);
         }
 
-        // 5. Return Ranked List (Highest Score First)
+        // 6. Return Ranked List (Highest Score First)
         return results.OrderByDescending(r => r.MatchScore).ToList();
     }
 
@@ -86,6 +92,31 @@ public class RecommendationEngine : IRecommendationEngine
         }
     }
 
+    // NEW HELPER FOR US-07-T5
+    private (string warranty, bool insurance) GetWarrantyAndInsurance(string providerName, bool isUpgrade)
+    {
+        // Logic: Upgrades generally get better warranties than repairs.
+        // Premium providers get better warranties than budget ones.
+
+        string warranty = "Standard 6 Months";
+        bool insurance = false;
+
+        if (providerName.Contains("Fast") || providerName.Contains("Eco"))
+        {
+            // Premium Providers
+            warranty = isUpgrade ? "Platinum 3 Years" : "Gold 12 Months";
+            insurance = true; // Premium includes shipping insurance
+        }
+        else if (providerName.Contains("Budget"))
+        {
+            // Budget Providers
+            warranty = "Basic 30 Days";
+            insurance = false; // Risky but cheap
+        }
+
+        return (warranty, insurance);
+    }
+
     private double CalculateScore(OptimizationPriority priority, OptimizationResult metrics)
     {
         double score = 0;
@@ -93,23 +124,21 @@ public class RecommendationEngine : IRecommendationEngine
         switch (priority)
         {
             case OptimizationPriority.LowestCost:
-                // Price sensitivity is high. 
-                // Formula: Reference Price ($3000) / Actual Price * 10
                 score = (3000.0 / (double)metrics.EstimatedCost) * 10;
                 break;
 
             case OptimizationPriority.FastestDelivery:
-                // Time sensitivity is high.
-                // Formula: Reference Time (20 days) / Actual Time * 10
                 score = (20.0 / metrics.EstimatedLeadTimeDays) * 10;
                 break;
 
             case OptimizationPriority.HighestQuality:
             default:
-                // Quality/Sustainability focus.
                 score = metrics.SustainabilityRating; 
-                // Penalty for very cheap options (suspicious quality)
                 if (metrics.EstimatedCost < 1000) score -= 2; 
+
+                // [US-07-T5] Bonus Score for Warranty/Insurance
+                if (metrics.IncludesInsurance) score += 1.0;
+                if (metrics.WarrantyTerms.Contains("Years")) score += 1.0;
                 break;
         }
 
