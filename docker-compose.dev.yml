@@ -18,6 +18,14 @@ services:
       - PROVIDER_TYPE=MainRemanufacturingCenter
       - MainRemanufacturingCenter__ProviderId=f93a2956-e430-4b50-b688-991b5c33f5f4
       - MainRemanufacturingCenter__ProviderName=Main Remanufacturing Center
+      - MainRemanufacturingCenter__Capabilities__0=Cleaning
+      - MainRemanufacturingCenter__Capabilities__1=Disassembly
+      - MainRemanufacturingCenter__Capabilities__2=PartSub
+      - MainRemanufacturingCenter__Capabilities__3=Reassembly
+      - MainRemanufacturingCenter__Capabilities__4=Certification
+      - MainRemanufacturingCenter__AxisHeight=500.0
+      - MainRemanufacturingCenter__Power=1500.0
+      - MainRemanufacturingCenter__Tolerance=0.01
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=admin
@@ -40,6 +48,10 @@ services:
       - PROVIDER_TYPE=EngineeringDesignFirm
       - EngineeringDesignFirm__ProviderId=f8127a26-e818-4d27-8812-10d422c45a6c
       - EngineeringDesignFirm__ProviderName=Engineering Design Firm
+      - EngineeringDesignFirm__Capabilities__0=Redesign
+      - EngineeringDesignFirm__AxisHeight=0.0
+      - EngineeringDesignFirm__Power=0.0
+      - EngineeringDesignFirm__Tolerance=0.001
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=admin
@@ -62,6 +74,11 @@ services:
       - PROVIDER_TYPE=PrecisionMachineShop
       - PrecisionMachineShop__ProviderId=70564b7f-d634-4a90-b3f9-33224915dbc4
       - PrecisionMachineShop__ProviderName=Precision Machine Shop
+      - PrecisionMachineShop__Capabilities__0=Turning
+      - PrecisionMachineShop__Capabilities__1=Grinding
+      - PrecisionMachineShop__AxisHeight=300.0
+      - PrecisionMachineShop__Power=2000.0
+      - PrecisionMachineShop__Tolerance=0.001
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=admin

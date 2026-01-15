@@ -9,19 +9,27 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 
 namespace ManufacturingOptimization.Common.Messaging;
 
-public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessagingInfrastructure, IDisposable
+public class RabbitMqService :
+    IMessagePublisher,
+    IMessageSubscriber,
+    IMessagingInfrastructure,
+    IDisposable
 {
     private readonly ILogger<RabbitMqService> _logger;
     private readonly RabbitMqSettings _settings;
-    
-    // Fix: Initialize as null! to silence CS8618 warnings (they are set in InitializeRabbitMq)
+
+    private readonly Dictionary<string, EventingBasicConsumer> _consumers = new();
+
     private IConnection _connection = null!;
     private IModel _channel = null!;
 
-    public RabbitMqService(IOptions<RabbitMqSettings> settings, ILogger<RabbitMqService> logger)
+    public RabbitMqService(
+        IOptions<RabbitMqSettings> settings,
+        ILogger<RabbitMqService> logger)
     {
         _settings = settings.Value;
         _logger = logger;
+
         InitializeRabbitMq();
     }
 
@@ -31,93 +39,161 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
         {
             var factory = new ConnectionFactory
             {
-                // FIX: Use correct property names from RabbitMqSettings class
-                HostName = _settings.Host,       
-                Port = _settings.Port,           
-                UserName = _settings.Username,   
+                HostName = _settings.Host,
+                Port = _settings.Port,
+                UserName = _settings.Username,
                 Password = _settings.Password
             };
 
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
 
-            // Declare Exchange
-            _channel.ExchangeDeclare(exchange: "optimization.exchange", type: ExchangeType.Topic, durable: true);
+            _channel.ExchangeDeclare(
+                exchange: Exchanges.Optimization,
+                type: ExchangeType.Topic,
+                durable: true);
 
             _logger.LogInformation("Connected to RabbitMQ");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Could not connect to RabbitMQ");
-            throw; 
+            throw;
         }
     }
 
-    public void Publish<T>(string exchange, string routingKey, T message) where T : IMessage
+    // -------------------- Publishing --------------------
+
+    public void Publish<T>(
+        string exchangeName,
+        string routingKey,
+        T message) where T : IMessage
     {
         var json = JsonSerializer.Serialize(message);
         var body = Encoding.UTF8.GetBytes(json);
 
-        _channel.BasicPublish(exchange: exchange,
-                              routingKey: routingKey,
-                              basicProperties: null,
-                              body: body);
+        var properties = _channel.CreateBasicProperties();
+        properties.Headers = new Dictionary<string, object>
+        {
+            ["MessageType"] = typeof(T).FullName ?? typeof(T).Name
+        };
 
-        _logger.LogInformation($"Published message to {exchange}/{routingKey}");
+        _channel.BasicPublish(
+            exchange: exchangeName,
+            routingKey: routingKey,
+            basicProperties: properties,
+            body: body);
+
+        _logger.LogInformation(
+            "Published message {MessageType} to {Exchange}/{RoutingKey}",
+            typeof(T).Name,
+            exchangeName,
+            routingKey);
     }
 
     public Task PublishAsync<T>(string routingKey, T message) where T : IMessage
     {
-        Publish("optimization.exchange", routingKey, message);
+        Publish(Exchanges.Optimization, routingKey, message);
         return Task.CompletedTask;
     }
 
-    public void Subscribe<T>(string queueName, Action<T> handler) where T : IMessage
-    {
-        var consumer = new EventingBasicConsumer(_channel);
-        consumer.Received += (model, ea) =>
-        {
-            var body = ea.Body.ToArray();
-            var json = Encoding.UTF8.GetString(body);
-            try
-            {
-                var message = JsonSerializer.Deserialize<T>(json);
-                if (message != null)
-                {
-                    handler(message);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing message");
-            }
-        };
+    // -------------------- Subscribing --------------------
 
-        // Ensure queue infrastructure exists
+    public void Subscribe<T>(
+        string queueName,
+        Action<T> handler) where T : IMessage
+    {
         DeclareQueue(queueName);
         BindQueue(queueName, Exchanges.Optimization, queueName);
 
-        _channel.BasicConsume(queue: queueName, autoAck: true, consumer: consumer);
-        
-        _logger.LogInformation($"Subscribed and Bound queue: {queueName}");
+        if (_consumers.ContainsKey(queueName))
+            return;
+
+        var consumer = new EventingBasicConsumer(_channel);
+        _consumers[queueName] = consumer;
+
+        consumer.Received += (sender, e) =>
+        {
+            try
+            {
+                var body = e.Body.ToArray();
+                var json = Encoding.UTF8.GetString(body);
+
+                string? messageType = null;
+                if (e.BasicProperties?.Headers?.TryGetValue("MessageType", out var typeObj) == true)
+                {
+                    messageType = Encoding.UTF8.GetString((byte[])typeObj);
+                }
+
+                var expectedType = typeof(T).FullName ?? typeof(T).Name;
+
+                if (messageType == null || messageType == expectedType)
+                {
+                    var message = JsonSerializer.Deserialize<T>(json);
+                    if (message != null)
+                    {
+                        handler(message);
+                    }
+                }
+
+                _channel.BasicAck(e.DeliveryTag, multiple: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error processing message from queue {Queue}",
+                    queueName);
+
+                _channel.BasicNack(
+                    deliveryTag: e.DeliveryTag,
+                    multiple: false,
+                    requeue: false);
+            }
+        };
+
+        _channel.BasicConsume(
+            queue: queueName,
+            autoAck: false,
+            consumer: consumer);
+
+        _logger.LogInformation("Subscribed to queue {Queue}", queueName);
     }
 
-    // --- FIX: Missing Interface Implementations ---
+    // -------------------- Infrastructure --------------------
 
     public void DeclareExchange(string exchangeName, string type)
     {
-        _channel.ExchangeDeclare(exchange: exchangeName, type: type, durable: true);
+        _channel.ExchangeDeclare(exchangeName, type, durable: true);
     }
 
     public void DeclareQueue(string queueName)
     {
-        _channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
+        _channel.QueueDeclare(
+            queue: queueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
     }
 
-    public void BindQueue(string queueName, string exchangeName, string routingKey)
+    public void BindQueue(
+        string queueName,
+        string exchangeName,
+        string routingKey)
     {
-        _channel.QueueBind(queue: queueName, exchange: exchangeName, routingKey: routingKey);
+        _channel.QueueBind(
+            queue: queueName,
+            exchange: exchangeName,
+            routingKey: routingKey);
     }
+
+    public void PurgeQueue(string queueName)
+    {
+        _channel.QueuePurge(queueName);
+    }
+
+    // -------------------- Dispose --------------------
 
     public void Dispose()
     {

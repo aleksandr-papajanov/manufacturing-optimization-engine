@@ -51,26 +51,41 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
     {
         if (_runningProviders.ContainsKey(provider.Id))
         {
+            _logger.LogWarning("Provider {ProviderId} is already running", provider.Id);
             return;
         }
 
         var containerName = $"provider-{provider.Id}";
         var network = await GetNetworkAsync(cancellationToken);
 
+        // Build environment variables
+        var envVars = new List<string>
+        {
+            $"PROVIDER_TYPE={provider.Type}",
+            $"{provider.Type}__ProviderId={provider.Id}",
+            $"{provider.Type}__ProviderName={provider.Name}",
+            $"RabbitMQ__Host={_rabbitMqSettings.Host}",
+            $"RabbitMQ__Port={_rabbitMqSettings.Port}",
+            $"RabbitMQ__Username={_rabbitMqSettings.Username}",
+            $"RabbitMQ__Password={_rabbitMqSettings.Password}"
+        };
+
+        // Add capabilities
+        for (int i = 0; i < provider.Capabilities.Count; i++)
+        {
+            envVars.Add($"{provider.Type}__Capabilities__{i}={provider.Capabilities[i]}");
+        }
+
+        // Add technical requirements
+        envVars.Add($"{provider.Type}__AxisHeight={provider.TechnicalRequirements.AxisHeight}");
+        envVars.Add($"{provider.Type}__Power={provider.TechnicalRequirements.Power}");
+        envVars.Add($"{provider.Type}__Tolerance={provider.TechnicalRequirements.Tolerance}");
+
         var createParams = new CreateContainerParameters
         {
             Name = containerName,
             Image = _dockerSettings.ProviderImage,
-            Env = new List<string>
-            {
-                $"PROVIDER_TYPE={provider.Type}",
-                $"{provider.Type}__ProviderId={provider.Id}",
-                $"{provider.Type}__ProviderName={provider.Name}",
-                $"RabbitMQ__Host={_rabbitMqSettings.Host}",
-                $"RabbitMQ__Port={_rabbitMqSettings.Port}",
-                $"RabbitMQ__Username={_rabbitMqSettings.Username}",
-                $"RabbitMQ__Password={_rabbitMqSettings.Password}"
-            },
+            Env = envVars,
             HostConfig = new HostConfig
             {
                 NetworkMode = network,
@@ -91,7 +106,8 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Failed to start provider: {ex.Message}");
+            _logger.LogError(ex, "Failed to start provider container: {Message}", ex.Message);
+            throw;
         }
     }
 

@@ -1,33 +1,37 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
+using ManufacturingOptimization.ProviderRegistry.Services;
 
 namespace ManufacturingOptimization.ProviderRegistry;
 
 public class ProviderRegistryWorker : BackgroundService
 {
     private readonly ILogger<ProviderRegistryWorker> _logger;
+    private readonly IProviderRepository _providerRepository;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
-    private readonly IMessagePublisher _messagePublisher;
     private readonly IProviderOrchestrator _orchestrator;
-    private readonly IProviderRepository _repository;
+    private readonly ProviderСapabilityValidationService _validationCoordinator;
 
     public ProviderRegistryWorker(
         ILogger<ProviderRegistryWorker> logger,
         IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
-        IMessagePublisher messagePublisher,
+        IProviderRepository providerRepository,
         IProviderOrchestrator orchestrator,
-        IProviderRepository repository)
+        ProviderСapabilityValidationService validationCoordinator)
     {
         _logger = logger;
+        _providerRepository = providerRepository;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
-        _messagePublisher = messagePublisher;
         _orchestrator = orchestrator;
-        _repository = repository;
+        _validationCoordinator = validationCoordinator;
+
+        SetupRabbitMq();
     }
 
     // Ovwerride StartAsync to perform cleanup before starting
@@ -46,63 +50,21 @@ public class ProviderRegistryWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        SetupRabbitMq();
-        SubscribeToEvents();
-        
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
     private void SetupRabbitMq()
     {
         _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
+        
+        // Commands queue
         _messagingInfrastructure.DeclareQueue("provider.commands");
         _messagingInfrastructure.BindQueue("provider.commands", Exchanges.Provider, ProviderRoutingKeys.StartAll);
-    }
-
-    private void SubscribeToEvents()
-    {
         _messageSubscriber.Subscribe<StartAllProvidersCommand>("provider.commands", HandleStartAllProviders);
     }
 
     private async void HandleStartAllProviders(StartAllProvidersCommand command)
     {
-        try
-        {
-            var providers = await _repository.GetAllAsync();
-
-            if (!providers.Any())
-            {
-                PublishProvidersReady();
-                return;
-            }
-
-            foreach (var provider in providers)
-            {
-                if (!provider.Enabled)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    await _orchestrator.StartAsync(provider);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Failed to start provider {provider.Id}");
-                }
-            }
-
-            PublishProvidersReady();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to start providers");
-        }
-    }
-
-    private void PublishProvidersReady()
-    {
-        _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.AllReady, new AllProvidersReadyEvent());
+        await _validationCoordinator.StartValidationForAllProvidersAsync();
     }
 }

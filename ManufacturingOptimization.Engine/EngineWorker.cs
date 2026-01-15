@@ -24,12 +24,34 @@ public class EngineWorker : BackgroundService
         _messageSubscriber = messageSubscriber;
         _providerRepository = providerRepository;
         _recommendationEngine = recommendationEngine;
+        _messagePublisher = messagePublisher;
+        _providerRegistry = providerRegistry;
+
+        SetupRabbitMq();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Engine Worker started. Waiting for requests...");
 
+        _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.StartAll, new StartAllProvidersCommand());
+
+        await Task.Delay(Timeout.Infinite, stoppingToken);
+    }
+
+    private void SetupRabbitMq()
+    {
+        // Provider events
+        _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
+        _messagingInfrastructure.DeclareQueue("engine.provider.events");
+        _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
+        _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllReady);
+        _messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
+        _messageSubscriber.Subscribe<AllProvidersReadyEvent>("engine.provider.events", HandleProvidersReady);
+        
+        _messagingInfrastructure.DeclareQueue("engine.optimization.requests");
+        _messagingInfrastructure.BindQueue("engine.optimization.requests", Exchanges.Optimization, "optimization.request");
+        
         // 1. Listen for New Requests (US-06)
         _messageSubscriber.Subscribe<RequestOptimizationPlanCommand>("engine.optimization.requests", HandleOptimizationRequest);
 
