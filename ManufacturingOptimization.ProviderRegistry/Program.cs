@@ -24,6 +24,10 @@ builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredServ
 // Provider orchestration services
 builder.Services.AddSingleton<IProviderRepository, JsonProviderRepository>();
 
+// Provider validation coordination (US-11)
+builder.Services.AddSingleton<ProviderСapabilityValidationService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderСapabilityValidationService>());
+
 // Register appropriate orchestrator based on mode
 var orchestrationMode = builder.Configuration["Orchestration:Mode"] ?? "Production";
 if (orchestrationMode == "Production")

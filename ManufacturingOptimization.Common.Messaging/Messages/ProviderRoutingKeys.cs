@@ -5,4 +5,9 @@ public static class ProviderRoutingKeys
     public const string StartAll = "provider.start-all";
     public const string Registered = "provider.registered";
     public const string AllReady = "provider.all-ready";
+    
+    // Provider validation flow (US-11)
+    public const string ValidationRequested = "provider.validation.requested";
+    public const string ValidationApproved = "provider.validation.approved";
+    public const string ValidationDeclined = "provider.validation.declined";
 }

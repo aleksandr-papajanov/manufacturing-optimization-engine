@@ -44,6 +44,12 @@ public class JsonProviderRepository : IProviderRepository
         }
     }
 
+    public async Task<Provider?> GetByIdAsync(Guid providerId, CancellationToken cancellationToken = default)
+    {
+        var providers = await GetAllAsync(cancellationToken);
+        return providers.FirstOrDefault(p => p.Id == providerId);
+    }
+
     private class ProvidersConfig
     {
         public Provider[] Providers { get; set; } = Array.Empty<Provider>();
