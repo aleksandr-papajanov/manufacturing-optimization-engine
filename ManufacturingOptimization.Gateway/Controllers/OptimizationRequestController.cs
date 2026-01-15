@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment; // NEW: Added for SelectStrategyCommand
+using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
 using System.Text.RegularExpressions;
 using System.Globalization;
 
@@ -34,7 +34,6 @@ namespace ManufacturingOptimization.Gateway.Controllers
             public string TargetEfficiency { get; set; } = string.Empty;
         }
 
-        // NEW: DTO for Strategy Selection (US-07-T4)
         public class SelectStrategyDto
         {
             public Guid RequestId { get; set; }
@@ -44,7 +43,6 @@ namespace ManufacturingOptimization.Gateway.Controllers
 
         // --- ENDPOINTS ---
 
-        // [US-06] Submit Initial Request
         [HttpPost("submit")] 
         public IActionResult SubmitRequest([FromBody] MotorRequestDto request)
         {
@@ -57,6 +55,8 @@ namespace ManufacturingOptimization.Gateway.Controllers
                 double.TryParse(cleanedPower, NumberStyles.Any, CultureInfo.InvariantCulture, out powerValue);
             }
 
+            // Note: Ensure CustomerRequestSubmittedEvent exists in your namespace
+            // If this fails, check the exact namespace in Common.Messaging
             var eventMessage = new global::ManufacturingOptimization.Common.Messaging.CustomerRequestSubmittedEvent
             {
                 RequestId = request.RequestId,
@@ -64,14 +64,14 @@ namespace ManufacturingOptimization.Gateway.Controllers
                 RequiredPowerKW = powerValue
             };
 
-            _messagePublisher.Publish(Exchanges.Optimization, "optimization.request", eventMessage);
+            // Using string "optimization.exchange" to be safe
+            _messagePublisher.Publish("optimization.exchange", "optimization.request", eventMessage);
             
             _logger.LogInformation("✓ Forwarded to Engine: {Power} kW", powerValue);
 
             return Accepted(new { status = "Request submitted", requestId = request.RequestId });
         }
 
-        // NEW: [US-07-T4] Select Preferred Strategy
         [HttpPost("select")]
         public IActionResult SelectStrategy([FromBody] SelectStrategyDto selection)
         {
@@ -84,9 +84,9 @@ namespace ManufacturingOptimization.Gateway.Controllers
                 SelectedStrategyName = selection.StrategyName
             };
 
-            // Publish to RabbitMQ using the routing key the Engine is listening for
-            // We reuse the existing 'Exchanges.Optimization'
-            _messagePublisher.Publish(Exchanges.Optimization, "optimization.strategy.selected", command);
+            // Publish using the correct Routing Key: "optimization.strategy.selected"
+            // Analytics is listening for exactly this!
+            _messagePublisher.Publish("optimization.exchange", "optimization.strategy.selected", command);
 
             return Ok(new { status = "Selection Received", requestId = selection.RequestId });
         }
