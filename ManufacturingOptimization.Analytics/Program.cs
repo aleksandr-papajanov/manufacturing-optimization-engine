@@ -5,6 +5,8 @@ using ManufacturingOptimization.Common.Messaging.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddControllers();
+
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
 builder.Services.AddSingleton<RabbitMqService>();
 
@@ -19,5 +21,6 @@ builder.Services.AddSingleton<IAnalyticsStore, InMemoryAnalyticsStore>();
 builder.Services.AddHostedService<AnalyticsWorker>(); 
 
 var app = builder.Build();
+app.MapControllers();
 app.MapGet("/", () => "Analytics Service is Running 📊");
 app.Run();

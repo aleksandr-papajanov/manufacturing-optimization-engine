@@ -104,6 +104,8 @@ services:
     build:
       context: .
       dockerfile: ManufacturingOptimization.Analytics/Dockerfile
+    ports:                     
+      - "5003:8080"
     environment:
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
