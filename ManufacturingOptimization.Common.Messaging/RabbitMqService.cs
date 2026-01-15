@@ -1,58 +1,73 @@
 using System.Text;
 using System.Text.Json;
-using ManufacturingOptimization.Common.Messaging.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages;
 
 namespace ManufacturingOptimization.Common.Messaging;
 
-public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessagingInfrastructure, IDisposable
+public class RabbitMqService :
+    IMessagePublisher,
+    IMessageSubscriber,
+    IMessagingInfrastructure,
+    IDisposable
 {
-    private readonly IConnection _connection;
-    private readonly IModel _channel;
     private readonly ILogger<RabbitMqService> _logger;
+    private readonly RabbitMqSettings _settings;
+
     private readonly Dictionary<string, EventingBasicConsumer> _consumers = new();
 
-    public RabbitMqService(IOptions<RabbitMqSettings> config, ILogger<RabbitMqService> logger)
+    private IConnection _connection = null!;
+    private IModel _channel = null!;
+
+    public RabbitMqService(
+        IOptions<RabbitMqSettings> settings,
+        ILogger<RabbitMqService> logger)
     {
+        _settings = settings.Value;
         _logger = logger;
-        var settings = config.Value;
-        
-        var factory = new ConnectionFactory
+
+        InitializeRabbitMq();
+    }
+
+    private void InitializeRabbitMq()
+    {
+        try
         {
-            HostName = settings.Host,
-            Port = settings.Port,
-            UserName = settings.Username,
-            Password = settings.Password
-        };
+            var factory = new ConnectionFactory
+            {
+                HostName = _settings.Host,
+                Port = _settings.Port,
+                UserName = _settings.Username,
+                Password = _settings.Password
+            };
 
-        _connection = factory.CreateConnection();
-        _channel = _connection.CreateModel();
+            _connection = factory.CreateConnection();
+            _channel = _connection.CreateModel();
+
+            _channel.ExchangeDeclare(
+                exchange: Exchanges.Optimization,
+                type: ExchangeType.Topic,
+                durable: true);
+
+            _logger.LogInformation("Connected to RabbitMQ");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not connect to RabbitMQ");
+            throw;
+        }
     }
 
-    public void DeclareExchange(string exchangeName, string exchangeType = "topic")
-    {
-        _channel.ExchangeDeclare(exchange: exchangeName, type: exchangeType, durable: true);
-    }
+    // -------------------- Publishing --------------------
 
-    public void DeclareQueue(string queueName)
-    {
-        _channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false);
-    }
-
-    public void BindQueue(string queueName, string exchangeName, string routingKey)
-    {
-        _channel.QueueBind(queue: queueName, exchange: exchangeName, routingKey: routingKey);
-    }
-
-    public void PurgeQueue(string queueName)
-    {
-        _channel.QueuePurge(queueName);
-    }
-
-    public void Publish<T>(string exchangeName, string routingKey, T message) where T : IMessage
+    public void Publish<T>(
+        string exchangeName,
+        string routingKey,
+        T message) where T : IMessage
     {
         var json = JsonSerializer.Serialize(message);
         var body = Encoding.UTF8.GetBytes(json);
@@ -68,58 +83,121 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
             routingKey: routingKey,
             basicProperties: properties,
             body: body);
+
+        _logger.LogInformation(
+            "Published message {MessageType} to {Exchange}/{RoutingKey}",
+            typeof(T).Name,
+            exchangeName,
+            routingKey);
     }
 
-    public void Subscribe<T>(string queueName, Action<T> handler) where T : IMessage
+    public Task PublishAsync<T>(string routingKey, T message) where T : IMessage
     {
-        // Reuse existing consumer if queue already has one, otherwise create new
-        if (!_consumers.TryGetValue(queueName, out var consumer))
-        {
-            consumer = new EventingBasicConsumer(_channel);
-            _consumers[queueName] = consumer;
-
-            consumer.Received += (model, e) =>
-            {
-                try
-                {
-                    var body = e.Body.ToArray();
-                    var json = Encoding.UTF8.GetString(body);
-                    
-                    // Try to get message type from header
-                    string? messageType = null;
-                    if (e.BasicProperties?.Headers?.TryGetValue("MessageType", out var typeObj) == true)
-                    {
-                        messageType = Encoding.UTF8.GetString((byte[])typeObj);
-                    }
-
-                    // Try to deserialize and invoke matching handler
-                    var typeName = typeof(T).FullName ?? typeof(T).Name;
-                    if (messageType == null || messageType == typeName)
-                    {
-                        var message = JsonSerializer.Deserialize<T>(json);
-                        if (message != null)
-                        {
-                            handler(message);
-                        }
-                    }
-
-                    _channel.BasicAck(deliveryTag: e.DeliveryTag, multiple: false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error processing message from queue {Queue}", queueName);
-                    _channel.BasicNack(deliveryTag: e.DeliveryTag, multiple: false, requeue: false);
-                }
-            };
-
-            _channel.BasicConsume(queue: queueName, autoAck: false, consumer: consumer);
-        }
+        Publish(Exchanges.Optimization, routingKey, message);
+        return Task.CompletedTask;
     }
+
+    // -------------------- Subscribing --------------------
+
+    public void Subscribe<T>(
+        string queueName,
+        Action<T> handler) where T : IMessage
+    {
+        DeclareQueue(queueName);
+        BindQueue(queueName, Exchanges.Optimization, queueName);
+
+        if (_consumers.ContainsKey(queueName))
+            return;
+
+        var consumer = new EventingBasicConsumer(_channel);
+        _consumers[queueName] = consumer;
+
+        consumer.Received += (sender, e) =>
+        {
+            try
+            {
+                var body = e.Body.ToArray();
+                var json = Encoding.UTF8.GetString(body);
+
+                string? messageType = null;
+                if (e.BasicProperties?.Headers?.TryGetValue("MessageType", out var typeObj) == true)
+                {
+                    messageType = Encoding.UTF8.GetString((byte[])typeObj);
+                }
+
+                var expectedType = typeof(T).FullName ?? typeof(T).Name;
+
+                if (messageType == null || messageType == expectedType)
+                {
+                    var message = JsonSerializer.Deserialize<T>(json);
+                    if (message != null)
+                    {
+                        handler(message);
+                    }
+                }
+
+                _channel.BasicAck(e.DeliveryTag, multiple: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error processing message from queue {Queue}",
+                    queueName);
+
+                _channel.BasicNack(
+                    deliveryTag: e.DeliveryTag,
+                    multiple: false,
+                    requeue: false);
+            }
+        };
+
+        _channel.BasicConsume(
+            queue: queueName,
+            autoAck: false,
+            consumer: consumer);
+
+        _logger.LogInformation("Subscribed to queue {Queue}", queueName);
+    }
+
+    // -------------------- Infrastructure --------------------
+
+    public void DeclareExchange(string exchangeName, string type)
+    {
+        _channel.ExchangeDeclare(exchangeName, type, durable: true);
+    }
+
+    public void DeclareQueue(string queueName)
+    {
+        _channel.QueueDeclare(
+            queue: queueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null);
+    }
+
+    public void BindQueue(
+        string queueName,
+        string exchangeName,
+        string routingKey)
+    {
+        _channel.QueueBind(
+            queue: queueName,
+            exchange: exchangeName,
+            routingKey: routingKey);
+    }
+
+    public void PurgeQueue(string queueName)
+    {
+        _channel.QueuePurge(queueName);
+    }
+
+    // -------------------- Dispose --------------------
 
     public void Dispose()
     {
         _channel?.Close();
         _connection?.Close();
-        _logger.LogInformation("Disconnected from RabbitMQ");
     }
 }

@@ -1,0 +1,18 @@
+{
+  "requestId": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+  "customerId": "cust-9988",
+  "Specs": {
+    "PowerKW": 5.5,
+    "AxisHeightMM": 75,
+    "CurrentEfficiency": "IE2",
+    "TargetEfficiency": "IE4",
+    "MalfunctionDescription": "Worn bearings, overheating"
+  },
+  "Constraints": {
+    "MaxBudget": 1500.00,
+    "Priority": "HighestQuality" 
+  },
+  "metaData": {
+    "location": "Gothenburg, SE"
+  }
+}

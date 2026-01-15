@@ -1,34 +1,46 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Gateway;
 using ManufacturingOptimization.Gateway.Abstractions;
 using ManufacturingOptimization.Gateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 1. Add Services
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient(); // Required for Legacy "Get Providers"
 
-// Configure RabbitMQ
-builder.Services.Configure<RabbitMqSettings>(
-    builder.Configuration.GetSection(RabbitMqSettings.SectionName));
+// --- FIX: Register ALL Legacy Repositories ---
+// 1. Provider Repository (For "Get Providers List")
+builder.Services.AddScoped<IProviderRepository, InMemoryProviderRepository>();
 
+// 2. Request/Response Repository (For "Run Random Demo")
+builder.Services.AddScoped<IRequestResponseRepository, InMemoryRequestResponseRepository>(); 
+
+// 3. Configure RabbitMQ Settings (For US-06)
+builder.Services.Configure<RabbitMqSettings>(options =>
+{
+    options.Host = "rabbitmq";
+    options.Port = 5672;
+    options.Username = "admin";
+    options.Password = "admin123";
+});
+
+// 4. Register RabbitMQ Service
 builder.Services.AddSingleton<RabbitMqService>();
+
+// 5. Map Messaging Interfaces
+builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
-builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
-
-// Add in-memory repository
-builder.Services.AddSingleton<IRequestResponseRepository, InMemoryRequestResponseRepository>();
-builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
-
-// Add background worker
-builder.Services.AddHostedService<GatewayWorker>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-app.UseHttpsRedirection();
+// 6. Configure Pipeline
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseAuthorization();
 app.MapControllers();
 
