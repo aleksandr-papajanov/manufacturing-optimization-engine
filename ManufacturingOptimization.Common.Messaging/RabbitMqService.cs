@@ -9,11 +9,7 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 
 namespace ManufacturingOptimization.Common.Messaging;
 
-public class RabbitMqService :
-    IMessagePublisher,
-    IMessageSubscriber,
-    IMessagingInfrastructure,
-    IDisposable
+public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessagingInfrastructure, IDisposable
 {
     private readonly ILogger<RabbitMqService> _logger;
     private readonly RabbitMqSettings _settings;
@@ -52,8 +48,6 @@ public class RabbitMqService :
                 exchange: Exchanges.Optimization,
                 type: ExchangeType.Topic,
                 durable: true);
-
-            _logger.LogInformation("Connected to RabbitMQ");
         }
         catch (Exception ex)
         {
@@ -62,12 +56,7 @@ public class RabbitMqService :
         }
     }
 
-    // -------------------- Publishing --------------------
-
-    public void Publish<T>(
-        string exchangeName,
-        string routingKey,
-        T message) where T : IMessage
+    public void Publish<T>(string exchangeName, string routingKey, T message) where T : IMessage
     {
         var json = JsonSerializer.Serialize(message);
         var body = Encoding.UTF8.GetBytes(json);
@@ -83,25 +72,9 @@ public class RabbitMqService :
             routingKey: routingKey,
             basicProperties: properties,
             body: body);
-
-        _logger.LogInformation(
-            "Published message {MessageType} to {Exchange}/{RoutingKey}",
-            typeof(T).Name,
-            exchangeName,
-            routingKey);
     }
 
-    public Task PublishAsync<T>(string routingKey, T message) where T : IMessage
-    {
-        Publish(Exchanges.Optimization, routingKey, message);
-        return Task.CompletedTask;
-    }
-
-    // -------------------- Subscribing --------------------
-
-    public void Subscribe<T>(
-        string queueName,
-        Action<T> handler) where T : IMessage
+    public void Subscribe<T>(string queueName, Action<T> handler) where T : IMessage
     {
         DeclareQueue(queueName);
         BindQueue(queueName, Exchanges.Optimization, queueName);
@@ -156,11 +129,7 @@ public class RabbitMqService :
             queue: queueName,
             autoAck: false,
             consumer: consumer);
-
-        _logger.LogInformation("Subscribed to queue {Queue}", queueName);
     }
-
-    // -------------------- Infrastructure --------------------
 
     public void DeclareExchange(string exchangeName, string type)
     {
@@ -192,8 +161,6 @@ public class RabbitMqService :
     {
         _channel.QueuePurge(queueName);
     }
-
-    // -------------------- Dispose --------------------
 
     public void Dispose()
     {
