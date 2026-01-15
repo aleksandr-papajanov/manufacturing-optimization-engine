@@ -20,5 +20,8 @@ builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>()
 
 builder.Services.AddHostedService<EngineWorker>();
 
+// Register the Brain
+builder.Services.AddSingleton<IRecommendationEngine, RecommendationEngine>();
+
 var host = builder.Build();
 host.Run();
