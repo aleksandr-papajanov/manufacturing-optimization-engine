@@ -11,7 +11,6 @@ public interface IAnalyticsStore
 
 public class InMemoryAnalyticsStore : IAnalyticsStore
 {
-    // Thread-safe collection to hold the history in memory
     private readonly ConcurrentBag<SelectStrategyCommand> _history = new();
 
     public void RecordSelection(SelectStrategyCommand selection)
@@ -24,6 +23,10 @@ public class InMemoryAnalyticsStore : IAnalyticsStore
         return new AnalyticsSummary
         {
             TotalDeals = _history.Count,
+            
+            // New Metric: Total CO2 Saved
+            TotalCO2Saved = _history.Sum(CalculateCO2Impact),
+
             TopProvider = _history
                 .GroupBy(x => x.SelectedProviderId)
                 .OrderByDescending(g => g.Count())
@@ -31,10 +34,25 @@ public class InMemoryAnalyticsStore : IAnalyticsStore
                 .FirstOrDefault() ?? "None"
         };
     }
+
+    // Business Logic: Assign CO2 values based on strategy type
+    private int CalculateCO2Impact(SelectStrategyCommand command)
+    {
+        if (string.IsNullOrEmpty(command.SelectedStrategyName)) return 0;
+
+        var strategy = command.SelectedStrategyName.ToLower();
+
+        if (strategy.Contains("refurbish")) return 500; // High impact
+        if (strategy.Contains("rewind")) return 300;    // Medium impact
+        if (strategy.Contains("upgrade")) return 100;   // Low impact
+        
+        return 0; // Replacement usually has high manufacturing cost (0 savings)
+    }
 }
 
 public class AnalyticsSummary
 {
     public int TotalDeals { get; set; }
+    public double TotalCO2Saved { get; set; } // New Field
     public string TopProvider { get; set; } = string.Empty;
 }

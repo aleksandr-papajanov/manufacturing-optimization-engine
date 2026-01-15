@@ -45,6 +45,11 @@ public class AnalyticsWorker : BackgroundService
         _store.RecordSelection(message);
         
         var summary = _store.GetSummary();
-        _logger.LogInformation($"Total Deals: {summary.TotalDeals} | Top Provider: {summary.TopProvider}");
+        
+        // Log the new CO2 metric
+        _logger.LogInformation($"Total Deals: {summary.TotalDeals}");
+        _logger.LogInformation($"Top Provider: {summary.TopProvider}");
+        _logger.LogInformation($"🌱 Total CO2 Saved: {summary.TotalCO2Saved} kg"); // <--- New Log
+        _logger.LogInformation("----------------------------------");
     }
 }
