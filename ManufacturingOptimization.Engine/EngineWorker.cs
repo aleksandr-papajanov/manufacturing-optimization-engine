@@ -1,31 +1,35 @@
+using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
 using ManufacturingOptimization.Engine.Abstractions;
-using Common.Models; 
-using ManufacturingOptimization.Engine.Models; 
-using System.Text.Json;
 
 namespace ManufacturingOptimization.Engine;
 
 public class EngineWorker : BackgroundService
 {
     private readonly ILogger<EngineWorker> _logger;
+    private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
+    private readonly IMessagePublisher _messagePublisher;
     private readonly IProviderRepository _providerRepository;
     private readonly IRecommendationEngine _recommendationEngine;
 
     public EngineWorker(
         ILogger<EngineWorker> logger,
+        IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
+        IMessagePublisher messagePublisher,
         IProviderRepository providerRepository,
         IRecommendationEngine recommendationEngine)
     {
         _logger = logger;
+        _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
+        _messagePublisher = messagePublisher;
         _providerRepository = providerRepository;
         _recommendationEngine = recommendationEngine;
-        _messagePublisher = messagePublisher;
-        _providerRegistry = providerRegistry;
 
         SetupRabbitMq();
     }
@@ -46,8 +50,8 @@ public class EngineWorker : BackgroundService
         _messagingInfrastructure.DeclareQueue("engine.provider.events");
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllReady);
-        _messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
-        _messageSubscriber.Subscribe<AllProvidersReadyEvent>("engine.provider.events", HandleProvidersReady);
+        //_messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
+        //_messageSubscriber.Subscribe<AllProvidersReadyEvent>("engine.provider.events", HandleProvidersReady);
         
         _messagingInfrastructure.DeclareQueue("engine.optimization.requests");
         _messagingInfrastructure.BindQueue("engine.optimization.requests", Exchanges.Optimization, "optimization.request");
@@ -57,8 +61,6 @@ public class EngineWorker : BackgroundService
 
         // 2. Listen for User Selection (US-07-T4)
         _messageSubscriber.Subscribe<SelectStrategyCommand>("optimization.strategy.selected", HandleStrategySelection);
-
-        await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
     // ... HandleOptimizationRequest (Keep your existing method exactly as it is) ...
