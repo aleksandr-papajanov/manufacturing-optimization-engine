@@ -27,18 +27,18 @@ public class EngineWorker : BackgroundService
         _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
         _providerRegistry = providerRegistry;
+
+        SetupRabbitMq();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        SetupMessaging();
-
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.StartAll, new StartAllProvidersCommand());
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    private void SetupMessaging()
+    private void SetupRabbitMq()
     {
         // Provider events
         _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
@@ -47,9 +47,7 @@ public class EngineWorker : BackgroundService
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllReady);
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
         _messageSubscriber.Subscribe<AllProvidersReadyEvent>("engine.provider.events", HandleProvidersReady);
-
-        // Optimization requests
-        _messagingInfrastructure.DeclareExchange(Exchanges.Optimization);
+        
         _messagingInfrastructure.DeclareQueue("engine.optimization.requests");
         _messagingInfrastructure.BindQueue("engine.optimization.requests", Exchanges.Optimization, "optimization.request");
         _messageSubscriber.Subscribe<RequestOptimizationPlanCommand>("engine.optimization.requests", HandleOptimizationRequest);
@@ -87,8 +85,6 @@ public class EngineWorker : BackgroundService
         var random = new Random();
         var selectedProvider = providers[random.Next(providers.Count)];
         
-        _logger.LogInformation("Sending request to {ProviderName}", selectedProvider.ProviderName);
-
         var proposal = new ProposeProcessCommand 
         { 
             CommandId = command.CommandId,
@@ -100,8 +96,6 @@ public class EngineWorker : BackgroundService
 
     private void HandleProcessAccepted(ProcessAcceptedEvent evt)
     {
-        _logger.LogInformation("Provider {ProviderId} accepted", evt.ProviderId);
-        
         var planEvent = new OptimizationPlanCreatedEvent 
         { 
             CommandId = evt.CommandId,
@@ -114,8 +108,6 @@ public class EngineWorker : BackgroundService
 
     private void HandleProcessDeclined(ProcessDeclinedEvent evt)
     {
-        _logger.LogInformation("Provider {ProviderId} declined", evt.ProviderId);
-        
         var planEvent = new OptimizationPlanCreatedEvent 
         { 
             CommandId = evt.CommandId,

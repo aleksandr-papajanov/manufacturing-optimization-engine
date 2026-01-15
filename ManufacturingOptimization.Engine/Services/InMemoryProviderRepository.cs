@@ -8,6 +8,8 @@ public class InMemoryProviderRepository : IProviderRepository
     private readonly ConcurrentDictionary<Guid, RegisteredProvider> _providers = new();
     private readonly ILogger<InMemoryProviderRepository> _logger;
 
+    public int Count => _providers.Count;
+
     public InMemoryProviderRepository(ILogger<InMemoryProviderRepository> logger)
     {
         _logger = logger;
@@ -29,6 +31,4 @@ public class InMemoryProviderRepository : IProviderRepository
     {
         return _providers.Values.ToList();
     }
-
-    public int Count => _providers.Count;
 }

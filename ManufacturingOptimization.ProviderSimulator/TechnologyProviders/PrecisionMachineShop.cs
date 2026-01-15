@@ -9,17 +9,28 @@ public class PrecisionMachineShop : IProviderSimulator
 {
     private readonly ILogger<PrecisionMachineShop> _logger;
     private readonly Random _random = new();
+    private readonly PrecisionMachineShopSettings _settings;
 
     public Guid ProviderId { get; }
     public string ProviderName { get; }
+    public List<string> Capabilities { get; }
+    public double AxisHeight { get; }
+    public double Power { get; }
+    public double Tolerance { get; }
 
     public PrecisionMachineShop(
         ILogger<PrecisionMachineShop> logger,
         IOptions<PrecisionMachineShopSettings> settings)
     {
         _logger = logger;
-        ProviderId = Guid.Parse(settings.Value.ProviderId);
-        ProviderName = settings.Value.ProviderName;
+        _settings = settings.Value;
+        
+        ProviderId = Guid.Parse(_settings.ProviderId);
+        ProviderName = _settings.ProviderName;
+        Capabilities = _settings.Capabilities;
+        AxisHeight = _settings.AxisHeight;
+        Power = _settings.Power;
+        Tolerance = _settings.Tolerance;
     }
 
     public bool HandleProposal(ProposeProcessCommand proposal)
