@@ -1,16 +1,10 @@
-namespace ManufacturingOptimization.Gateway.Abstractions;
+using Common.Models;
 
-public class RegisteredProvider
-{
-    public Guid ProviderId { get; set; }
-    public string ProviderType { get; set; } = string.Empty;
-    public string ProviderName { get; set; } = string.Empty;
-    public DateTime RegisteredAt { get; set; }
-}
+namespace ManufacturingOptimization.Gateway.Abstractions;
 
 public interface IProviderRepository
 {
-    void Create(Guid providerId, string providerType, string providerName);
-    List<RegisteredProvider> GetAll();
-    RegisteredProvider? GetById(Guid providerId);
+    void Create(Provider provider);
+    List<Provider> GetAll();
+    Provider? GetById(Guid providerId);
 }

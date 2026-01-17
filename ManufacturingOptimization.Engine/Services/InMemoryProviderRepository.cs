@@ -1,11 +1,12 @@
 using System.Collections.Concurrent;
+using Common.Models;
 using ManufacturingOptimization.Engine.Abstractions;
 
 namespace ManufacturingOptimization.Engine.Services;
 
 public class InMemoryProviderRepository : IProviderRepository
 {
-    private readonly ConcurrentDictionary<Guid, RegisteredProvider> _providers = new();
+    private readonly ConcurrentDictionary<Guid, Provider> _providers = new();
     private readonly ILogger<InMemoryProviderRepository> _logger;
 
     public int Count => _providers.Count;
@@ -15,35 +16,29 @@ public class InMemoryProviderRepository : IProviderRepository
         _logger = logger;
     }
 
-    public void Create(Guid providerId, string providerType, string providerName, List<string> capabilities,
-        double axisHeight = 0, double power = 0, double tolerance = 0)
+    public void Create(Provider provider)
     {
-        var provider = new RegisteredProvider
-        {
-            ProviderId = providerId,
-            ProviderType = providerType,
-            ProviderName = providerName,
-            Capabilities = capabilities ?? new(),
-            AxisHeight = axisHeight,
-            Power = power,
-            Tolerance = tolerance
-        };
+        if (provider == null)
+            throw new ArgumentNullException(nameof(provider));
 
-        _providers[providerId] = provider;
+        _providers[provider.Id] = provider;
         
-        _logger.LogInformation("Registered provider {ProviderId} ({Name}) - Capabilities: {Capabilities}, Power: {Power}kW, AxisHeight: {AxisHeight}mm",
-            providerId, providerName, string.Join(", ", provider.Capabilities), power, axisHeight);
+        _logger.LogInformation("Registered provider {ProviderId} ({Name}) - Processes: {ProcessCount}, Power: {Power}kW, AxisHeight: {AxisHeight}mm",
+            provider.Id, provider.Name, provider.ProcessCapabilities.Count, 
+            provider.TechnicalCapabilities.Power, provider.TechnicalCapabilities.AxisHeight);
     }
 
-    public List<RegisteredProvider> GetAll()
+    public List<Provider> GetAll()
     {
         return _providers.Values.ToList();
     }
     
-    public List<RegisteredProvider> FindByCapability(string capability)
+    public List<(Provider Provider, ProcessCapability Capability)> FindByProcess(string processName)
     {
         return _providers.Values
-            .Where(p => p.Capabilities.Contains(capability, StringComparer.OrdinalIgnoreCase))
+            .SelectMany(p => p.ProcessCapabilities
+                .Where(cap => cap.ProcessName.Equals(processName, StringComparison.OrdinalIgnoreCase))
+                .Select(cap => (Provider: p, Capability: cap)))
             .ToList();
     }
 }

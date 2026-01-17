@@ -6,9 +6,9 @@ namespace ManufacturingOptimization.Engine.Services;
 
 public class RecommendationEngine : IRecommendationEngine
 {
-    public List<OptimizationResult> GenerateRecommendations(MotorRequest request, IEnumerable<Provider> capableProviders)
+    public List<ProviderRecommendation> GenerateRecommendations(MotorRequest request, IEnumerable<Provider> capableProviders)
     {
-        var results = new List<OptimizationResult>();
+        var results = new List<ProviderRecommendation>();
 
         // 1. Determine the Strategy based on Efficiency Upgrade
         // If Target > Current, it's an UPGRADE. Otherwise, it's REFURBISH/REPAIR.
@@ -26,7 +26,7 @@ public class RecommendationEngine : IRecommendationEngine
             // 4. [US-07-T5] Determine Warranty & Insurance based on Provider Type
             var (warranty, hasInsurance) = GetWarrantyAndInsurance(provider.Name, isUpgrade);
 
-            var result = new OptimizationResult
+            var result = new ProviderRecommendation
             {
                 ProviderId = provider.Id,
                 ProviderName = provider.Name,
@@ -117,7 +117,7 @@ public class RecommendationEngine : IRecommendationEngine
         return (warranty, insurance);
     }
 
-    private double CalculateScore(OptimizationPriority priority, OptimizationResult metrics)
+    private double CalculateScore(OptimizationPriority priority, ProviderRecommendation metrics)
     {
         double score = 0;
 

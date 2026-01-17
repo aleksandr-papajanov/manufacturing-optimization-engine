@@ -5,11 +5,13 @@ using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Settings;
 using Microsoft.Extensions.Options;
 using Common.Models;
+using System.Collections.Concurrent;
 
 namespace ManufacturingOptimization.Engine.Services;
 
 /// <summary>
-/// Handles provider validation requests from ProviderRegistry.
+/// Handles provider validation requests and tracks provider registration.
+/// Publishes AllProvidersReadyEvent when all approved providers are registered.
 /// </summary>
 public class ProviderCapabilityValidationService : BackgroundService
 {
@@ -18,6 +20,9 @@ public class ProviderCapabilityValidationService : BackgroundService
     private readonly IMessagePublisher _publisher;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly ProviderValidationSettings _settings;
+    
+    private readonly ConcurrentDictionary<Guid, string> _approvedProviders = new();
+    private readonly ConcurrentDictionary<Guid, string> _registeredProviders = new();
 
     public ProviderCapabilityValidationService(
         ILogger<ProviderCapabilityValidationService> logger,
@@ -32,80 +37,63 @@ public class ProviderCapabilityValidationService : BackgroundService
         _publisher = publisher;
         _messagingInfrastructure = messagingInfrastructure;
         _settings = settings.Value;
-
-        // Setup RabbitMQ immediately in constructor to ensure queues are purged
-        // and handlers are ready before any validation requests are sent
-        SetupRabbitMq();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        SetupRabbitMq();
+
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
     private void SetupRabbitMq()
     {
         _messagingInfrastructure.DeclareQueue("engine.provider.validation");
-        
-        // Clear any stale validation requests from previous runs
-        _messagingInfrastructure.PurgeQueue("engine.provider.validation");
-        
         _messagingInfrastructure.BindQueue("engine.provider.validation", Exchanges.Provider, ProviderRoutingKeys.ValidationRequested);
+        _messagingInfrastructure.PurgeQueue("engine.provider.validation");
         
         _subscriber.Subscribe<ValidateProviderCapabilityCommand>("engine.provider.validation", HandleValidationRequest);
     }
 
     private void HandleValidationRequest(ValidateProviderCapabilityCommand request)
     {
+        ProviderCapabilityValidatedEvent response;
+        
         try
         {
             var validationResult = ValidateProvider(request);
 
-            if (validationResult.IsValid)
+            response = new ProviderCapabilityValidatedEvent
             {
-                var approvedResponse = new ProviderCapabilityValidationApprovedEvent
-                {
-                    CommandId = request.CommandId,
-                    ProviderId = request.ProviderId,
-                    ProviderType = request.ProviderType,
-                    ProviderName = request.ProviderName
-                };
-
-                _publisher.Publish(Exchanges.Provider, ProviderRoutingKeys.ValidationApproved, approvedResponse);
-            }
-            else
-            {
-                var declinedResponse = new ProviderCapabilityValidationDeclinedEvent
-                {
-                    CommandId = request.CommandId,
-                    ProviderId = request.ProviderId,
-                    ProviderType = request.ProviderType,
-                    ProviderName = request.ProviderName,
-                    Reason = validationResult.Reason
-                };
-
-                _publisher.Publish(Exchanges.Provider, ProviderRoutingKeys.ValidationDeclined, declinedResponse);
-            }
-        }
-        catch (Exception ex)
-        {
-            var errorResponse = new ProviderCapabilityValidationDeclinedEvent
-            {
-                CommandId = request.CommandId,
                 ProviderId = request.ProviderId,
                 ProviderType = request.ProviderType,
                 ProviderName = request.ProviderName,
-                Reason = $"Internal error: {ex.Message}"
+                IsApproved = validationResult.IsValid,
+                Reason = validationResult.IsValid ? null : validationResult.Reason,
+                CommandId = request.CommandId
             };
-
-            _publisher.Publish(Exchanges.Provider, ProviderRoutingKeys.ValidationDeclined, errorResponse);
         }
+        catch (Exception ex)
+        {
+            response = new ProviderCapabilityValidatedEvent
+            {
+                ProviderId = request.ProviderId,
+                ProviderType = request.ProviderType,
+                ProviderName = request.ProviderName,
+                IsApproved = false,
+                Reason = $"Internal error: {ex.Message}",
+                CommandId = request.CommandId
+            };
+        }
+
+        _publisher.PublishReply(request.ReplyTo, request.CommandId.ToString(), response);
     }
 
     private ValidationResult ValidateProvider(ValidateProviderCapabilityCommand request)
     {
-        // Validate capabilities
-        var capabilitiesResult = ValidateCapabilities(request.ProviderType, request.Capabilities);
+        // Validate process capabilities
+        var processNames = request.ProcessCapabilities.Select(pc => pc.ProcessName).ToList();
+        var capabilitiesResult = ValidateCapabilities(request.ProviderType, processNames);
         if (!capabilitiesResult.IsValid)
         {
             return capabilitiesResult;

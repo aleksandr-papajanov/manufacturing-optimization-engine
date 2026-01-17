@@ -2,6 +2,7 @@ using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagment;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
 using Common.Models;
 
@@ -32,8 +33,10 @@ public class ProviderSimulatorWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         SetupRabbitMq();
-        SubscribeToProposals();
-        PublishProviderRegistered();
+
+        // Publish ServiceReadyEvent after a short delay to ensure subscriptions are ready
+        await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+        PublishServiceReady();
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
@@ -44,12 +47,57 @@ public class ProviderSimulatorWorker : BackgroundService
         _messagingInfrastructure.DeclareExchange(Exchanges.Process);
         _messagingInfrastructure.DeclareQueue("provider.process.proposals");
         _messagingInfrastructure.BindQueue("provider.process.proposals", Exchanges.Process, ProcessRoutingKeys.Propose);
+        _messagingInfrastructure.PurgeQueue("provider.process.proposals");
+
+        // Listen to estimate requests for this specific provider
+        var estimateQueueName = $"process.estimate.{_providerLogic.ProviderId}";
+        _messagingInfrastructure.DeclareQueue(estimateQueueName);
+        _messagingInfrastructure.BindQueue(estimateQueueName, Exchanges.Process, estimateQueueName);
+        _messagingInfrastructure.PurgeQueue(estimateQueueName);
+        _messageSubscriber.Subscribe<RequestProcessEstimateCommand>(estimateQueueName, HandleEstimateRequest);
+
+        // Listen to provider coordination commands
+        var providerCoordinationQueue = $"provider.coordination.{_providerLogic.ProviderId}";
+        _messagingInfrastructure.DeclareQueue(providerCoordinationQueue);
+        _messagingInfrastructure.BindQueue(providerCoordinationQueue, Exchanges.Provider, ProviderRoutingKeys.StartAll);
+        _messagingInfrastructure.PurgeQueue(providerCoordinationQueue);
+        _messageSubscriber.Subscribe<StartAllProvidersCommand>(providerCoordinationQueue, HandleStartAllProviders);
 
         // Send responses back to Engine (exchange already declared by Engine)
         // Responses go to the same Process exchange
-        
+
         // Setup for provider registration
         _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
+    }
+
+    private void HandleEstimateRequest(RequestProcessEstimateCommand request)
+    {
+        var estimate = _providerLogic.HandleEstimateRequest(request);
+
+        _messagePublisher.PublishReply(request.ReplyTo, request.CommandId.ToString(), estimate);
+    }
+    
+    private void PublishServiceReady()
+    {
+        var queues = new List<string>
+        {
+            "provider.process.proposals",
+            $"process.estimate.{_providerLogic.ProviderId}",
+            $"provider.coordination.{_providerLogic.ProviderId}"
+        };
+        
+        var evt = new ServiceReadyEvent
+        {
+            ServiceName = $"ProviderSimulator_{_providerLogic.ProviderName}",
+            SubscribedQueues = queues
+        };
+        
+        _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, evt);
+    }
+    
+    private void HandleStartAllProviders(StartAllProvidersCommand command)
+    {
+        PublishProviderRegistered();
     }
 
     private void PublishProviderRegistered()
@@ -59,46 +107,10 @@ public class ProviderSimulatorWorker : BackgroundService
             ProviderId = _providerLogic.ProviderId,
             ProviderType = _providerLogic.GetType().Name,
             ProviderName = _providerLogic.ProviderName,
-            Capabilities = _providerLogic.Capabilities,
-            TechnicalCapabilities = new TechnicalCapabilities
-            {
-                AxisHeight = _providerLogic.AxisHeight,
-                Power = _providerLogic.Power,
-                Tolerance = _providerLogic.Tolerance
-            }
+            ProcessCapabilities = _providerLogic.ProcessCapabilities,
+            TechnicalCapabilities = _providerLogic.TechnicalCapabilities
         };
 
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.Registered, registeredEvent);
-    }
-
-    private void SubscribeToProposals()
-    {
-        _messageSubscriber.Subscribe<ProposeProcessCommand>("provider.process.proposals", HandleProcessProposal);
-    }
-
-    private void HandleProcessProposal(ProposeProcessCommand proposal)
-    {
-        var accepted = _providerLogic.HandleProposal(proposal);
-        
-        if (accepted)
-        {
-            var acceptEvent = new ProcessAcceptedEvent
-            {
-                CommandId = proposal.CommandId,
-                ProviderId = _providerLogic.ProviderId,
-            };
-            
-            _messagePublisher.Publish(Exchanges.Process, ProcessRoutingKeys.Accepted, acceptEvent);
-        }
-        else
-        {
-            var declineEvent = new ProcessDeclinedEvent
-            {
-                CommandId = proposal.CommandId,
-                ProviderId = _providerLogic.ProviderId,
-            };
-            
-            _messagePublisher.Publish(Exchanges.Process, ProcessRoutingKeys.Declined, declineEvent);
-        }
     }
 }

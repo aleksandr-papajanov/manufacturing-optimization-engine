@@ -1,4 +1,4 @@
-using ManufacturingOptimization.ProviderRegistry.Entities;
+using Common.Models;
 
 namespace ManufacturingOptimization.ProviderRegistry.Abstractions;
 

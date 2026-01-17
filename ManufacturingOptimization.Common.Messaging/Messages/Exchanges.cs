@@ -5,5 +5,6 @@
         public const string Optimization = "optimization";
         public const string Process = "process";
         public const string Provider = "provider";
+        public const string System = "system";
     }
 }

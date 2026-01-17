@@ -31,10 +31,18 @@ public class ProviderController : ControllerBase
             totalProviders = providers.Count(),
             providers = providers.Select(p => new
             {
-                providerId = p.ProviderId,
-                providerType = p.ProviderType,
-                providerName = p.ProviderName,
-                registeredAt = p.RegisteredAt
+                providerId = p.Id,
+                providerType = p.Type,
+                providerName = p.Name,
+                enabled = p.Enabled,
+                processCapabilities = p.ProcessCapabilities.Select(pc => new 
+                {
+                    processName = pc.ProcessName,
+                    costPerHour = pc.CostPerHour,
+                    qualityScore = pc.QualityScore,
+                    carbonIntensityKgCO2PerKwh = pc.CarbonIntensityKgCO2PerKwh,
+                    usesRenewableEnergy = pc.UsesRenewableEnergy
+                })
             })
         });
     }

@@ -1,5 +1,6 @@
 using Common.Models;
-using ManufacturingOptimization.Engine.Abstractions.Pipeline;
+using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Engine.Models;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 

@@ -23,19 +23,21 @@ builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredServ
 
 // Provider orchestration services
 builder.Services.AddSingleton<IProviderRepository, JsonProviderRepository>();
+builder.Services.AddSingleton<IProviderValidationService, ProviderValidationService>();
 
 // Provider validation coordination (US-11)
-builder.Services.AddSingleton<ProviderСapabilityValidationService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderСapabilityValidationService>());
+
 
 // Register appropriate orchestrator based on mode
 var orchestrationMode = builder.Configuration["Orchestration:Mode"] ?? "Production";
 if (orchestrationMode == "Production")
 {
+    // Production: DockerProviderOrchestrator handles validation + deployment
     builder.Services.AddSingleton<IProviderOrchestrator, DockerProviderOrchestrator>();
 }
 else
 {
+    // Development: Simple tracker for 3 compose-managed providers
     builder.Services.AddSingleton<IProviderOrchestrator, ComposeManagedOrchestrator>();
 }
 

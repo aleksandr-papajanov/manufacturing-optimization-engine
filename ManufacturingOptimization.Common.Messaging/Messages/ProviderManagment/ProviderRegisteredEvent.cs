@@ -10,10 +10,9 @@ public class ProviderRegisteredEvent : IMessage
     public string ProviderType { get; set; } = string.Empty;
     
     /// <summary>
-    /// List of capabilities this provider supports.
-    /// E.g., ["Cleaning", "Disassembly", "Redesign", "Turning", "Grinding", "PartSubstitution", "Reassembly", "Certification"]
+    /// List of processes this provider can perform with specific characteristics.
     /// </summary>
-    public List<string> Capabilities { get; set; } = new();
+    public List<ProcessCapability> ProcessCapabilities { get; set; } = new();
     
     /// <summary>
     /// Technical requirements/capabilities of the provider.
