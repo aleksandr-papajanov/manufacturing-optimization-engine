@@ -5,6 +5,19 @@ using ManufacturingOptimization.Gateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy
+                .WithOrigins("http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
+
+
 // 1. Add Services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -40,6 +53,9 @@ var app = builder.Build();
 // 6. Configure Pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseRouting();
+app.UseCors("AllowFrontend");
 
 app.UseAuthorization();
 app.MapControllers();
