@@ -1,4 +1,6 @@
-namespace ManufacturingOptimization.Engine.Abstractions.Pipeline;
+using ManufacturingOptimization.Engine.Models;
+
+namespace ManufacturingOptimization.Engine.Abstractions;
 
 /// <summary>
 /// A single step in the workflow optimization pipeline.

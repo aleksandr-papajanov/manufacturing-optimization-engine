@@ -11,36 +11,30 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient(); // Required for Legacy "Get Providers"
 
-// --- FIX: Register ALL Legacy Repositories ---
-// 1. Provider Repository (For "Get Providers List")
-builder.Services.AddScoped<IProviderRepository, InMemoryProviderRepository>();
+// 2. Configure RabbitMQ Settings from appsettings.json
+builder.Services.Configure<RabbitMqSettings>(
+    builder.Configuration.GetSection(RabbitMqSettings.SectionName));
 
-// 2. Request/Response Repository (For "Run Random Demo")
-builder.Services.AddScoped<IRequestResponseRepository, InMemoryRequestResponseRepository>(); 
-
-// 3. Configure RabbitMQ Settings (For US-06)
-builder.Services.Configure<RabbitMqSettings>(options =>
-{
-    options.Host = "rabbitmq";
-    options.Port = 5672;
-    options.Username = "admin";
-    options.Password = "admin123";
-});
-
-// 4. Register RabbitMQ Service
+// 3. Register RabbitMQ Service
 builder.Services.AddSingleton<RabbitMqService>();
 
-// 5. Map Messaging Interfaces
+// 4. Map Messaging Interfaces
 builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
 
+// 5. Register Repositories (Singleton for in-memory implementations)
+builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
+builder.Services.AddSingleton<IRequestResponseRepository, InMemoryRequestResponseRepository>();
+
+// 6. Add Background Worker
+builder.Services.AddHostedService<GatewayWorker>();
+
 var app = builder.Build();
 
-// 6. Configure Pipeline
+// 7. Configure Pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseAuthorization();
 app.MapControllers();
 

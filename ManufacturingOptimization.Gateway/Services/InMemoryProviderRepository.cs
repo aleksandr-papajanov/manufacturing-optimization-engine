@@ -1,11 +1,12 @@
 using System.Collections.Concurrent;
+using Common.Models;
 using ManufacturingOptimization.Gateway.Abstractions;
 
 namespace ManufacturingOptimization.Gateway.Services;
 
 public class InMemoryProviderRepository : IProviderRepository
 {
-    private readonly ConcurrentDictionary<Guid, RegisteredProvider> _providers = new();
+    private readonly ConcurrentDictionary<Guid, Provider> _providers = new();
     private readonly ILogger<InMemoryProviderRepository> _logger;
 
     public InMemoryProviderRepository(ILogger<InMemoryProviderRepository> logger)
@@ -13,25 +14,20 @@ public class InMemoryProviderRepository : IProviderRepository
         _logger = logger;
     }
 
-    public void Create(Guid providerId, string providerType, string providerName)
+    public void Create(Provider provider)
     {
-        var provider = new RegisteredProvider
-        {
-            ProviderId = providerId,
-            ProviderType = providerType,
-            ProviderName = providerName,
-            RegisteredAt = DateTime.UtcNow
-        };
-
-        _providers[providerId] = provider;
+        if (provider == null)
+            throw new ArgumentNullException(nameof(provider));
+            
+        _providers[provider.Id] = provider;
     }
 
-    public List<RegisteredProvider> GetAll()
+    public List<Provider> GetAll()
     {
-        return _providers.Values.OrderBy(p => p.RegisteredAt).ToList();
+        return _providers.Values.OrderBy(p => p.Name).ToList();
     }
 
-    public RegisteredProvider? GetById(Guid providerId)
+    public Provider? GetById(Guid providerId)
     {
         return _providers.TryGetValue(providerId, out var provider) ? provider : null;
     }

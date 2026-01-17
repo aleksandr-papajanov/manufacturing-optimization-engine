@@ -1,17 +1,14 @@
 namespace ManufacturingOptimization.Engine.Models;
 
+/// <summary>
+/// Results from the optimization step.
+/// </summary>
 public class OptimizationResult
 {
-    public string ProviderId { get; set; } = string.Empty;
-    public string ProviderName { get; set; } = string.Empty;
-    
-    // Existing metrics
-    public double MatchScore { get; set; }
-    public decimal EstimatedCost { get; set; }
-    public double EstimatedLeadTimeDays { get; set; }
-    public double SustainabilityRating { get; set; }
-
-    // NEW FIELDS [US-07-T5]
-    public string WarrantyTerms { get; set; } = string.Empty; // e.g., "12 Months Parts & Labor"
-    public bool IncludesInsurance { get; set; } = false;      // e.g., true/false
+    public decimal TotalCost { get; set; }
+    public TimeSpan TotalDuration { get; set; }
+    public double AverageQuality { get; set; }
+    public double TotalEmissionsKgCO2 { get; set; }
+    public string SolverStatus { get; set; } = string.Empty;
+    public double ObjectiveValue { get; set; }
 }

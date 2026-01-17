@@ -1,5 +1,5 @@
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
-using ManufacturingOptimization.ProviderRegistry.Entities;
+using Common.Models;
 using System.Text.Json;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;

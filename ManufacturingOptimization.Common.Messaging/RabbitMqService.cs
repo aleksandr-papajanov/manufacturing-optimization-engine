@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -15,9 +16,12 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
     private readonly RabbitMqSettings _settings;
 
     private readonly Dictionary<string, EventingBasicConsumer> _consumers = new();
+    private readonly Dictionary<string, List<MessageHandler>> _handlers = new(); // Multiple handlers per queue
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<IMessage>> _pendingRequests = new();
 
     private IConnection _connection = null!;
     private IModel _channel = null!;
+    private string _replyQueueName = null!;
 
     public RabbitMqService(
         IOptions<RabbitMqSettings> settings,
@@ -48,6 +52,10 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                 exchange: Exchanges.Optimization,
                 type: ExchangeType.Topic,
                 durable: true);
+            
+            // Setup reply queue for RPC pattern
+            _replyQueueName = _channel.QueueDeclare().QueueName;
+            SetupReplyQueueConsumer();
         }
         catch (Exception ex)
         {
@@ -74,11 +82,167 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
             body: body);
     }
 
+    public async Task<TResponse?> RequestReplyAsync<TResponse>(string exchangeName, string routingKey, IMessage request, TimeSpan? timeout = null) where TResponse : class, IMessage
+    {
+        timeout ??= TimeSpan.FromSeconds(30);
+        
+        // For ICommand messages, use CommandId as correlation ID
+        string correlationId;
+        var requestType = request.GetType();
+        var commandIdProp = requestType.GetProperty("CommandId");
+        
+        if (commandIdProp != null && commandIdProp.CanRead)
+        {
+            var commandIdValue = commandIdProp.GetValue(request);
+            if (commandIdValue is Guid commandGuid)
+            {
+                correlationId = commandGuid.ToString();
+            }
+            else
+            {
+                correlationId = Guid.NewGuid().ToString();
+            }
+        }
+        else
+        {
+            correlationId = Guid.NewGuid().ToString();
+        }
+        
+        var tcs = new TaskCompletionSource<IMessage>();
+        _pendingRequests[correlationId] = tcs;
+
+        try
+        {
+            // Set ReplyTo on the message object itself using reflection
+            var replyToProp = requestType.GetProperty("ReplyTo");
+            
+            if (replyToProp != null && replyToProp.CanWrite)
+            {
+                replyToProp.SetValue(request, _replyQueueName);
+            }
+            
+            var json = JsonSerializer.Serialize(request, request.GetType());
+            var body = Encoding.UTF8.GetBytes(json);
+
+            var properties = _channel.CreateBasicProperties();
+            properties.CorrelationId = correlationId;
+            properties.ReplyTo = _replyQueueName;
+            properties.Headers = new Dictionary<string, object>
+            {
+                ["MessageType"] = request.GetType().FullName ?? request.GetType().Name
+            };
+
+            _channel.BasicPublish(
+                exchange: exchangeName,
+                routingKey: routingKey,
+                basicProperties: properties,
+                body: body);
+
+            // Wait for response with timeout
+            using var cts = new CancellationTokenSource(timeout.Value);
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(timeout.Value, cts.Token));
+            
+            if (completedTask == tcs.Task)
+            {
+                var response = await tcs.Task;
+                return response as TResponse;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        finally
+        {
+            _pendingRequests.TryRemove(correlationId, out _);
+        }
+    }
+
+    private void SetupReplyQueueConsumer()
+    {
+        var consumer = new EventingBasicConsumer(_channel);
+        
+        consumer.Received += (sender, e) =>
+        {
+            try
+            {
+                var correlationId = e.BasicProperties.CorrelationId;
+                
+                if (_pendingRequests.TryGetValue(correlationId, out var tcs))
+                {
+                    var body = e.Body.ToArray();
+                    var json = Encoding.UTF8.GetString(body);
+                    
+                    string? messageType = null;
+                    if (e.BasicProperties?.Headers?.TryGetValue("MessageType", out var typeObj) == true)
+                    {
+                        messageType = Encoding.UTF8.GetString((byte[])typeObj);
+                    }
+
+                    if (messageType != null)
+                    {
+                        var type = Type.GetType(messageType);
+                        if (type != null)
+                        {
+                            var message = JsonSerializer.Deserialize(json, type) as IMessage;
+                            if (message != null)
+                            {
+                                _logger.LogDebug("Received RPC response {CorrelationId}", correlationId);
+                                tcs.SetResult(message);
+                            }
+                        }
+                    }
+                }
+                
+                _channel.BasicAck(e.DeliveryTag, multiple: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing RPC reply");
+                _channel.BasicNack(e.DeliveryTag, multiple: false, requeue: false);
+            }
+        };
+
+        _channel.BasicConsume(
+            queue: _replyQueueName,
+            autoAck: false,
+            consumer: consumer);
+    }
+
+    public void PublishReply<T>(string replyToQueue, string correlationId, T message) where T : IMessage
+    {
+        var json = JsonSerializer.Serialize(message);
+        var body = Encoding.UTF8.GetBytes(json);
+
+        var properties = _channel.CreateBasicProperties();
+        properties.CorrelationId = correlationId;
+        properties.Headers = new Dictionary<string, object>
+        {
+            ["MessageType"] = typeof(T).FullName ?? typeof(T).Name
+        };
+
+        _channel.BasicPublish(
+            exchange: string.Empty, // Direct to queue
+            routingKey: replyToQueue,
+            basicProperties: properties,
+            body: body);
+    }
+
     public void Subscribe<T>(string queueName, Action<T> handler) where T : IMessage
     {
-        DeclareQueue(queueName);
-        BindQueue(queueName, Exchanges.Optimization, queueName);
+        // Store handler for this message type
+        if (!_handlers.ContainsKey(queueName))
+        {
+            _handlers[queueName] = new List<MessageHandler>();
+        }
+        
+        _handlers[queueName].Add(new MessageHandler 
+        { 
+            MessageType = typeof(T),
+            Handler = handler 
+        });
 
+        // Create consumer only once per queue
         if (_consumers.ContainsKey(queueName))
             return;
 
@@ -98,15 +262,34 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                     messageType = Encoding.UTF8.GetString((byte[])typeObj);
                 }
 
-                var expectedType = typeof(T).FullName ?? typeof(T).Name;
-
-                if (messageType == null || messageType == expectedType)
+                // Try to invoke all matching handlers
+                bool handled = false;
+                foreach (var handlerInfo in _handlers[queueName])
                 {
-                    var message = JsonSerializer.Deserialize<T>(json);
-                    if (message != null)
+                    var expectedTypeName = handlerInfo.MessageType.FullName ?? handlerInfo.MessageType.Name;
+                    
+                    if (messageType == null || messageType == expectedTypeName)
                     {
-                        handler(message);
+                        try
+                        {
+                            var message = JsonSerializer.Deserialize(json, handlerInfo.MessageType);
+                            if (message != null)
+                            {
+                                handlerInfo.Handler.DynamicInvoke(message);
+                                handled = true;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error invoking handler for {MessageType}", expectedTypeName);
+                        }
                     }
+                }
+
+                if (!handled)
+                {
+                    _logger.LogWarning("No handler found for message type {MessageType} on queue {Queue}", 
+                        messageType, queueName);
                 }
 
                 _channel.BasicAck(e.DeliveryTag, multiple: false);

@@ -3,8 +3,8 @@ using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Engine;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Services;
+using ManufacturingOptimization.Engine.Services.Pipeline;
 using ManufacturingOptimization.Engine.Settings;
-using Microsoft.Extensions.Options;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -19,6 +19,12 @@ builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredServ
 
 // Provider registry
 builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
+
+// Pipeline factory
+builder.Services.AddSingleton<IPipelineFactory, PipelineFactory>();
+
+// Startup coordination
+builder.Services.AddHostedService<StartupCoordinator>();
 
 builder.Services.AddHostedService<ProviderCapabilityValidationService>();
 builder.Services.AddHostedService<EngineWorker>();

@@ -1,8 +1,12 @@
+using Common.Models;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using ManufacturingOptimization.Common.Messaging;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
-using ManufacturingOptimization.ProviderRegistry.Entities;
 using Microsoft.Extensions.Options;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;
@@ -13,45 +17,108 @@ namespace ManufacturingOptimization.ProviderRegistry.Services;
 public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrchestrator
 {
     private readonly IProviderRepository _repository;
+    private readonly IProviderValidationService _validationService;
+    private readonly IMessagingInfrastructure _messagingInfrastructure;
+    private readonly IMessageSubscriber _messageSubscriber;
+    private readonly IMessagePublisher _messagePublisher;
     private readonly DockerSettings _dockerSettings;
     private readonly RabbitMqSettings _rabbitMqSettings;
     private readonly Dictionary<Guid, string> _runningProviders = []; // providerId -> containerId
+    private readonly HashSet<Guid> _readyProviders = new(); // Track ServiceReadyEvent from containers
+    private readonly HashSet<Guid> _registeredProviders = new(); // Track ProviderRegisteredEvents
     private string? _networkName;
 
     public DockerProviderOrchestrator(
         ILogger<DockerProviderOrchestrator> logger,
         IProviderRepository repository,
+        IProviderValidationService validationService,
+        IMessagingInfrastructure messagingInfrastructure,
+        IMessageSubscriber messageSubscriber,
+        IMessagePublisher messagePublisher,
         IOptions<DockerSettings> dockerSettings,
         IOptions<RabbitMqSettings> rabbitMqSettings)
         : base(logger)
     {
         _repository = repository;
+        _validationService = validationService;
+        _messagingInfrastructure = messagingInfrastructure;
+        _messageSubscriber = messageSubscriber;
+        _messagePublisher = messagePublisher;
         _dockerSettings = dockerSettings.Value;
         _rabbitMqSettings = rabbitMqSettings.Value;
+        
+        SetupRabbitMq();
+    }
+    
+    private void SetupRabbitMq()
+    {
+        _messagingInfrastructure.DeclareQueue("orchestrator.provider.registered");
+        _messagingInfrastructure.BindQueue("orchestrator.provider.registered", Exchanges.Provider, ProviderRoutingKeys.Registered);
+        _messagingInfrastructure.PurgeQueue("orchestrator.provider.registered");
+        
+        _messageSubscriber.Subscribe<ProviderRegisteredEvent>("orchestrator.provider.registered", async evt => await HandleProviderRegistered(evt));
+    }
+    
+    private async Task HandleProviderRegistered(ProviderRegisteredEvent evt)
+    {
+        var allStarted = false;
+
+        lock (_registeredProviders)
+        {
+            // Track this provider as registered
+            if (_registeredProviders.Add(evt.ProviderId))
+            {
+                // Check if all started containers have registered
+                if (_registeredProviders.Count == _runningProviders.Count && _runningProviders.Count > 0)
+                {
+                    allStarted = true;
+                }
+            }
+        }
+
+        if (allStarted)
+        {
+            await Task.Delay(2000);
+            _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.AllReady, new AllProvidersReadyEvent());
+        }
     }
 
     public async Task StartAllAsync(CancellationToken cancellationToken = default)
     {
         var providers = await _repository.GetAllAsync(cancellationToken);
+        var enabledProviders = providers.Where(p => p.Enabled).ToList();
         
-        foreach (var provider in providers.Where(p => p.Enabled))
+        if (!enabledProviders.Any())
+        {
+            return;
+        }
+        
+        foreach (var provider in enabledProviders)
         {
             try
             {
+                var (isApproved, declinedReason) = await _validationService.ValidateAsync(provider, cancellationToken: cancellationToken);
+                
+                if (!isApproved)
+                {
+                    continue;
+                }
+                
                 await StartAsync(provider, cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to start provider {Type} ({Id})", provider.Type, provider.Id);
+                _logger.LogError(ex, "Failed to validate/start provider {Type} ({Id})", provider.Type, provider.Id);
             }
         }
+
+        _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.StartAll, new StartAllProvidersCommand());
     }
 
     public async Task StartAsync(Provider provider, CancellationToken cancellationToken = default)
     {
         if (_runningProviders.ContainsKey(provider.Id))
         {
-            _logger.LogWarning("Provider {ProviderId} is already running", provider.Id);
             return;
         }
 
@@ -70,10 +137,14 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
             $"RabbitMQ__Password={_rabbitMqSettings.Password}"
         };
 
-        // Add capabilities
-        for (int i = 0; i < provider.Capabilities.Count; i++)
+        // Add process capabilities
+        for (int i = 0; i < provider.ProcessCapabilities.Count; i++)
         {
-            envVars.Add($"{provider.Type}__Capabilities__{i}={provider.Capabilities[i]}");
+            var capability = provider.ProcessCapabilities[i];
+            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__ProcessName={capability.ProcessName}");
+            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__CostPerHour={capability.CostPerHour}");
+            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__QualityScore={capability.QualityScore}");
+            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__CarbonIntensityKgCO2PerKwh={capability.CarbonIntensityKgCO2PerKwh}");
         }
 
         // Add technical capabilities

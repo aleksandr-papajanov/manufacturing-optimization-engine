@@ -8,5 +8,5 @@ public interface IRecommendationEngine
     /// <summary>
     /// Analyzes available providers and returns a ranked list of recommendations.
     /// </summary>
-    List<OptimizationResult> GenerateRecommendations(MotorRequest request, IEnumerable<Provider> capableProviders);
+    List<ProviderRecommendation> GenerateRecommendations(MotorRequest request, IEnumerable<Provider> capableProviders);
 }

@@ -1,4 +1,6 @@
-namespace ManufacturingOptimization.Engine.Abstractions.Pipeline;
+using ManufacturingOptimization.Engine.Models;
+
+namespace ManufacturingOptimization.Engine.Abstractions;
 
 /// <summary>
 /// Represents a workflow optimization pipeline.

@@ -1,26 +1,24 @@
-namespace ManufacturingOptimization.Engine.Abstractions;
+using Common.Models;
 
-public class RegisteredProvider
-{
-    public Guid ProviderId { get; set; }
-    public string ProviderType { get; set; } = string.Empty;
-    public string ProviderName { get; set; } = string.Empty;
-    public List<string> Capabilities { get; set; } = new();
-    
-    public double AxisHeight { get; set; }
-    public double Power { get; set; }
-    public double Tolerance { get; set; }
-}
+namespace ManufacturingOptimization.Engine.Abstractions;
 
 public interface IProviderRepository
 {
     int Count { get; }
-    void Create(Guid providerId, string providerType, string providerName, List<string> capabilities, 
-        double axisHeight = 0, double power = 0, double tolerance = 0);
-    List<RegisteredProvider> GetAll();
     
     /// <summary>
-    /// Find all providers that have the specified capability.
+    /// Create a new provider in the repository.
     /// </summary>
-    List<RegisteredProvider> FindByCapability(string capability);
+    void Create(Provider provider);
+    
+    /// <summary>
+    /// Get all registered providers.
+    /// </summary>
+    List<Provider> GetAll();
+    
+    /// <summary>
+    /// Find all providers that can perform the specified process.
+    /// Returns providers with their ProcessCapability for that process.
+    /// </summary>
+    List<(Provider Provider, ProcessCapability Capability)> FindByProcess(string processName);
 }

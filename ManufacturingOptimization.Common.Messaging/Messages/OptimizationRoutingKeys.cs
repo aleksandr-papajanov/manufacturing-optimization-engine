@@ -4,4 +4,5 @@ public static class OptimizationRoutingKeys
 {
     public const string PlanRequested = "optimization.plan-requested";
     public const string PlanCreated = "optimization.plan-created";
+    public const string PlanReady = "optimization.plan-ready";
 }
