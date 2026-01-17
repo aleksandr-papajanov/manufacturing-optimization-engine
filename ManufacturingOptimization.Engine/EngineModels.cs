@@ -1,21 +1,8 @@
 using System;
 using System.Collections.Generic;
-using ManufacturingOptimization.Common.Messaging.Abstractions;
-using System.Text.Json.Serialization;
 
 namespace ManufacturingOptimization.Engine
 {
-    // The Event from RabbitMQ
-    public class ProviderRegisteredEvent : IMessage
-    {
-        public Guid MessageId { get; set; } = Guid.NewGuid();
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-        public string ProviderId { get; set; } = string.Empty;
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty; 
-    }
-
     // The Internal Provider Model
     public class Provider
     {
