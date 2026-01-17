@@ -3,6 +3,7 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagment;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
+using Common.Models;
 
 namespace ManufacturingOptimization.ProviderSimulator;
 
@@ -57,7 +58,14 @@ public class ProviderSimulatorWorker : BackgroundService
         {
             ProviderId = _providerLogic.ProviderId,
             ProviderType = _providerLogic.GetType().Name,
-            ProviderName = _providerLogic.ProviderName
+            ProviderName = _providerLogic.ProviderName,
+            Capabilities = _providerLogic.Capabilities,
+            TechnicalCapabilities = new TechnicalCapabilities
+            {
+                AxisHeight = _providerLogic.AxisHeight,
+                Power = _providerLogic.Power,
+                Tolerance = _providerLogic.Tolerance
+            }
         };
 
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.Registered, registeredEvent);

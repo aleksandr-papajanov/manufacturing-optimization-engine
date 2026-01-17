@@ -76,10 +76,10 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
             envVars.Add($"{provider.Type}__Capabilities__{i}={provider.Capabilities[i]}");
         }
 
-        // Add technical requirements
-        envVars.Add($"{provider.Type}__AxisHeight={provider.TechnicalRequirements.AxisHeight}");
-        envVars.Add($"{provider.Type}__Power={provider.TechnicalRequirements.Power}");
-        envVars.Add($"{provider.Type}__Tolerance={provider.TechnicalRequirements.Tolerance}");
+        // Add technical capabilities
+        envVars.Add($"{provider.Type}__AxisHeight={provider.TechnicalCapabilities.AxisHeight}");
+        envVars.Add($"{provider.Type}__Power={provider.TechnicalCapabilities.Power}");
+        envVars.Add($"{provider.Type}__Tolerance={provider.TechnicalCapabilities.Tolerance}");
 
         var createParams = new CreateContainerParameters
         {

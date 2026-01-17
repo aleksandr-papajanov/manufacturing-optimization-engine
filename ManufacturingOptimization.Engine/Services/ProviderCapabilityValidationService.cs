@@ -4,6 +4,7 @@ using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Settings;
 using Microsoft.Extensions.Options;
+using Common.Models;
 
 namespace ManufacturingOptimization.Engine.Services;
 
@@ -111,7 +112,7 @@ public class ProviderCapabilityValidationService : BackgroundService
         }
 
         // Validate technical requirements
-        var technicalResult = ValidateTechnicalRequirements(request.TechnicalRequirements);
+        var technicalResult = ValidateTechnicalRequirements(request.TechnicalCapabilities);
         if (!technicalResult.IsValid)
         {
             return technicalResult;
@@ -171,7 +172,7 @@ public class ProviderCapabilityValidationService : BackgroundService
         return new ValidationResult { IsValid = true };
     }
 
-    private ValidationResult ValidateTechnicalRequirements(TechnicalRequirementsDto? requirements)
+    private ValidationResult ValidateTechnicalRequirements(TechnicalCapabilities? requirements)
     {
         if (requirements == null)
         {

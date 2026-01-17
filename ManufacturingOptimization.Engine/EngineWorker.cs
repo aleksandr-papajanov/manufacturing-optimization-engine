@@ -4,12 +4,15 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
 using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Engine.Abstractions.Pipeline;
+using ManufacturingOptimization.Engine.Services.Pipeline;
 
 namespace ManufacturingOptimization.Engine;
 
 public class EngineWorker : BackgroundService
 {
     private readonly ILogger<EngineWorker> _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagePublisher _messagePublisher;
@@ -18,6 +21,7 @@ public class EngineWorker : BackgroundService
 
     public EngineWorker(
         ILogger<EngineWorker> logger,
+        ILoggerFactory loggerFactory,
         IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
         IMessagePublisher messagePublisher,
@@ -25,6 +29,7 @@ public class EngineWorker : BackgroundService
         IRecommendationEngine recommendationEngine)
     {
         _logger = logger;
+        _loggerFactory = loggerFactory;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
@@ -50,8 +55,9 @@ public class EngineWorker : BackgroundService
         _messagingInfrastructure.DeclareQueue("engine.provider.events");
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllReady);
-        //_messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
-        //_messageSubscriber.Subscribe<AllProvidersReadyEvent>("engine.provider.events", HandleProvidersReady);
+        
+        // Subscribe to provider events
+        _messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
         
         _messagingInfrastructure.DeclareQueue("engine.optimization.requests");
         _messagingInfrastructure.BindQueue("engine.optimization.requests", Exchanges.Optimization, "optimization.request");
@@ -63,73 +69,90 @@ public class EngineWorker : BackgroundService
         _messageSubscriber.Subscribe<SelectStrategyCommand>("optimization.strategy.selected", HandleStrategySelection);
     }
 
-    // ... HandleOptimizationRequest (Keep your existing method exactly as it is) ...
-    // (I am omitting the long existing method here to save space, but DO NOT DELETE IT)
-    private void HandleOptimizationRequest(RequestOptimizationPlanCommand command)
+    private void HandleProviderRegistered(ProviderRegisteredEvent evt)
     {
-         // ... (Keep the exact code from US-07-T2 logic we just verified) ...
-         // ... Reconstruct Request ...
-         // ... Inject Mock Providers ...
-         // ... Calculate Rankings ...
-         // ... Log Winner ...
-         // COPY PASTE YOUR EXISTING LOGIC HERE
-         // If you need me to paste the full file again, just ask!
-         
-         // Log for context
-         _logger.LogInformation($"Processing Request {command.CommandId}...");
-         
-         // ... (Shortened for brevity) ...
-         
-         // Mock Logic for Ranking...
-         var motorRequest = new MotorRequest { RequestId = command.CommandId, Constraints = new RequestConstraints { Priority = OptimizationPriority.HighestQuality } };
-         var registeredProviders = _providerRepository.GetAll();
-         if (!registeredProviders.Any()) 
-         {
-             registeredProviders = new List<RegisteredProvider>
-             {
-                 new RegisteredProvider { ProviderId = Guid.NewGuid(), ProviderName = "Fast & Expensive Corp" },
-                 new RegisteredProvider { ProviderId = Guid.NewGuid(), ProviderName = "Eco Green Motors" },
-                 new RegisteredProvider { ProviderId = Guid.NewGuid(), ProviderName = "Budget Fixers Ltd" }
-             };
-         }
-         
-         var allProviders = registeredProviders.Select(rp => new Provider 
-         {
-             Id = rp.ProviderId.ToString(),
-             Name = rp.ProviderName,
-             Capabilities = new Capabilities { MaxPowerKW = 100, SupportedTypes = new List<string> { "IE1", "IE2", "IE3", "IE4" } } 
-         }).ToList();
-
-         var capableProviders = allProviders.Where(p => p.Capabilities.MaxPowerKW >= 5.5 && p.Capabilities.SupportedTypes.Contains("IE1")).ToList();
-         
-         _logger.LogInformation($"✓ VALIDATION SUCCESS: Found {capableProviders.Count} capable providers.");
-         
-         var recommendations = _recommendationEngine.GenerateRecommendations(motorRequest, capableProviders);
-         
-        // 5. Log the Results
-        _logger.LogInformation("--- OPTIMIZATION RESULTS ---");
-        foreach (var rec in recommendations)
-        {
-            // UPDATED LOGGING FOR T5
-            _logger.LogInformation($"Option: {rec.ProviderName} | Score: {rec.MatchScore:F1} | Cost: ${rec.EstimatedCost:F0} | Warranty: {rec.WarrantyTerms} | Insured: {rec.IncludesInsurance}");
-        }
-         
-         if (recommendations.Any())
-         {
-             var winner = recommendations.First();
-             _logger.LogInformation($"🏆 WINNER SELECTED: {winner.ProviderName} (Score: {winner.MatchScore:F1})");
-         }
+        _logger.LogInformation("Provider registered: {ProviderId} ({ProviderName}) with {CapabilityCount} capabilities",
+            evt.ProviderId, evt.ProviderName, evt.Capabilities.Count);
+        
+        _providerRepository.Create(
+            evt.ProviderId, 
+            evt.ProviderType, 
+            evt.ProviderName, 
+            evt.Capabilities,
+            evt.TechnicalCapabilities.AxisHeight,
+            evt.TechnicalCapabilities.Power,
+            evt.TechnicalCapabilities.Tolerance);
     }
 
-    // --- NEW HANDLER FOR US-07-T4 ---
+    private async void HandleOptimizationRequest(RequestOptimizationPlanCommand command)
+    {
+        _logger.LogInformation("Processing request {RequestId}", command.CommandId);
+        
+        try
+        {
+            // Mock data for demonstration
+            var motorRequest = new MotorRequest
+            {
+                RequestId = command.CommandId,
+                Specs = new MotorSpecifications
+                {
+                    PowerKW = 5.5,
+                    AxisHeightMM = 75,
+                    CurrentEfficiency = EfficiencyClass.IE1,
+                    TargetEfficiency = EfficiencyClass.IE4 // This will trigger Upgrade workflow (8 steps)
+                },
+                Constraints = new RequestConstraints
+                {
+                    MaxBudget = 10000,
+                    Priority = OptimizationPriority.HighestQuality
+                }
+            };
+
+            // Create workflow pipeline
+            var pipeline = CreateWorkflowPipeline();
+            var context = new WorkflowContext { Request = motorRequest };
+
+            // Execute pipeline
+            await pipeline.ExecuteAsync(context);
+
+            if (context.IsSuccess)
+            {
+                _logger.LogInformation("Workflow: {WorkflowType} ({StepCount} steps)", 
+                    context.WorkflowType, context.ProcessSteps.Count);
+                
+                foreach (var step in context.ProcessSteps)
+                {
+                    _logger.LogInformation("  Step {StepNumber}: {Activity} - {ProviderCount} providers matched",
+                        step.StepNumber, step.Activity, step.MatchedProviders.Count);
+                }
+            }
+            else
+            {
+                _logger.LogError("Pipeline failed: {Errors}", string.Join(", ", context.Errors));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing optimization request");
+        }
+    }
+
+    private IPipeline CreateWorkflowPipeline()
+    {
+        var steps = new IPipelineStep[]
+        {
+            new WorkflowMatchingStep(_loggerFactory.CreateLogger<WorkflowMatchingStep>()),
+            new ProviderMatchingStep(_providerRepository, _loggerFactory.CreateLogger<ProviderMatchingStep>())
+        };
+
+        return new WorkflowPipeline(steps, _loggerFactory.CreateLogger<WorkflowPipeline>());
+    }
+
     private void HandleStrategySelection(SelectStrategyCommand command)
     {
-        _logger.LogInformation("--------------------------------------------------");
-        _logger.LogInformation($"✅ CUSTOMER SELECTION CONFIRMED!");
-        _logger.LogInformation($"   Request ID:  {command.RequestId}");
-        _logger.LogInformation($"   Provider ID: {command.SelectedProviderId}");
-        _logger.LogInformation($"   Strategy:    {command.SelectedStrategyName}");
-        _logger.LogInformation($"🚀 Job has been officially started. Dispatching to Provider...");
-        _logger.LogInformation("--------------------------------------------------");
+        _logger.LogInformation("✅ CUSTOMER SELECTION CONFIRMED!");
+        _logger.LogInformation("   Request ID:  {RequestId}", command.RequestId);
+        _logger.LogInformation("   Provider ID: {SelectedProviderId}", command.SelectedProviderId);
+        _logger.LogInformation("   Strategy:    {SelectedStrategyName}", command.SelectedStrategyName);
     }
 }

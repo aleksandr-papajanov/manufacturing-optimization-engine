@@ -99,12 +99,7 @@ public class ProviderСapabilityValidationService : BackgroundService
                 ProviderType = state.Provider.Type,
                 ProviderName = state.Provider.Name,
                 Capabilities = state.Provider.Capabilities,
-                TechnicalRequirements = new TechnicalRequirementsDto
-                {
-                    AxisHeight = state.Provider.TechnicalRequirements.AxisHeight,
-                    Power = state.Provider.TechnicalRequirements.Power,
-                    Tolerance = state.Provider.TechnicalRequirements.Tolerance
-                },
+                TechnicalCapabilities = state.Provider.TechnicalCapabilities
             };
 
             _publisher.Publish(Exchanges.Provider, ProviderRoutingKeys.ValidationRequested, validationRequest);
