@@ -1,4 +1,4 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
@@ -18,7 +18,7 @@ public class ComposeManagedOrchestrator : ProviderOrchestratorBase, IProviderOrc
     private readonly IMessagePublisher _messagePublisher;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
-    private readonly HashSet<Guid> _registeredProviders = new();
+    private readonly HashSet<Guid> _registeredProviders = [];
     
     public ComposeManagedOrchestrator(
         ILogger<ComposeManagedOrchestrator> logger,

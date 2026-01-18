@@ -1,5 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 
@@ -12,7 +12,7 @@ public class ProviderRegisteredEvent : IMessage
     /// <summary>
     /// List of processes this provider can perform with specific characteristics.
     /// </summary>
-    public List<ProcessCapability> ProcessCapabilities { get; set; } = new();
+    public List<ProviderProcessCapability> ProcessCapabilities { get; set; } = [];
     
     /// <summary>
     /// Technical requirements/capabilities of the provider.

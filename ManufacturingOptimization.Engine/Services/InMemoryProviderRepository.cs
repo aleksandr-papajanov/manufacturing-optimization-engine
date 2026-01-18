@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Engine.Abstractions;
 
 namespace ManufacturingOptimization.Engine.Services;
@@ -33,7 +33,7 @@ public class InMemoryProviderRepository : IProviderRepository
         return _providers.Values.ToList();
     }
     
-    public List<(Provider Provider, ProcessCapability Capability)> FindByProcess(string processName)
+    public List<(Provider Provider, ProviderProcessCapability Capability)> FindByProcess(string processName)
     {
         return _providers.Values
             .SelectMany(p => p.ProcessCapabilities

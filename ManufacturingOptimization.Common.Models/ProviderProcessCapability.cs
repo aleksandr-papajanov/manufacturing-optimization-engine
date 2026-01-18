@@ -1,10 +1,10 @@
-namespace Common.Models;
+namespace ManufacturingOptimization.Common.Models;
 
 /// <summary>
 /// Defines a process that a provider can perform with specific characteristics.
 /// Each provider has different capabilities, costs, and environmental impact for each process.
 /// </summary>
-public class ProcessCapability
+public class ProviderProcessCapability
 {
     /// <summary>
     /// Process name (e.g., "Turning", "Grinding", "Cleaning").

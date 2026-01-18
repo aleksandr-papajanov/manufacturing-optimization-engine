@@ -1,4 +1,4 @@
-namespace Common.Models;
+namespace ManufacturingOptimization.Common.Models;
 
 /// <summary>
 /// Single step in optimized workflow with selected provider.

@@ -1,4 +1,4 @@
-﻿using Common.Models;
+﻿using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
@@ -10,5 +10,5 @@ public class RequestOptimizationPlanCommand : IMessage, ICommand
     /// <summary>
     /// Motor request submitted by customer.
     /// </summary>
-    public MotorRequest Request { get; set; } = new();
+    public OptimizationRequest Request { get; set; } = new();
 }

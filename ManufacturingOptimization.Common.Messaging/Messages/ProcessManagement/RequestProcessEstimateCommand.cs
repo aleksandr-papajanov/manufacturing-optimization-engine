@@ -1,5 +1,5 @@
-using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 

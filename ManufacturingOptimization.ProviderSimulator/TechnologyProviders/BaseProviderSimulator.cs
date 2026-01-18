@@ -1,8 +1,8 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
 
-namespace TechnologyProvider.Simulator.TechnologyProviders;
+namespace ManufacturingOptimization.ProviderSimulator.TechnologyProviders;
 
 /// <summary>
 /// Base class for all provider simulators with common estimation logic.
@@ -15,7 +15,7 @@ public abstract class BaseProviderSimulator : IProviderSimulator
 
     public Guid ProviderId { get; protected set; }
     public string ProviderName { get; protected set; } = string.Empty;
-    public List<ProcessCapability> ProcessCapabilities { get; protected set; } = new();
+    public List<ProviderProcessCapability> ProcessCapabilities { get; protected set; } = [];
     public ProviderTechnicalCapabilities TechnicalCapabilities { get; protected set; } = new();
 
     protected BaseProviderSimulator(ILogger logger, Dictionary<string, double> standardDurations)

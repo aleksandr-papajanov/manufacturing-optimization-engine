@@ -1,4 +1,4 @@
-using Common.Models; 
+using ManufacturingOptimization.Common.Models; 
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 
@@ -6,19 +6,19 @@ namespace ManufacturingOptimization.Engine.Services;
 
 public class RecommendationEngine : IRecommendationEngine
 {
-    public List<ProviderRecommendation> GenerateRecommendations(MotorRequest request, IEnumerable<Provider> capableProviders)
+    public List<ProviderRecommendation> GenerateRecommendations(OptimizationRequest request, IEnumerable<Provider> capableProviders)
     {
         var results = new List<ProviderRecommendation>();
 
         // 1. Determine the Strategy based on Efficiency Upgrade
         // If Target > Current, it's an UPGRADE. Otherwise, it's REFURBISH/REPAIR.
-        var isUpgrade = request.Specs.TargetEfficiency > request.Specs.CurrentEfficiency;
+        var isUpgrade = request.MotorSpecs.TargetEfficiency > request.MotorSpecs.CurrentEfficiency;
         var strategyName = isUpgrade ? "Upgrade" : "Refurbish";
 
         foreach (var provider in capableProviders)
         {
             // 2. Calculate Base Estimates (Physics + Market Rates)
-            var (baseCost, baseTime, baseEco) = CalculateBaseMetrics(request.Specs.PowerKW, isUpgrade);
+            var (baseCost, baseTime, baseEco) = CalculateBaseMetrics(request.MotorSpecs.PowerKW, isUpgrade);
 
             // 3. Apply Provider "Personality" Modifiers
             ApplyProviderModifiers(provider.Name, ref baseCost, ref baseTime, ref baseEco);
@@ -93,7 +93,7 @@ public class RecommendationEngine : IRecommendationEngine
     }
 
     // NEW HELPER FOR US-07-T5
-    private (string warranty, bool insurance) GetWarrantyAndInsurance(string providerName, bool isUpgrade)
+    private static (string warranty, bool insurance) GetWarrantyAndInsurance(string providerName, bool isUpgrade)
     {
         // Logic: Upgrades generally get better warranties than repairs.
         // Premium providers get better warranties than budget ones.

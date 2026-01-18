@@ -1,9 +1,9 @@
-using Common.Models;
 using Docker.DotNet.Models;
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -22,7 +22,7 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
     private readonly DockerSettings _dockerSettings;
     private readonly RabbitMqSettings _rabbitMqSettings;
     private readonly Dictionary<Guid, string> _runningProviders = []; // providerId -> containerId
-    private readonly HashSet<Guid> _registeredProviders = new(); // Track ProviderRegisteredEvents
+    private readonly HashSet<Guid> _registeredProviders = []; // Track ProviderRegisteredEvents
     private string? _networkName;
 
     public DockerProviderOrchestrator(
@@ -86,7 +86,7 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         var providers = await _repository.GetAllAsync(cancellationToken);
         var enabledProviders = providers.Where(p => p.Enabled).ToList();
         
-        if (!enabledProviders.Any())
+        if (enabledProviders.Count == 0)
         {
             return;
         }

@@ -1,7 +1,7 @@
 using Spectre.Console;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 
 // Configuration
 var apiUrl = Environment.GetEnvironmentVariable("GATEWAY_API_URL") ?? "http://localhost:5000";
@@ -90,11 +90,11 @@ async Task SubmitOptimizationRequest()
     var random = new Random();
     var efficiencyClasses = new[] { MotorEfficiencyClass.IE1, MotorEfficiencyClass.IE2, MotorEfficiencyClass.IE3, MotorEfficiencyClass.IE4 };
 
-    var motorRequest = new MotorRequest
+    var motorRequest = new OptimizationRequest
     {
         RequestId = Guid.NewGuid(),
         CustomerId = Guid.NewGuid().ToString(),
-        Specs = new MotorSpecifications
+        MotorSpecs = new MotorSpecifications
         {
             PowerKW = random.Next(50, 200),
             AxisHeightMM = random.Next(63, 315), // Standard IEC motor sizes
@@ -102,7 +102,7 @@ async Task SubmitOptimizationRequest()
             TargetEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
             MalfunctionDescription = random.Next(0, 2) == 0 ? "Normal operation" : "Reduced efficiency, overheating"
         },
-        Constraints = new MotorRequestConstraints
+        Constraints = new OptimizationRequestConstraints
         {
             MaxBudget = random.Next(0, 3) == 0 ? null : random.Next(5000, 20000), // 33% chance of no budget limit
             RequiredDeadline = random.Next(0, 3) == 0 ? null : DateTime.Now.AddDays(random.Next(30, 90)) // 33% chance of no deadline
@@ -118,11 +118,11 @@ async Task SubmitOptimizationRequest()
 
     table.AddRow("Request ID", motorRequest.RequestId.ToString());
     table.AddRow("Customer ID", motorRequest.CustomerId);
-    table.AddRow("Power", $"{motorRequest.Specs.PowerKW} kW");
-    table.AddRow("Axis Height", $"{motorRequest.Specs.AxisHeightMM} mm");
-    table.AddRow("Current Efficiency", motorRequest.Specs.CurrentEfficiency.ToString());
-    table.AddRow("Target Efficiency", motorRequest.Specs.TargetEfficiency.ToString());
-    table.AddRow("Malfunction", motorRequest.Specs.MalfunctionDescription ?? "-");
+    table.AddRow("Power", $"{motorRequest.MotorSpecs.PowerKW} kW");
+    table.AddRow("Axis Height", $"{motorRequest.MotorSpecs.AxisHeightMM} mm");
+    table.AddRow("Current Efficiency", motorRequest.MotorSpecs.CurrentEfficiency.ToString());
+    table.AddRow("Target Efficiency", motorRequest.MotorSpecs.TargetEfficiency.ToString());
+    table.AddRow("Malfunction", motorRequest.MotorSpecs.MalfunctionDescription ?? "-");
     table.AddRow("Max Budget", motorRequest.Constraints.MaxBudget.HasValue ? $"€{motorRequest.Constraints.MaxBudget.Value:N2}" : "No limit");
     table.AddRow("Required Deadline", motorRequest.Constraints.RequiredDeadline?.ToString("yyyy-MM-dd") ?? "No deadline");
 

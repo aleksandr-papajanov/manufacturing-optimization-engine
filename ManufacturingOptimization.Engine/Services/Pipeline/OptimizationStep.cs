@@ -1,5 +1,5 @@
-using Common.Models;
 using Google.OrTools.LinearSolver;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 
@@ -292,7 +292,7 @@ public partial class OptimizationStep : IWorkflowStep
     /// <summary>
     /// Create a deep copy of process steps.
     /// </summary>
-    private List<WorkflowProcessStep> CreateProcessStepsSnapshot(List<WorkflowProcessStep> originalSteps)
+    private static List<WorkflowProcessStep> CreateProcessStepsSnapshot(List<WorkflowProcessStep> originalSteps)
     {
         return originalSteps.Select(step => new WorkflowProcessStep
         {
@@ -360,7 +360,7 @@ public partial class OptimizationStep : IWorkflowStep
     /// <summary>
     /// Get strategy name and description based on priority.
     /// </summary>
-    private (string name, string description) GetStrategyNameAndDescription(OptimizationPriority priority)
+    private static (string name, string description) GetStrategyNameAndDescription(OptimizationPriority priority)
     {
         return priority switch
         {
@@ -403,7 +403,7 @@ public partial class OptimizationStep : IWorkflowStep
     /// <summary>
     /// Get optimization weights based on priority.
     /// </summary>
-    private OptimizationWeights GetWeightsForPriority(OptimizationPriority priority)
+    private static OptimizationWeights GetWeightsForPriority(OptimizationPriority priority)
     {
         return priority switch
         {

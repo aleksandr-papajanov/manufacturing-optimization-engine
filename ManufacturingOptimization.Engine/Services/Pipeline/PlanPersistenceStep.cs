@@ -1,4 +1,4 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;

@@ -1,4 +1,4 @@
-namespace Common.Models;
+namespace ManufacturingOptimization.Common.Models;
 
 /// <summary>
 /// Unified provider model used across all services.
@@ -29,7 +29,7 @@ public class Provider
     /// List of processes this provider can perform, with specific characteristics for each.
     /// Each capability includes cost, quality, energy consumption, and emissions data.
     /// </summary>
-    public List<ProcessCapability> ProcessCapabilities { get; set; } = new();
+    public List<ProviderProcessCapability> ProcessCapabilities { get; set; } = [];
     
     /// <summary>
     /// Technical specifications (axis height, power, tolerance).

@@ -1,4 +1,4 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 
@@ -21,7 +21,7 @@ public class WorkflowMatchingStep : IWorkflowStep
 
     public Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
-        var targetEfficiency = context.Request.Specs.TargetEfficiency;
+        var targetEfficiency = context.Request.MotorSpecs.TargetEfficiency;
         
         // Determine workflow type
         bool isUpgrade = targetEfficiency == MotorEfficiencyClass.IE4;

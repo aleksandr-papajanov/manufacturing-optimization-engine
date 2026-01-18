@@ -1,4 +1,4 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.ProviderSimulator.Settings;
 
@@ -13,6 +13,6 @@ public class MachineShopSettings
     public string ProviderId { get; set; } = string.Empty;
     public string ProviderName { get; set; } = string.Empty;
     
-    public List<ProcessCapability> ProcessCapabilities { get; set; } = new();
+    public List<ProviderProcessCapability> ProcessCapabilities { get; set; } = new();
     public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
 }

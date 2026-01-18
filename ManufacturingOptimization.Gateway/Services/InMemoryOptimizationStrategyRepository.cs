@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Gateway.Abstractions;
+using System.Collections.Concurrent;
 
 namespace ManufacturingOptimization.Gateway.Services;
 

@@ -1,6 +1,6 @@
-namespace Common.Models
+namespace ManufacturingOptimization.Common.Models
 {
-    public class MotorRequestConstraints
+    public class OptimizationRequestConstraints
     {
         /// <summary>
         /// Maximum acceptable cost for the optimization plan.

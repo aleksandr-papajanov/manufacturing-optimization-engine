@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Common.Models
+namespace ManufacturingOptimization.Common.Models
 {
     public class MotorSpecifications
     {

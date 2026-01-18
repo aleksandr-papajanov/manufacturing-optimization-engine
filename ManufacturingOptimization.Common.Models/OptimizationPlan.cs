@@ -1,4 +1,4 @@
-namespace Common.Models;
+namespace ManufacturingOptimization.Common.Models;
 
 /// <summary>
 /// Manufacturing plan created after customer selects their preferred strategy.
@@ -50,6 +50,6 @@ public class OptimizationPlan
     /// <summary>
     /// List of errors encountered during plan creation.
     /// </summary>
-    public List<string> Errors { get; set; } = new();
+    public List<string> Errors { get; set; } = [];
 }
 

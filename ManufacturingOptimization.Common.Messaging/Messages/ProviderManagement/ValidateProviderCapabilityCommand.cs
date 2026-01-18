@@ -1,5 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 
@@ -13,7 +13,7 @@ public class ValidateProviderCapabilityCommand : IMessage, ICommand
     public Guid ProviderId { get; set; }
     public string ProviderType { get; set; } = string.Empty;
     public string ProviderName { get; set; } = string.Empty;
-    public List<ProcessCapability> ProcessCapabilities { get; set; } = new();
+    public List<ProviderProcessCapability> ProcessCapabilities { get; set; } = [];
     public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
     
     /// <summary>

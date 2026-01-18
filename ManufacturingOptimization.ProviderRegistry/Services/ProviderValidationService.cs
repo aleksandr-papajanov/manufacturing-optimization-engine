@@ -1,7 +1,7 @@
-using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;

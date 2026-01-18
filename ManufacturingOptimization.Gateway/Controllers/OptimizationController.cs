@@ -1,6 +1,6 @@
-using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Gateway.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
@@ -29,7 +29,7 @@ namespace ManufacturingOptimization.Gateway.Controllers
 
         // [NEW] Submit Optimization Request with full MotorRequest
         [HttpPost("request")]
-        public IActionResult RequestOptimizationPlan([FromBody] MotorRequest motorRequest)
+        public IActionResult RequestOptimizationPlan([FromBody] OptimizationRequest motorRequest)
         {
             // Create command with full MotorRequest
             var command = new RequestOptimizationPlanCommand

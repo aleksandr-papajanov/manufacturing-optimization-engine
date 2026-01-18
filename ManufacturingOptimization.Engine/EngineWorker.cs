@@ -1,4 +1,4 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
@@ -50,7 +50,7 @@ public class EngineWorker : BackgroundService
         var evt = new ServiceReadyEvent
         {
             ServiceName = "Engine",
-            SubscribedQueues = new List<string> {
+            SubscribedQueues = {
                 "engine.provider.events",
                 "engine.optimization.requests",
                 "engine.provider.validation"

@@ -1,4 +1,4 @@
-namespace Common.Models;
+namespace ManufacturingOptimization.Common.Models;
 
 /// <summary>
 /// Optimization metrics and results common to both optimization calculation and strategy representation.

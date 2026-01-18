@@ -38,7 +38,7 @@ public class EstimationStep : IWorkflowStep
                         RequestId = context.Request.RequestId,
                         ProviderId = provider.ProviderId,
                         Activity = step.Activity,
-                        MotorSpecs = context.Request.Specs
+                        MotorSpecs = context.Request.MotorSpecs
                     };
 
                     var response = await _messagePublisher.RequestReplyAsync<ProcessEstimatedEvent>(

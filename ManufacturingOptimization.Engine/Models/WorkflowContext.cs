@@ -1,4 +1,4 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.Engine.Models;
 
@@ -7,7 +7,7 @@ namespace ManufacturingOptimization.Engine.Models;
 /// </summary>
 public class WorkflowContext
 {
-    public required MotorRequest Request { get; init; }
+    public required OptimizationRequest Request { get; init; }
     
     /// <summary>
     /// Type of workflow: "Upgrade" or "Refurbish"
@@ -18,9 +18,9 @@ public class WorkflowContext
     /// Sequential manufacturing process steps.
     /// Upgrade: 8 steps, Refurbish: 5 steps
     /// </summary>
-    public List<WorkflowProcessStep> ProcessSteps { get; set; } = new();
+    public List<WorkflowProcessStep> ProcessSteps { get; set; } = [];
     
-    public List<string> Errors { get; set; } = new();
+    public List<string> Errors { get; set; } = [];
     
     /// <summary>
     /// Optimization results (used for backward compatibility with single optimization).
@@ -31,7 +31,7 @@ public class WorkflowContext
     /// Generated optimization strategies with different priorities.
     /// Each strategy represents a different way to optimize the workflow.
     /// </summary>
-    public List<OptimizationStrategy> Strategies { get; set; } = new();
+    public List<OptimizationStrategy> Strategies { get; set; } = [];
     
     /// <summary>
     /// Strategy selected by the customer.

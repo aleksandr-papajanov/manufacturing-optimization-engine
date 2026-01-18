@@ -1,4 +1,4 @@
-namespace Common.Models
+namespace ManufacturingOptimization.Common.Models
 {
     /// <summary>
     /// Optimization priority for strategy generation.

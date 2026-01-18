@@ -3,7 +3,7 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Settings;
 using Microsoft.Extensions.Options;
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
 using System.Collections.Concurrent;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 

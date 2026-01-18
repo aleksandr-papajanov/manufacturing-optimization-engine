@@ -1,4 +1,4 @@
-namespace Common.Models;
+namespace ManufacturingOptimization.Common.Models;
 
 /// <summary>
 /// Represents a single optimization strategy option for the customer.
@@ -30,7 +30,7 @@ public class OptimizationStrategy
     /// <summary>
     /// Sequential process steps with selected providers for this strategy.
     /// </summary>
-    public List<OptimizedProcessStep> Steps { get; set; } = new();
+    public List<OptimizedProcessStep> Steps { get; set; } = [];
     
     /// <summary>
     /// Optimization metrics (cost, time, quality, emissions, solver status).
