@@ -24,7 +24,7 @@ public class WorkflowMatchingStep : IWorkflowStep
         var targetEfficiency = context.Request.Specs.TargetEfficiency;
         
         // Determine workflow type
-        bool isUpgrade = targetEfficiency == EfficiencyClass.IE4;
+        bool isUpgrade = targetEfficiency == MotorEfficiencyClass.IE4;
         context.WorkflowType = isUpgrade ? "Upgrade" : "Refurbish";
         
         // Generate process steps

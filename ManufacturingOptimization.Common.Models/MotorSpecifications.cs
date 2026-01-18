@@ -18,13 +18,13 @@ namespace Common.Models
         /// Current efficiency of the motor (e.g., IE1, IE2).
         /// </summary>
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public EfficiencyClass CurrentEfficiency { get; set; }
+        public MotorEfficiencyClass CurrentEfficiency { get; set; }
 
         /// <summary>
         /// Desired efficiency. IE4 triggers "Upgrade" strategy; IE2 triggers "Refurbish".
         /// </summary>
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public EfficiencyClass TargetEfficiency { get; set; }
+        public MotorEfficiencyClass TargetEfficiency { get; set; }
         
         public string? MalfunctionDescription { get; set; }
     }

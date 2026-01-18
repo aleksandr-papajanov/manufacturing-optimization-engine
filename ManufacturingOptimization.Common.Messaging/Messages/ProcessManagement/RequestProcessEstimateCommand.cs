@@ -1,7 +1,7 @@
 using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagment;
+namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 
 /// <summary>
 /// Request sent to a provider to get cost, time, and quality estimates for a specific process.

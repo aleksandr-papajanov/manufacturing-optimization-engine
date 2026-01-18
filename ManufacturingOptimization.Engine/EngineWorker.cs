@@ -2,8 +2,8 @@ using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
@@ -75,7 +75,7 @@ public class EngineWorker : BackgroundService
         _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
         _messagingInfrastructure.DeclareQueue("engine.provider.events");
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
-        _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllReady);
+        _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllRegistered);
         _messagingInfrastructure.PurgeQueue("engine.provider.events");
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
 

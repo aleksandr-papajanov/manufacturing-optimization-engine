@@ -40,7 +40,7 @@ public class RecommendationEngine : IRecommendationEngine
             };
 
             // 5. Calculate Match Score (0 to 100)
-            result.MatchScore = CalculateScore(request.Constraints.Priority, result);
+            //result.MatchScore = CalculateScore(request.Constraints.Priority, result);
 
             results.Add(result);
         }

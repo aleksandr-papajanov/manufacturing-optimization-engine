@@ -1,10 +1,9 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
-using Common.Models;
 
 namespace ManufacturingOptimization.ProviderSimulator;
 
@@ -59,9 +58,9 @@ public class ProviderSimulatorWorker : BackgroundService
         // Listen to provider coordination commands
         var providerCoordinationQueue = $"provider.coordination.{_providerLogic.ProviderId}";
         _messagingInfrastructure.DeclareQueue(providerCoordinationQueue);
-        _messagingInfrastructure.BindQueue(providerCoordinationQueue, Exchanges.Provider, ProviderRoutingKeys.StartAll);
+        _messagingInfrastructure.BindQueue(providerCoordinationQueue, Exchanges.Provider, ProviderRoutingKeys.RequestRegistrationAll);
         _messagingInfrastructure.PurgeQueue(providerCoordinationQueue);
-        _messageSubscriber.Subscribe<StartAllProvidersCommand>(providerCoordinationQueue, HandleStartAllProviders);
+        _messageSubscriber.Subscribe<RequestProvidersRegistrationCommand>(providerCoordinationQueue, HandleProvidersRegistrationRequest);
 
         // Send responses back to Engine (exchange already declared by Engine)
         // Responses go to the same Process exchange
@@ -73,29 +72,10 @@ public class ProviderSimulatorWorker : BackgroundService
     private void HandleEstimateRequest(RequestProcessEstimateCommand request)
     {
         var estimate = _providerLogic.HandleEstimateRequest(request);
-
         _messagePublisher.PublishReply(request.ReplyTo, request.CommandId.ToString(), estimate);
     }
     
-    private void PublishServiceReady()
-    {
-        var queues = new List<string>
-        {
-            "provider.process.proposals",
-            $"process.estimate.{_providerLogic.ProviderId}",
-            $"provider.coordination.{_providerLogic.ProviderId}"
-        };
-        
-        var evt = new ServiceReadyEvent
-        {
-            ServiceName = $"ProviderSimulator_{_providerLogic.ProviderName}",
-            SubscribedQueues = queues
-        };
-        
-        _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, evt);
-    }
-    
-    private void HandleStartAllProviders(StartAllProvidersCommand command)
+    private void HandleProvidersRegistrationRequest(RequestProvidersRegistrationCommand command)
     {
         PublishProviderRegistered();
     }
@@ -112,5 +92,23 @@ public class ProviderSimulatorWorker : BackgroundService
         };
 
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.Registered, registeredEvent);
+    }
+
+    private void PublishServiceReady()
+    {
+        var queues = new List<string>
+        {
+            "provider.process.proposals",
+            $"process.estimate.{_providerLogic.ProviderId}",
+            $"provider.coordination.{_providerLogic.ProviderId}"
+        };
+
+        var evt = new ServiceReadyEvent
+        {
+            ServiceName = $"ProviderSimulator_{_providerLogic.ProviderName}",
+            SubscribedQueues = queues
+        };
+
+        _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, evt);
     }
 }

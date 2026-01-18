@@ -1,6 +1,6 @@
 namespace Common.Models
 {
-    public enum EfficiencyClass
+    public enum MotorEfficiencyClass
     {
         Unknown = 0,
         IE1, // Standard

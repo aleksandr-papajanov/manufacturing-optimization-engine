@@ -14,5 +14,5 @@ public class MachineShopSettings
     public string ProviderName { get; set; } = string.Empty;
     
     public List<ProcessCapability> ProcessCapabilities { get; set; } = new();
-    public TechnicalCapabilities TechnicalCapabilities { get; set; } = new();
+    public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
 }

@@ -1,7 +1,7 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using Common.Models;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 
 /// <summary>
 /// Command to validate provider capabilities before registration/startup.
@@ -14,7 +14,7 @@ public class ValidateProviderCapabilityCommand : IMessage, ICommand
     public string ProviderType { get; set; } = string.Empty;
     public string ProviderName { get; set; } = string.Empty;
     public List<ProcessCapability> ProcessCapabilities { get; set; } = new();
-    public TechnicalCapabilities TechnicalCapabilities { get; set; } = new();
+    public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
     
     /// <summary>
     /// RPC: Queue name where response should be sent.

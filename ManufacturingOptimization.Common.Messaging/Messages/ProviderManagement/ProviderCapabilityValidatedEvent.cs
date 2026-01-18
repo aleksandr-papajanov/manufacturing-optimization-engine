@@ -1,6 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 
 /// <summary>
 /// Unified response for provider capability validation.

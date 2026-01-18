@@ -2,8 +2,8 @@ using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
 using ManufacturingOptimization.Gateway.Abstractions;
 
@@ -17,7 +17,7 @@ public class GatewayWorker : BackgroundService
     private readonly IMessagePublisher _messagePublisher;
     private readonly IRequestResponseRepository _repository;
     private readonly IProviderRepository _providerRepository;
-    private readonly StrategyCacheService _strategyCache;
+    private readonly IOptimizationStrategyRepository _strategyRepository;
 
     public GatewayWorker(
         ILogger<GatewayWorker> logger,
@@ -25,16 +25,16 @@ public class GatewayWorker : BackgroundService
         IMessageSubscriber messageSubscriber,
         IMessagePublisher messagePublisher,
         IRequestResponseRepository repository,
-        IProviderRepository providerRegistry,
-        StrategyCacheService strategyCache)
+        IProviderRepository providerRepository,
+        IOptimizationStrategyRepository strategyRepository)
     {
         _logger = logger;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
         _repository = repository;
-        _providerRepository = providerRegistry;
-        _strategyCache = strategyCache;
+        _providerRepository = providerRepository;
+        _strategyRepository = strategyRepository;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -113,7 +113,7 @@ public class GatewayWorker : BackgroundService
             evt.RequestId);
 
         // Store strategies in cache for HTTP polling
-        _strategyCache.StoreStrategies(evt.RequestId, evt.Strategies);
+        _strategyRepository.StoreStrategies(evt.RequestId, evt.Strategies);
 
         _logger.LogInformation(
             "Successfully cached strategies for Request {RequestId}. Customer can now retrieve via HTTP API.",

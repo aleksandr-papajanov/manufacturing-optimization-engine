@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Common.Models;
+using ManufacturingOptimization.Gateway.Abstractions;
 
 namespace ManufacturingOptimization.Gateway.Services;
 
@@ -7,9 +8,9 @@ namespace ManufacturingOptimization.Gateway.Services;
 /// In-memory cache for strategies awaiting customer selection.
 /// Stores strategies temporarily until customer makes selection or timeout occurs.
 /// </summary>
-public class StrategyCacheService
+public class InMemoryOptimizationStrategyRepository : IOptimizationStrategyRepository
 {
-    private readonly ConcurrentDictionary<Guid, List<OptimizationStrategy>> _strategiesCache = new();
+    private readonly ConcurrentDictionary<Guid, List<OptimizationStrategy>> _strategies = new();
     private readonly ConcurrentDictionary<Guid, DateTime> _timestamps = new();
     private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(15);
 
@@ -18,7 +19,7 @@ public class StrategyCacheService
     /// </summary>
     public void StoreStrategies(Guid requestId, List<OptimizationStrategy> strategies)
     {
-        _strategiesCache[requestId] = strategies;
+        _strategies[requestId] = strategies;
         _timestamps[requestId] = DateTime.UtcNow;
     }
 
@@ -29,7 +30,7 @@ public class StrategyCacheService
     {
         CleanupExpired();
 
-        if (_strategiesCache.TryGetValue(requestId, out var strategies))
+        if (_strategies.TryGetValue(requestId, out var strategies))
         {
             return strategies;
         }
@@ -42,7 +43,7 @@ public class StrategyCacheService
     /// </summary>
     public void RemoveStrategies(Guid requestId)
     {
-        _strategiesCache.TryRemove(requestId, out _);
+        _strategies.TryRemove(requestId, out _);
         _timestamps.TryRemove(requestId, out _);
     }
 
@@ -59,7 +60,7 @@ public class StrategyCacheService
 
         foreach (var key in expiredKeys)
         {
-            _strategiesCache.TryRemove(key, out _);
+            _strategies.TryRemove(key, out _);
             _timestamps.TryRemove(key, out _);
         }
     }

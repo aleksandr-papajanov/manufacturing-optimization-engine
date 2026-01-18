@@ -88,8 +88,7 @@ async Task SubmitOptimizationRequest()
 
     // Generate random MotorRequest
     var random = new Random();
-    var efficiencyClasses = new[] { EfficiencyClass.IE1, EfficiencyClass.IE2, EfficiencyClass.IE3, EfficiencyClass.IE4 };
-    var priorities = new[] { OptimizationPriority.LowestCost, OptimizationPriority.FastestDelivery, OptimizationPriority.HighestQuality, OptimizationPriority.LowestEmissions };
+    var efficiencyClasses = new[] { MotorEfficiencyClass.IE1, MotorEfficiencyClass.IE2, MotorEfficiencyClass.IE3, MotorEfficiencyClass.IE4 };
 
     var motorRequest = new MotorRequest
     {
@@ -103,10 +102,10 @@ async Task SubmitOptimizationRequest()
             TargetEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
             MalfunctionDescription = random.Next(0, 2) == 0 ? "Normal operation" : "Reduced efficiency, overheating"
         },
-        Constraints = new RequestConstraints
+        Constraints = new MotorRequestConstraints
         {
-            Priority = priorities[random.Next(priorities.Length)],
-            MaxBudget = random.Next(5000, 20000)
+            MaxBudget = random.Next(0, 3) == 0 ? null : random.Next(5000, 20000), // 33% chance of no budget limit
+            RequiredDeadline = random.Next(0, 3) == 0 ? null : DateTime.Now.AddDays(random.Next(30, 90)) // 33% chance of no deadline
         }
     };
 
@@ -124,8 +123,8 @@ async Task SubmitOptimizationRequest()
     table.AddRow("Current Efficiency", motorRequest.Specs.CurrentEfficiency.ToString());
     table.AddRow("Target Efficiency", motorRequest.Specs.TargetEfficiency.ToString());
     table.AddRow("Malfunction", motorRequest.Specs.MalfunctionDescription ?? "-");
-    table.AddRow("Priority", motorRequest.Constraints.Priority.ToString());
-    table.AddRow("Max Budget", $"€{motorRequest.Constraints.MaxBudget:N2}");
+    table.AddRow("Max Budget", motorRequest.Constraints.MaxBudget.HasValue ? $"€{motorRequest.Constraints.MaxBudget.Value:N2}" : "No limit");
+    table.AddRow("Required Deadline", motorRequest.Constraints.RequiredDeadline?.ToString("yyyy-MM-dd") ?? "No deadline");
 
     AnsiConsole.Write(table);
     AnsiConsole.WriteLine();

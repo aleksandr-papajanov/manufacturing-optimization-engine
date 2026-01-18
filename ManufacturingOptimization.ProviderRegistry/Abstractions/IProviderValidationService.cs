@@ -14,8 +14,5 @@ public interface IProviderValidationService
     /// <param name="timeout">Validation timeout</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if approved, false if rejected or timeout</returns>
-    Task<(bool IsApproved, string? DeclinedReason)> ValidateAsync(
-        Provider provider, 
-        TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default);
+    Task<(bool IsApproved, string? DeclinedReason)> ValidateAsync(Provider provider, TimeSpan? timeout = null, CancellationToken cancellationToken = default);
 }

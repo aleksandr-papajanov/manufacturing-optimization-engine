@@ -15,7 +15,7 @@ namespace Common.Models
         public MotorSpecifications Specs { get; set; } = new();
 
         // Constraints for the optimization engine (Budget, Time)
-        public RequestConstraints Constraints { get; set; } = new();
+        public MotorRequestConstraints Constraints { get; set; } = new();
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

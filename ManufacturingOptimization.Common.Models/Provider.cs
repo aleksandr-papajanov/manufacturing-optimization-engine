@@ -34,5 +34,5 @@ public class Provider
     /// <summary>
     /// Technical specifications (axis height, power, tolerance).
     /// </summary>
-    public TechnicalCapabilities TechnicalCapabilities { get; set; } = new();
+    public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
 }

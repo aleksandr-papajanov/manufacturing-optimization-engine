@@ -288,7 +288,7 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
 
                 if (!handled)
                 {
-                    _logger.LogWarning("No handler found for message type {MessageType} on queue {Queue}", 
+                    _logger.LogDebug("No handler found for message type {MessageType} on queue {Queue}", 
                         messageType, queueName);
                 }
 

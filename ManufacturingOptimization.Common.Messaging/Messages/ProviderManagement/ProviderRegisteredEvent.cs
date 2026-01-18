@@ -1,7 +1,7 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using Common.Models;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 
 public class ProviderRegisteredEvent : IMessage
 {
@@ -17,5 +17,5 @@ public class ProviderRegisteredEvent : IMessage
     /// <summary>
     /// Technical requirements/capabilities of the provider.
     /// </summary>
-    public TechnicalCapabilities TechnicalCapabilities { get; set; } = new();
+    public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
 }

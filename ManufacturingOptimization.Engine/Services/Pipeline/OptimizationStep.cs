@@ -91,7 +91,65 @@ public partial class OptimizationStep : IWorkflowStep
         else
         {
             _logger.LogInformation("Successfully generated {Count} strategies", context.Strategies.Count);
+            
+            // Apply constraint filtering
+            var filteredStrategies = ApplyConstraintFiltering(context);
+            
+            if (filteredStrategies.Count == 0)
+            {
+                _logger.LogWarning("All strategies filtered out by constraints. Showing all strategies with warnings.");
+                // Keep all strategies but user should be aware they don't meet constraints
+            }
+            else if (filteredStrategies.Count < context.Strategies.Count)
+            {
+                _logger.LogInformation("Filtered {RemovedCount} strategies that don't meet constraints. {RemainingCount} strategies remain.",
+                    context.Strategies.Count - filteredStrategies.Count, filteredStrategies.Count);
+                context.Strategies = filteredStrategies;
+            }
         }
+    }
+
+    /// <summary>
+    /// Filter strategies based on MaxBudget and RequiredDeadline constraints.
+    /// </summary>
+    private List<OptimizationStrategy> ApplyConstraintFiltering(WorkflowContext context)
+    {
+        var constraints = context.Request.Constraints;
+        var filteredStrategies = new List<OptimizationStrategy>(context.Strategies);
+
+        // Filter by MaxBudget if specified
+        if (constraints.MaxBudget.HasValue)
+        {
+            var beforeCount = filteredStrategies.Count;
+            filteredStrategies = filteredStrategies
+                .Where(s => s.Metrics.TotalCost <= constraints.MaxBudget.Value)
+                .ToList();
+            
+            if (filteredStrategies.Count < beforeCount)
+            {
+                _logger.LogInformation("Filtered {Count} strategies exceeding MaxBudget of €{Budget}",
+                    beforeCount - filteredStrategies.Count, constraints.MaxBudget.Value);
+            }
+        }
+
+        // Filter by RequiredDeadline if specified
+        if (constraints.RequiredDeadline.HasValue)
+        {
+            var beforeCount = filteredStrategies.Count;
+            var maxAllowedHours = (constraints.RequiredDeadline.Value - DateTime.Now).TotalHours;
+            
+            filteredStrategies = filteredStrategies
+                .Where(s => s.Metrics.TotalDuration.TotalHours <= maxAllowedHours)
+                .ToList();
+            
+            if (filteredStrategies.Count < beforeCount)
+            {
+                _logger.LogInformation("Filtered {Count} strategies that cannot meet deadline of {Deadline}",
+                    beforeCount - filteredStrategies.Count, constraints.RequiredDeadline.Value.ToString("yyyy-MM-dd"));
+            }
+        }
+
+        return filteredStrategies;
     }
 
     

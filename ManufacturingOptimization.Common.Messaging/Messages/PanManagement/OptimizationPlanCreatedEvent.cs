@@ -1,6 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
+namespace ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
 
 public class OptimizationPlanCreatedEvent : IMessage, IEvent
 {

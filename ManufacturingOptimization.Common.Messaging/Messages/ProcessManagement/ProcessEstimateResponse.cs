@@ -1,6 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagment;
+namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 
 /// <summary>
 /// Response from provider with estimates for the requested process.

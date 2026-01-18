@@ -1,67 +1,36 @@
-using Microsoft.AspNetCore.Mvc;
 using Common.Models;
-using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
-using ManufacturingOptimization.Gateway.Services;
-using System.Text.RegularExpressions;
+using ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
+using ManufacturingOptimization.Gateway.Abstractions;
+using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
-
+using System.Text.RegularExpressions;
 using IMessagePublisher = ManufacturingOptimization.Common.Messaging.Abstractions.IMessagePublisher;
 
 namespace ManufacturingOptimization.Gateway.Controllers
 {
     [ApiController]
     [Route("api/optimization")]
-    public class OptimizationRequestController : ControllerBase
+    public partial class OptimizationController : ControllerBase
     {
-        private readonly ILogger<OptimizationRequestController> _logger;
+        private readonly ILogger<OptimizationController> _logger;
         private readonly IMessagePublisher _messagePublisher;
-        private readonly StrategyCacheService _strategyCache;
+        private readonly IOptimizationStrategyRepository _strategyRepository;
 
-        public OptimizationRequestController(
-            ILogger<OptimizationRequestController> logger,
+        public OptimizationController(
+            ILogger<OptimizationController> logger,
             IMessagePublisher messagePublisher,
-            StrategyCacheService strategyCache)
+            IOptimizationStrategyRepository strategyRepository)
         {
             _logger = logger;
             _messagePublisher = messagePublisher;
-            _strategyCache = strategyCache;
+            _strategyRepository = strategyRepository;
         }
-
-        // --- DTOs ---
-
-        public class MotorRequestDto
-        {
-            public string RequestId { get; set; } = string.Empty;
-            public string CustomerId { get; set; } = string.Empty;
-            public string Power { get; set; } = string.Empty;
-            public string TargetEfficiency { get; set; } = string.Empty;
-        }
-
-        // NEW: DTO for Strategy Selection (US-07-T4)
-        public class SelectStrategyDto
-        {
-            public Guid RequestId { get; set; }
-            public Guid StrategyId { get; set; }
-            public string StrategyName { get; set; } = string.Empty;
-        }
-
-        // --- ENDPOINTS ---
 
         // [NEW] Submit Optimization Request with full MotorRequest
         [HttpPost("request")]
         public IActionResult RequestOptimizationPlan([FromBody] MotorRequest motorRequest)
         {
-            _logger.LogInformation(
-                "Received optimization request {RequestId} for Customer {CustomerId}: {PowerKW} kW, {TargetEfficiency}, Priority: {Priority}",
-                motorRequest.RequestId,
-                motorRequest.CustomerId,
-                motorRequest.Specs.PowerKW,
-                motorRequest.Specs.TargetEfficiency,
-                motorRequest.Constraints.Priority);
-
             // Create command with full MotorRequest
             var command = new RequestOptimizationPlanCommand
             {
@@ -69,12 +38,7 @@ namespace ManufacturingOptimization.Gateway.Controllers
             };
 
             // Publish to optimization engine
-            _messagePublisher.Publish(
-                Exchanges.Optimization, 
-                OptimizationRoutingKeys.PlanRequested, 
-                command);
-
-            _logger.LogInformation("✓ Published RequestOptimizationPlanCommand for Request {RequestId}", motorRequest.RequestId);
+            _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanRequested, command);
 
             return Accepted(new 
             { 
@@ -107,8 +71,6 @@ namespace ManufacturingOptimization.Gateway.Controllers
 
             _messagePublisher.Publish(Exchanges.Optimization, "optimization.request", eventMessage);
             
-            _logger.LogInformation("✓ Forwarded to Engine: {Power} kW", powerValue);
-
             return Accepted(new { status = "Request submitted", requestId = request.RequestId });
         }
 
@@ -142,7 +104,7 @@ namespace ManufacturingOptimization.Gateway.Controllers
         [HttpGet("strategies/{requestId}")]
         public IActionResult GetStrategies(Guid requestId)
         {
-            var strategies = _strategyCache.GetStrategies(requestId);
+            var strategies = _strategyRepository.GetStrategies(requestId);
             
             if (strategies != null && strategies.Any())
             {

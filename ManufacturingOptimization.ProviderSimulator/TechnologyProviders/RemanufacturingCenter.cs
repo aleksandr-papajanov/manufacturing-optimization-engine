@@ -1,5 +1,5 @@
 using Common.Models;
-using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
 using ManufacturingOptimization.ProviderSimulator.Settings;
 using Microsoft.Extensions.Options;

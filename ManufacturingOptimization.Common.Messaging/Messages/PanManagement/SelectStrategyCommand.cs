@@ -1,6 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
+namespace ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
 
 /// <summary>
 /// Command sent by customer to select their preferred optimization strategy.

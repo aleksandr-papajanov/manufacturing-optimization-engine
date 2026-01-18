@@ -1,11 +1,9 @@
 using Common.Models;
-using Docker.DotNet;
 using Docker.DotNet.Models;
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -24,7 +22,6 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
     private readonly DockerSettings _dockerSettings;
     private readonly RabbitMqSettings _rabbitMqSettings;
     private readonly Dictionary<Guid, string> _runningProviders = []; // providerId -> containerId
-    private readonly HashSet<Guid> _readyProviders = new(); // Track ServiceReadyEvent from containers
     private readonly HashSet<Guid> _registeredProviders = new(); // Track ProviderRegisteredEvents
     private string? _networkName;
 
@@ -55,31 +52,32 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         _messagingInfrastructure.DeclareQueue("orchestrator.provider.registered");
         _messagingInfrastructure.BindQueue("orchestrator.provider.registered", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.PurgeQueue("orchestrator.provider.registered");
-        
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("orchestrator.provider.registered", async evt => await HandleProviderRegistered(evt));
     }
     
     private async Task HandleProviderRegistered(ProviderRegisteredEvent evt)
     {
-        var allStarted = false;
-
+        bool allRegistered;
+        int runningCount;
+        int registeredCount;
+        
         lock (_registeredProviders)
         {
-            // Track this provider as registered
-            if (_registeredProviders.Add(evt.ProviderId))
+            _registeredProviders.Add(evt.ProviderId);
+            registeredCount = _registeredProviders.Count;
+            
+            lock (_runningProviders)
             {
-                // Check if all started containers have registered
-                if (_registeredProviders.Count == _runningProviders.Count && _runningProviders.Count > 0)
-                {
-                    allStarted = true;
-                }
+                runningCount = _runningProviders.Count;
+                allRegistered = _registeredProviders.IsSupersetOf(_runningProviders.Keys);
             }
         }
 
-        if (allStarted)
+        if (allRegistered)
         {
+            // Wait a moment to ensure all registrations are processed
             await Task.Delay(2000);
-            _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.AllReady, new AllProvidersReadyEvent());
+            _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.AllRegistered, new AllProvidersRegisteredEvent());
         }
     }
 
@@ -101,6 +99,7 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
                 
                 if (!isApproved)
                 {
+                    _logger.LogWarning("Provider {Type} ({Id}) declined during validation: {Reason}", provider.Type, provider.Id, declinedReason);
                     continue;
                 }
                 
@@ -112,7 +111,9 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
             }
         }
 
-        _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.StartAll, new StartAllProvidersCommand());
+        // Important: wait a moment before requesting registrations to ensure all containers are ready
+        await Task.Delay(3000, cancellationToken);
+        _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.RequestRegistrationAll, new RequestProvidersRegistrationCommand());
     }
 
     public async Task StartAsync(Provider provider, CancellationToken cancellationToken = default)
@@ -173,7 +174,10 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
             var response = await _dockerClient.Containers.CreateContainerAsync(createParams, cancellationToken);
             await _dockerClient.Containers.StartContainerAsync(response.ID, new ContainerStartParameters(), cancellationToken);
 
-            _runningProviders[provider.Id] = response.ID;
+            lock (_runningProviders)
+            {
+                _runningProviders[provider.Id] = response.ID;
+            }
         }
         catch (Exception ex)
         {
