@@ -1,8 +1,14 @@
-﻿using ManufacturingOptimization.Common.Messaging.Abstractions;
+﻿using Common.Models;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
 
 public class RequestOptimizationPlanCommand : IMessage, ICommand
 {
     public Guid CommandId { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
+    /// Motor request submitted by customer.
+    /// </summary>
+    public MotorRequest Request { get; set; } = new();
 }

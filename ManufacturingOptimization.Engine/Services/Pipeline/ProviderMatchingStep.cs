@@ -8,7 +8,7 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 /// Step 2: Provider Matching
 /// For each process step, finds providers with the required capability.
 /// </summary>
-public class ProviderMatchingStep : IPipelineStep
+public class ProviderMatchingStep : IWorkflowStep
 {
     private readonly IProviderRepository _providerRepository;
     private readonly ILogger<ProviderMatchingStep> _logger;

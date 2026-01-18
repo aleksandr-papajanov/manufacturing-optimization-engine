@@ -6,7 +6,7 @@ namespace ManufacturingOptimization.ProviderSimulator.Settings;
 /// Settings for Main Remanufacturing Center provider (TP1).
 /// Configure via environment variables: MainRemanufacturingCenter__ProviderId, MainRemanufacturingCenter__ProviderName
 /// </summary>
-public class MainRemanufacturingCenterSettings
+public class RemanufacturingCenterSettings
 {
     public const string SectionName = "MainRemanufacturingCenter";
     

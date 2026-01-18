@@ -1,0 +1,141 @@
+# docker-compose.override.yml
+# This file is used to override settings in docker-compose.yml
+# It is intended for development purposes to add additional services
+
+services:
+  # Development Mode: switch to ComposeManagedOrchestrator
+  provider-registry:
+    environment:
+      - Orchestration__Mode=Development
+  
+  # Provider - Main Remanufacturing Center
+  provider-main-remanufacturing:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.ProviderSimulator/Dockerfile
+    container_name: provider-main-remanufacturing
+    environment:
+      - PROVIDER_TYPE=MainRemanufacturingCenter
+      - MainRemanufacturingCenter__ProviderId=f93a2956-e430-4b50-b688-991b5c33f5f4
+      - MainRemanufacturingCenter__ProviderName=Main Remanufacturing Center
+      - MainRemanufacturingCenter__ProcessCapabilities__0__ProcessName=Cleaning
+      - MainRemanufacturingCenter__ProcessCapabilities__0__CostPerHour=50
+      - MainRemanufacturingCenter__ProcessCapabilities__0__SpeedMultiplier=1.0
+      - MainRemanufacturingCenter__ProcessCapabilities__0__QualityScore=0.90
+      - MainRemanufacturingCenter__ProcessCapabilities__0__EnergyConsumptionKwhPerHour=1.5
+      - MainRemanufacturingCenter__ProcessCapabilities__0__CarbonIntensityKgCO2PerKwh=0.35
+      - MainRemanufacturingCenter__ProcessCapabilities__0__UsesRenewableEnergy=false
+      - MainRemanufacturingCenter__ProcessCapabilities__1__ProcessName=Disassembly
+      - MainRemanufacturingCenter__ProcessCapabilities__1__CostPerHour=75
+      - MainRemanufacturingCenter__ProcessCapabilities__1__SpeedMultiplier=1.0
+      - MainRemanufacturingCenter__ProcessCapabilities__1__QualityScore=0.95
+      - MainRemanufacturingCenter__ProcessCapabilities__1__EnergyConsumptionKwhPerHour=2.0
+      - MainRemanufacturingCenter__ProcessCapabilities__1__CarbonIntensityKgCO2PerKwh=0.35
+      - MainRemanufacturingCenter__ProcessCapabilities__1__UsesRenewableEnergy=false
+      - MainRemanufacturingCenter__ProcessCapabilities__2__ProcessName=PartSubstitution
+      - MainRemanufacturingCenter__ProcessCapabilities__2__CostPerHour=60
+      - MainRemanufacturingCenter__ProcessCapabilities__2__SpeedMultiplier=1.0
+      - MainRemanufacturingCenter__ProcessCapabilities__2__QualityScore=0.85
+      - MainRemanufacturingCenter__ProcessCapabilities__2__EnergyConsumptionKwhPerHour=3.0
+      - MainRemanufacturingCenter__ProcessCapabilities__2__CarbonIntensityKgCO2PerKwh=0.35
+      - MainRemanufacturingCenter__ProcessCapabilities__2__UsesRenewableEnergy=false
+      - MainRemanufacturingCenter__ProcessCapabilities__3__ProcessName=Reassembly
+      - MainRemanufacturingCenter__ProcessCapabilities__3__CostPerHour=80
+      - MainRemanufacturingCenter__ProcessCapabilities__3__SpeedMultiplier=1.0
+      - MainRemanufacturingCenter__ProcessCapabilities__3__QualityScore=0.92
+      - MainRemanufacturingCenter__ProcessCapabilities__3__EnergyConsumptionKwhPerHour=2.5
+      - MainRemanufacturingCenter__ProcessCapabilities__3__CarbonIntensityKgCO2PerKwh=0.35
+      - MainRemanufacturingCenter__ProcessCapabilities__3__UsesRenewableEnergy=false
+      - MainRemanufacturingCenter__ProcessCapabilities__4__ProcessName=Certification
+      - MainRemanufacturingCenter__ProcessCapabilities__4__CostPerHour=100
+      - MainRemanufacturingCenter__ProcessCapabilities__4__SpeedMultiplier=1.0
+      - MainRemanufacturingCenter__ProcessCapabilities__4__QualityScore=0.98
+      - MainRemanufacturingCenter__ProcessCapabilities__4__EnergyConsumptionKwhPerHour=1.0
+      - MainRemanufacturingCenter__ProcessCapabilities__4__CarbonIntensityKgCO2PerKwh=0.35
+      - MainRemanufacturingCenter__ProcessCapabilities__4__UsesRenewableEnergy=false
+      - MainRemanufacturingCenter__TechnicalCapabilities__AxisHeight=500.0
+      - MainRemanufacturingCenter__TechnicalCapabilities__Power=1500.0
+      - MainRemanufacturingCenter__TechnicalCapabilities__Tolerance=0.01
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - manufacturing-network
+    labels:
+      orchestration-mode: "development"
+
+  # Provider - Engineering Design Firm
+  provider-engineering-design:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.ProviderSimulator/Dockerfile
+    container_name: provider-engineering-design
+    environment:
+      - PROVIDER_TYPE=EngineeringDesignFirm
+      - EngineeringDesignFirm__ProviderId=f8127a26-e818-4d27-8812-10d422c45a6c
+      - EngineeringDesignFirm__ProviderName=Engineering Design Firm
+      - EngineeringDesignFirm__ProcessCapabilities__0__ProcessName=Redesign
+      - EngineeringDesignFirm__ProcessCapabilities__0__CostPerHour=150
+      - EngineeringDesignFirm__ProcessCapabilities__0__SpeedMultiplier=1.0
+      - EngineeringDesignFirm__ProcessCapabilities__0__QualityScore=0.95
+      - EngineeringDesignFirm__ProcessCapabilities__0__EnergyConsumptionKwhPerHour=0.5
+      - EngineeringDesignFirm__ProcessCapabilities__0__CarbonIntensityKgCO2PerKwh=0.25
+      - EngineeringDesignFirm__ProcessCapabilities__0__UsesRenewableEnergy=true
+      - EngineeringDesignFirm__TechnicalCapabilities__AxisHeight=0.0
+      - EngineeringDesignFirm__TechnicalCapabilities__Power=0.0
+      - EngineeringDesignFirm__TechnicalCapabilities__Tolerance=0.001
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - manufacturing-network
+    labels:
+      orchestration-mode: "development"
+
+  # Provider - Precision Machine Shop
+  provider-precision-machine:
+    build:
+      context: .
+      dockerfile: ManufacturingOptimization.ProviderSimulator/Dockerfile
+    container_name: provider-precision-machine
+    environment:
+      - PROVIDER_TYPE=PrecisionMachineShop
+      - PrecisionMachineShop__ProviderId=70564b7f-d634-4a90-b3f9-33224915dbc4
+      - PrecisionMachineShop__ProviderName=Precision Machine Shop
+      - PrecisionMachineShop__ProcessCapabilities__0__ProcessName=Turning
+      - PrecisionMachineShop__ProcessCapabilities__0__CostPerHour=120
+      - PrecisionMachineShop__ProcessCapabilities__0__SpeedMultiplier=1.0
+      - PrecisionMachineShop__ProcessCapabilities__0__QualityScore=0.93
+      - PrecisionMachineShop__ProcessCapabilities__0__EnergyConsumptionKwhPerHour=5.0
+      - PrecisionMachineShop__ProcessCapabilities__0__CarbonIntensityKgCO2PerKwh=0.60
+      - PrecisionMachineShop__ProcessCapabilities__0__UsesRenewableEnergy=false
+      - PrecisionMachineShop__ProcessCapabilities__1__ProcessName=Grinding
+      - PrecisionMachineShop__ProcessCapabilities__1__CostPerHour=110
+      - PrecisionMachineShop__ProcessCapabilities__1__SpeedMultiplier=1.0
+      - PrecisionMachineShop__ProcessCapabilities__1__QualityScore=0.90
+      - PrecisionMachineShop__ProcessCapabilities__1__EnergyConsumptionKwhPerHour=3.5
+      - PrecisionMachineShop__ProcessCapabilities__1__CarbonIntensityKgCO2PerKwh=0.60
+      - PrecisionMachineShop__ProcessCapabilities__1__UsesRenewableEnergy=false
+      - PrecisionMachineShop__TechnicalCapabilities__AxisHeight=300.0
+      - PrecisionMachineShop__TechnicalCapabilities__Power=2000.0
+      - PrecisionMachineShop__TechnicalCapabilities__Tolerance=0.001
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - manufacturing-network
+    labels:
+      orchestration-mode: "development"
+

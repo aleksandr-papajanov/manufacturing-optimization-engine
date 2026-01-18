@@ -3,7 +3,7 @@ namespace ManufacturingOptimization.Engine.Models;
 /// <summary>
 /// Represents one manufacturing process step (e.g., Cleaning, Redesign, Turning).
 /// </summary>
-public class ProcessStep
+public class WorkflowProcessStep
 {
     public int StepNumber { get; set; }
     public required string Activity { get; init; }

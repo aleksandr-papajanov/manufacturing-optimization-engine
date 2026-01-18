@@ -10,6 +10,9 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure RabbitMQ
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
 
+// Configure process standards (shared by all providers)
+builder.Services.Configure<ProcessStandardsSettings>(builder.Configuration.GetSection(ProcessStandardsSettings.SectionName));
+
 builder.Services.AddSingleton<RabbitMqService>();
 builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
@@ -22,18 +25,18 @@ var providerType = Environment.GetEnvironmentVariable("PROVIDER_TYPE");
 switch (providerType)
 {
     case "MainRemanufacturingCenter":
-        builder.Services.Configure<MainRemanufacturingCenterSettings>(builder.Configuration.GetSection(MainRemanufacturingCenterSettings.SectionName));
-        builder.Services.AddSingleton<IProviderSimulator, MainRemanufacturingCenter>();
+        builder.Services.Configure<RemanufacturingCenterSettings>(builder.Configuration.GetSection(RemanufacturingCenterSettings.SectionName));
+        builder.Services.AddSingleton<IProviderSimulator, RemanufacturingCenter>();
         break;
     
     case "EngineeringDesignFirm":
-        builder.Services.Configure<EngineeringDesignFirmSettings>(builder.Configuration.GetSection(EngineeringDesignFirmSettings.SectionName));
-        builder.Services.AddSingleton<IProviderSimulator, EngineeringDesignFirm>();
+        builder.Services.Configure<DesignFirmSettings>(builder.Configuration.GetSection(DesignFirmSettings.SectionName));
+        builder.Services.AddSingleton<IProviderSimulator, DesignFirm>();
         break;
     
     case "PrecisionMachineShop":
-        builder.Services.Configure<PrecisionMachineShopSettings>(builder.Configuration.GetSection(PrecisionMachineShopSettings.SectionName));
-        builder.Services.AddSingleton<IProviderSimulator, PrecisionMachineShop>();
+        builder.Services.Configure<MachineShopSettings>(builder.Configuration.GetSection(MachineShopSettings.SectionName));
+        builder.Services.AddSingleton<IProviderSimulator, MachineShop>();
         break;
     
     default:

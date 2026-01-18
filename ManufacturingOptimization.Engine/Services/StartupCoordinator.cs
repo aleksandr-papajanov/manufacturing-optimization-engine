@@ -10,18 +10,18 @@ namespace ManufacturingOptimization.Engine.Services;
 /// </summary>
 public class StartupCoordinator : BackgroundService
 {
+    private readonly List<string> REQUIRED_SERVICES = new() 
+    { 
+        "Gateway", 
+        "ProviderRegistry", 
+        "Engine"
+    };
     private readonly ILogger<StartupCoordinator> _logger;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagePublisher _messagePublisher;
     
     private readonly HashSet<string> _readyServices = new();
-    private readonly List<string> _requiredServices = new() 
-    { 
-        "Gateway", 
-        "ProviderRegistry", 
-        "Engine"
-    };
     private bool _systemReadyPublished = false;
 
     public StartupCoordinator(
@@ -70,7 +70,7 @@ public class StartupCoordinator : BackgroundService
         if (_systemReadyPublished)
             return;
             
-        var allReady = _requiredServices.All(s => _readyServices.Contains(s));
+        var allReady = REQUIRED_SERVICES.All(s => _readyServices.Contains(s));
         
         if (allReady)
         {
@@ -84,7 +84,7 @@ public class StartupCoordinator : BackgroundService
         }
         else
         {
-            var missing = _requiredServices.Except(_readyServices).ToList();
+            var missing = REQUIRED_SERVICES.Except(_readyServices).ToList();
         }
     }
 }

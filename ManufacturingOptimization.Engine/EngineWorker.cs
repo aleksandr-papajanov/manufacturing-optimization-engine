@@ -19,7 +19,7 @@ public class EngineWorker : BackgroundService
     private readonly IMessagePublisher _messagePublisher;
     private readonly IProviderRepository _providerRepository;
     private readonly IRecommendationEngine _recommendationEngine;
-    private readonly IPipelineFactory _pipelineFactory;
+    private readonly IWorkflowPipelineFactory _pipelineFactory;
 
     public EngineWorker(
         ILogger<EngineWorker> logger,
@@ -28,7 +28,7 @@ public class EngineWorker : BackgroundService
         IMessagePublisher messagePublisher,
         IProviderRepository providerRepository,
         IRecommendationEngine recommendationEngine,
-        IPipelineFactory pipelineFactory)
+        IWorkflowPipelineFactory pipelineFactory)
     {
         _logger = logger;
         _messagingInfrastructure = messagingInfrastructure;
@@ -69,7 +69,6 @@ public class EngineWorker : BackgroundService
         _messagingInfrastructure.DeclareQueue("engine.system.ready");
         _messagingInfrastructure.BindQueue("engine.system.ready", Exchanges.System, SystemRoutingKeys.SystemReady);
         _messagingInfrastructure.PurgeQueue("engine.system.ready");
-        
         _messageSubscriber.Subscribe<SystemReadyEvent>("engine.system.ready", HandleSystemReady);
         
         // Provider events
@@ -78,26 +77,13 @@ public class EngineWorker : BackgroundService
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllReady);
         _messagingInfrastructure.PurgeQueue("engine.provider.events");
-
-        // Subscribe to provider events
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
-        _messageSubscriber.Subscribe<AllProvidersReadyEvent>("engine.provider.events", async evt =>
-        {
-           await HandleOptimizationRequestAsync(new RequestOptimizationPlanCommand
-           {
-               CommandId = Guid.NewGuid()
-           });
-        });
 
+        // Optimization requests
         _messagingInfrastructure.DeclareQueue("engine.optimization.requests");
-        _messagingInfrastructure.BindQueue("engine.optimization.requests", Exchanges.Optimization, "optimization.request");
+        _messagingInfrastructure.BindQueue("engine.optimization.requests", Exchanges.Optimization, OptimizationRoutingKeys.PlanRequested);
         _messagingInfrastructure.PurgeQueue("engine.optimization.requests");
-
-        // 1. Listen for New Requests (US-06)
         _messageSubscriber.Subscribe<RequestOptimizationPlanCommand>("engine.optimization.requests", async evt => await HandleOptimizationRequestAsync(evt));
-
-        // 2. Listen for User Selection (US-07-T4)
-        _messageSubscriber.Subscribe<SelectStrategyCommand>("optimization.strategy.selected", HandleStrategySelection);
     }
     
     private void HandleSystemReady(SystemReadyEvent evt)
@@ -122,84 +108,14 @@ public class EngineWorker : BackgroundService
 
     private async Task HandleOptimizationRequestAsync(RequestOptimizationPlanCommand command)
     {
-        try
+        var pipeline = _pipelineFactory.CreateWorkflowPipeline();
+        var context = new WorkflowContext { Request = command.Request };
+
+        await pipeline.ExecuteAsync(context);
+
+        if (!context.IsSuccess)
         {
-            // Mock data for demonstration
-            var motorRequest = new MotorRequest
-            {
-                RequestId = command.CommandId,
-                Specs = new MotorSpecifications
-                {
-                    PowerKW = 5.5,
-                    AxisHeightMM = 75,
-                    CurrentEfficiency = EfficiencyClass.IE1,
-                    TargetEfficiency = EfficiencyClass.IE4 // This will trigger Upgrade workflow (8 steps)
-                },
-                Constraints = new RequestConstraints
-                {
-                    MaxBudget = 10000,
-                    Priority = OptimizationPriority.HighestQuality
-                }
-            };
-
-            // Create workflow pipeline
-            var pipeline = _pipelineFactory.CreateWorkflowPipeline();
-            var context = new WorkflowContext { Request = motorRequest };
-
-            // Execute pipeline
-            await pipeline.ExecuteAsync(context);
-            
-            // Publish OptimizationPlanReadyEvent (with success or errors)
-            PublishOptimizationPlan(command.CommandId, context);
+            _logger.LogWarning("Optimization workflow failed for request {RequestId} with errors: {Errors}", context.Request.RequestId, string.Join("; ", context.Errors));
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing optimization request");
-        }
-    }
-
-    private void HandleStrategySelection(SelectStrategyCommand command)
-    {
-        _logger.LogInformation("✅ CUSTOMER SELECTION CONFIRMED!");
-        _logger.LogInformation("   Request ID:  {RequestId}", command.RequestId);
-        _logger.LogInformation("   Provider ID: {SelectedProviderId}", command.SelectedProviderId);
-        _logger.LogInformation("   Strategy:    {SelectedStrategyName}", command.SelectedStrategyName);
-    }
-
-    private void PublishOptimizationPlan(Guid commandId, WorkflowContext context)
-    {
-        var plan = new OptimizationPlan
-        {
-            RequestId = context.Request.RequestId,
-            WorkflowType = context.WorkflowType ?? "Unknown",
-            IsSuccess = context.IsSuccess,
-            Errors = context.Errors.ToList(),
-            Steps = context.ProcessSteps
-                .Where(s => s.SelectedProvider != null)
-                .Select(s => new OptimizedProcessStep
-                {
-                    StepNumber = s.StepNumber,
-                    Activity = s.Activity,
-                    SelectedProviderId = s.SelectedProvider!.ProviderId,
-                    SelectedProviderName = s.SelectedProvider!.ProviderName,
-                    CostEstimate = s.SelectedProvider!.CostEstimate,
-                    TimeEstimate = s.SelectedProvider!.TimeEstimate,
-                    QualityScore = s.SelectedProvider!.QualityScore,
-                    EmissionsKgCO2 = s.SelectedProvider!.EmissionsKgCO2
-                }).ToList(),
-            TotalCost = context.OptimizationResult?.TotalCost ?? 0,
-            TotalDuration = context.OptimizationResult?.TotalDuration ?? TimeSpan.Zero,
-            AverageQuality = context.OptimizationResult?.AverageQuality ?? 0,
-            TotalEmissionsKgCO2 = context.OptimizationResult?.TotalEmissionsKgCO2 ?? 0,
-            SolverStatus = context.OptimizationResult?.SolverStatus ?? "FAILED"
-        };
-
-        var planReadyEvent = new OptimizationPlanReadyEvent
-        {
-            CommandId = commandId,
-            Plan = plan
-        };
-
-        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanReady, planReadyEvent);
     }
 }

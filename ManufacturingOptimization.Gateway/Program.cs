@@ -27,6 +27,9 @@ builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<Ra
 builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
 builder.Services.AddSingleton<IRequestResponseRepository, InMemoryRequestResponseRepository>();
 
+// NEW: Register Strategy Cache Service
+builder.Services.AddSingleton<StrategyCacheService>();
+
 // 6. Add Background Worker
 builder.Services.AddHostedService<GatewayWorker>();
 

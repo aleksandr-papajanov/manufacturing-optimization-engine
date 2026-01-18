@@ -10,7 +10,7 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 /// Requests cost, time, and quality estimates from each matched provider.
 /// Uses RPC pattern (Request-Reply) to get estimates from providers.
 /// </summary>
-public class EstimationStep : IPipelineStep
+public class EstimationStep : IWorkflowStep
 {
     private readonly ILogger<EstimationStep> _logger;
     private readonly IMessagePublisher _messagePublisher;

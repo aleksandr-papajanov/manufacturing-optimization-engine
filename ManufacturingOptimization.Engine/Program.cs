@@ -20,8 +20,11 @@ builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredServ
 // Provider registry
 builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
 
+// Optimization plan repository
+builder.Services.AddSingleton<IOptimizationPlanRepository, InMemoryOptimizationPlanRepository>();
+
 // Pipeline factory
-builder.Services.AddSingleton<IPipelineFactory, PipelineFactory>();
+builder.Services.AddSingleton<IWorkflowPipelineFactory, PipelineFactory>();
 
 // Startup coordination
 builder.Services.AddHostedService<StartupCoordinator>();

@@ -1,6 +1,7 @@
 using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
+using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
@@ -16,6 +17,7 @@ public class GatewayWorker : BackgroundService
     private readonly IMessagePublisher _messagePublisher;
     private readonly IRequestResponseRepository _repository;
     private readonly IProviderRepository _providerRepository;
+    private readonly StrategyCacheService _strategyCache;
 
     public GatewayWorker(
         ILogger<GatewayWorker> logger,
@@ -23,7 +25,8 @@ public class GatewayWorker : BackgroundService
         IMessageSubscriber messageSubscriber,
         IMessagePublisher messagePublisher,
         IRequestResponseRepository repository,
-        IProviderRepository providerRegistry)
+        IProviderRepository providerRegistry,
+        StrategyCacheService strategyCache)
     {
         _logger = logger;
         _messagingInfrastructure = messagingInfrastructure;
@@ -31,6 +34,7 @@ public class GatewayWorker : BackgroundService
         _messagePublisher = messagePublisher;
         _repository = repository;
         _providerRepository = providerRegistry;
+        _strategyCache = strategyCache;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -44,7 +48,12 @@ public class GatewayWorker : BackgroundService
         var readyEvent = new ServiceReadyEvent
         {
             ServiceName = "Gateway",
-            SubscribedQueues = new List<string> { "gateway.provider.events", "gateway.optimization.responses" }
+            SubscribedQueues = new List<string> 
+            { 
+                "gateway.provider.events", 
+                "gateway.optimization.responses",
+                "gateway.strategies.ready"
+            }
         };
 
         _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, readyEvent);
@@ -66,8 +75,14 @@ public class GatewayWorker : BackgroundService
         _messagingInfrastructure.BindQueue("gateway.optimization.responses", Exchanges.Optimization, "optimization.response");
         _messagingInfrastructure.PurgeQueue("gateway.optimization.responses");
 
+        // Listen to strategies ready events (US-07)
+        _messagingInfrastructure.DeclareQueue("gateway.strategies.ready");
+        _messagingInfrastructure.BindQueue("gateway.strategies.ready", Exchanges.Optimization, OptimizationRoutingKeys.StrategiesReady);
+        _messagingInfrastructure.PurgeQueue("gateway.strategies.ready");
+
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("gateway.provider.events", HandleProviderRegistered);
         _messageSubscriber.Subscribe<OptimizationPlanCreatedEvent>("gateway.optimization.responses", HandleOptimizationResponse);
+        _messageSubscriber.Subscribe<MultipleStrategiesReadyEvent>("gateway.strategies.ready", HandleStrategiesReady);
     }
 
     private void HandleProviderRegistered(ProviderRegisteredEvent evt)
@@ -88,5 +103,20 @@ public class GatewayWorker : BackgroundService
     private void HandleOptimizationResponse(OptimizationPlanCreatedEvent response)
     {
         _repository.AddResponse(response);
+    }
+
+    private void HandleStrategiesReady(MultipleStrategiesReadyEvent evt)
+    {
+        _logger.LogInformation(
+            "Received {Count} strategies for Request {RequestId}. Caching for customer retrieval.",
+            evt.Strategies.Count,
+            evt.RequestId);
+
+        // Store strategies in cache for HTTP polling
+        _strategyCache.StoreStrategies(evt.RequestId, evt.Strategies);
+
+        _logger.LogInformation(
+            "Successfully cached strategies for Request {RequestId}. Customer can now retrieve via HTTP API.",
+            evt.RequestId);
     }
 }

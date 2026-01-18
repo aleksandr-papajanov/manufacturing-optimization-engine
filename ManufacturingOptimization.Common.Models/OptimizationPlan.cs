@@ -1,61 +1,55 @@
 namespace Common.Models;
 
 /// <summary>
-/// Optimized plan with provider assignments for motor remanufacturing workflow.
-/// Used for communication between Engine and other services (Gateway, Analytics).
+/// Manufacturing plan created after customer selects their preferred strategy.
+/// Contains the selected strategy and execution status information.
 /// </summary>
 public class OptimizationPlan
 {
+    /// <summary>
+    /// Unique identifier for this plan.
+    /// </summary>
     public Guid PlanId { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
+    /// Original customer request ID.
+    /// </summary>
     public Guid RequestId { get; set; }
     
     /// <summary>
-    /// Type of workflow: "Upgrade" or "Refurbish".
+    /// The strategy selected by the customer.
+    /// Contains all workflow details (steps, costs, warranty, etc.).
     /// </summary>
-    public string WorkflowType { get; set; } = string.Empty;
+    public OptimizationStrategy? SelectedStrategy { get; set; }
     
     /// <summary>
-    /// Sequential process steps with selected providers.
+    /// Current status of the plan execution.
     /// </summary>
-    public List<OptimizedProcessStep> Steps { get; set; } = new();
+    public OptimizationPlanStatus Status { get; set; } = OptimizationPlanStatus.Draft;
     
     /// <summary>
-    /// Total estimated cost for the entire workflow.
-    /// </summary>
-    public decimal TotalCost { get; set; }
-    
-    /// <summary>
-    /// Total estimated duration for the entire workflow.
-    /// </summary>
-    public TimeSpan TotalDuration { get; set; }
-    
-    /// <summary>
-    /// Average quality score across all steps (0.0 - 1.0).
-    /// </summary>
-    public double AverageQuality { get; set; }
-    
-    /// <summary>
-    /// Total estimated carbon emissions in kg CO2.
-    /// </summary>
-    public double TotalEmissionsKgCO2 { get; set; }
-    
-    /// <summary>
-    /// Optimization solver status (OPTIMAL, FEASIBLE, etc.).
-    /// </summary>
-    public string SolverStatus { get; set; } = string.Empty;
-    
-    /// <summary>
-    /// Timestamp when the plan was created.
+    /// Timestamp when the plan was created (strategies generated).
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     /// <summary>
-    /// Indicates whether the optimization was successful.
+    /// Timestamp when the customer selected a strategy.
+    /// </summary>
+    public DateTime? SelectedAt { get; set; }
+    
+    /// <summary>
+    /// Timestamp when the plan was confirmed and sent to providers.
+    /// </summary>
+    public DateTime? ConfirmedAt { get; set; }
+    
+    /// <summary>
+    /// Indicates whether the plan creation was successful.
     /// </summary>
     public bool IsSuccess { get; set; } = true;
     
     /// <summary>
-    /// List of errors encountered during pipeline execution.
+    /// List of errors encountered during plan creation.
     /// </summary>
     public List<string> Errors { get; set; } = new();
 }
+

@@ -5,7 +5,7 @@ namespace ManufacturingOptimization.Engine.Abstractions;
 /// <summary>
 /// A single step in the workflow optimization pipeline.
 /// </summary>
-public interface IPipelineStep
+public interface IWorkflowStep
 {
     string Name { get; }
     

@@ -6,7 +6,7 @@ namespace ManufacturingOptimization.ProviderSimulator.Settings;
 /// Settings for Engineering Design Firm provider (TP2).
 /// Configure via environment variables: EngineeringDesignFirm__ProviderId, EngineeringDesignFirm__ProviderName
 /// </summary>
-public class EngineeringDesignFirmSettings
+public class DesignFirmSettings
 {
     public const string SectionName = "EngineeringDesignFirm";
     

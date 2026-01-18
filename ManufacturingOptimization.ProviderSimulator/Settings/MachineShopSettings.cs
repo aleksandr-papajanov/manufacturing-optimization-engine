@@ -6,7 +6,7 @@ namespace ManufacturingOptimization.ProviderSimulator.Settings;
 /// Settings for Precision Machine Shop provider (TP3).
 /// Configure via environment variables: PrecisionMachineShop__ProviderId, PrecisionMachineShop__ProviderName
 /// </summary>
-public class PrecisionMachineShopSettings
+public class MachineShopSettings
 {
     public const string SectionName = "PrecisionMachineShop";
     

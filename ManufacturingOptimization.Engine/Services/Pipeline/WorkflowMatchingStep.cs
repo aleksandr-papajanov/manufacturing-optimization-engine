@@ -8,7 +8,7 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 /// Step 1: Workflow Matching
 /// Determines workflow type (Upgrade vs Refurbish) and generates process steps.
 /// </summary>
-public class WorkflowMatchingStep : IPipelineStep
+public class WorkflowMatchingStep : IWorkflowStep
 {
     private readonly ILogger<WorkflowMatchingStep> _logger;
 
@@ -38,9 +38,9 @@ public class WorkflowMatchingStep : IPipelineStep
         return Task.CompletedTask;
     }
 
-    private static List<ProcessStep> CreateUpgradeSteps()
+    private static List<WorkflowProcessStep> CreateUpgradeSteps()
     {
-        return new List<ProcessStep>
+        return new List<WorkflowProcessStep>
         {
             new() { StepNumber = 1, Activity = "Cleaning", RequiredCapability = "Cleaning", Description = "Remove dirt and contaminants" },
             new() { StepNumber = 2, Activity = "Disassembly", RequiredCapability = "Disassembly", Description = "Take motor completely apart" },
@@ -53,9 +53,9 @@ public class WorkflowMatchingStep : IPipelineStep
         };
     }
 
-    private static List<ProcessStep> CreateRefurbishSteps()
+    private static List<WorkflowProcessStep> CreateRefurbishSteps()
     {
-        return new List<ProcessStep>
+        return new List<WorkflowProcessStep>
         {
             new() { StepNumber = 1, Activity = "Cleaning", RequiredCapability = "Cleaning", Description = "Remove dirt and contaminants" },
             new() { StepNumber = 2, Activity = "Disassembly", RequiredCapability = "Disassembly", Description = "Take motor apart" },

@@ -1,195 +1,371 @@
 using Spectre.Console;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Common.Models; // Ensure this project reference exists!
+using Common.Models;
 
-// 1. Ensure the Base Address matches your Docker port (5000 or 8080)
+// Configuration
 var apiUrl = Environment.GetEnvironmentVariable("GATEWAY_API_URL") ?? "http://localhost:5000";
 var httpClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
 
+// Welcome screen
+AnsiConsole.Clear();
 AnsiConsole.Write(new FigletText("Manufacturing").Centered().Color(Color.Blue));
 AnsiConsole.Write(new FigletText("Optimization").Centered().Color(Color.Green));
+AnsiConsole.WriteLine();
 
-while (true)
+// Select role
+var role = AnsiConsole.Prompt(
+    new SelectionPrompt<string>()
+        .Title("[yellow]Who are you?[/]")
+        .AddChoices("Customer", "Provider"));
+
+AnsiConsole.Clear();
+
+if (role == "Customer")
 {
-    var choice = AnsiConsole.Prompt(
-        new SelectionPrompt<string>()
-            .Title("[green]What do you want to do?[/]")
-            .AddChoices(
-                "Get Providers List", 
-                "Submit Request (US-06)",
-                "Run Random Demo (Legacy)", 
-                "Exit"
-            ));
+    await RunCustomerMode();
+}
+else
+{
+    await RunProviderMode();
+}
 
-    switch (choice)
+async Task RunCustomerMode()
+{
+    AnsiConsole.Write(new Rule("[green]Customer Mode[/]").RuleStyle("green"));
+    AnsiConsole.WriteLine();
+
+    while (true)
     {
-        case "Get Providers List":
-            await GetProviders();
-            break;
-        case "Submit Request (US-06)":
-            await SubmitCustomRequest();
-            break;
-        case "Run Random Demo (Legacy)":
-            await RequestOptimization();
-            break;
-        case "Exit":
-            AnsiConsole.MarkupLine("[yellow]Goodbye![/]");
-            return;
+        var choice = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[green]What do you want to do?[/]")
+                .AddChoices(
+                    "Submit Optimization Request",
+                    "View Providers",
+                    "Exit"));
+
+        switch (choice)
+        {
+            case "Submit Optimization Request":
+                await SubmitOptimizationRequest();
+                break;
+            case "View Providers":
+                await GetProviders();
+                break;
+            case "Exit":
+                AnsiConsole.MarkupLine("[yellow]Goodbye![/]");
+                return;
+        }
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[grey]Press any key to continue...[/]");
+        Console.ReadKey(true);
+        AnsiConsole.Clear();
+    }
+}
+
+async Task RunProviderMode()
+{
+    AnsiConsole.Write(new Rule("[blue]Provider Mode[/]").RuleStyle("blue"));
+    AnsiConsole.WriteLine();
+    
+    AnsiConsole.MarkupLine("[yellow]Provider mode will be implemented in future sprints.[/]");
+    AnsiConsole.MarkupLine("[grey]This will include:[/]");
+    AnsiConsole.MarkupLine("  • Register provider capabilities");
+    AnsiConsole.MarkupLine("  • Respond to estimate requests");
+    AnsiConsole.MarkupLine("  • Accept/reject work assignments");
+    AnsiConsole.WriteLine();
+    
+    AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
+    Console.ReadKey(true);
+}
+
+async Task SubmitOptimizationRequest()
+{
+    AnsiConsole.Write(new Rule("[yellow]Submit Optimization Request[/]"));
+    AnsiConsole.WriteLine();
+
+    // Generate random MotorRequest
+    var random = new Random();
+    var efficiencyClasses = new[] { EfficiencyClass.IE1, EfficiencyClass.IE2, EfficiencyClass.IE3, EfficiencyClass.IE4 };
+    var priorities = new[] { OptimizationPriority.LowestCost, OptimizationPriority.FastestDelivery, OptimizationPriority.HighestQuality, OptimizationPriority.LowestEmissions };
+
+    var motorRequest = new MotorRequest
+    {
+        RequestId = Guid.NewGuid(),
+        CustomerId = Guid.NewGuid().ToString(),
+        Specs = new MotorSpecifications
+        {
+            PowerKW = random.Next(50, 200),
+            AxisHeightMM = random.Next(63, 315), // Standard IEC motor sizes
+            CurrentEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
+            TargetEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
+            MalfunctionDescription = random.Next(0, 2) == 0 ? "Normal operation" : "Reduced efficiency, overheating"
+        },
+        Constraints = new RequestConstraints
+        {
+            Priority = priorities[random.Next(priorities.Length)],
+            MaxBudget = random.Next(5000, 20000)
+        }
+    };
+
+    // Display generated request
+    var table = new Table()
+        .Border(TableBorder.Rounded)
+        .BorderColor(Color.Blue)
+        .AddColumn("[yellow]Property[/]")
+        .AddColumn("[yellow]Value[/]");
+
+    table.AddRow("Request ID", motorRequest.RequestId.ToString());
+    table.AddRow("Customer ID", motorRequest.CustomerId);
+    table.AddRow("Power", $"{motorRequest.Specs.PowerKW} kW");
+    table.AddRow("Axis Height", $"{motorRequest.Specs.AxisHeightMM} mm");
+    table.AddRow("Current Efficiency", motorRequest.Specs.CurrentEfficiency.ToString());
+    table.AddRow("Target Efficiency", motorRequest.Specs.TargetEfficiency.ToString());
+    table.AddRow("Malfunction", motorRequest.Specs.MalfunctionDescription ?? "-");
+    table.AddRow("Priority", motorRequest.Constraints.Priority.ToString());
+    table.AddRow("Max Budget", $"€{motorRequest.Constraints.MaxBudget:N2}");
+
+    AnsiConsole.Write(table);
+    AnsiConsole.WriteLine();
+
+    if (!AnsiConsole.Confirm("[cyan]Submit this request?[/]"))
+    {
+        AnsiConsole.MarkupLine("[yellow]Request cancelled.[/]");
+        return;
     }
 
     AnsiConsole.WriteLine();
-    AnsiConsole.MarkupLine("[grey]Press any key to continue...[/]");
-    Console.ReadKey(true);
-    AnsiConsole.Clear();
-}
 
-// --- NEW FUNCTION: US-06 Custom Request ---
-async Task SubmitCustomRequest()
-{
-    AnsiConsole.MarkupLine("[yellow]Reading test_request.json...[/]");
+    // Submit request to Gateway
+    Guid requestId = motorRequest.RequestId;
+    List<OptimizationStrategy>? strategies = null;
 
-    try
-    {
-        // 1. Locate the file
-        string filePath = Path.Combine(AppContext.BaseDirectory, "test_request.json");
-        
-        if (!File.Exists(filePath)) 
-        {
-            AnsiConsole.MarkupLine("[red]Error: test_request.json not found![/]");
-            AnsiConsole.MarkupLine("Make sure you added the file to the project and set 'Copy to Output Directory' to 'Copy if newer'.");
-            return;
-        }
-
-        // 2. Read and Parse JSON
-        string jsonContent = await File.ReadAllTextAsync(filePath);
-        var requestData = JsonSerializer.Deserialize<MotorRequest>(jsonContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-        if (requestData == null)
-        {
-            AnsiConsole.MarkupLine("[red]Error: Failed to deserialize JSON.[/]");
-            return;
-        }
-
-        // 3. Show User what we are sending
-        var table = new Table().Border(TableBorder.Rounded);
-        table.AddColumn("Attribute");
-        table.AddColumn("Value");
-        table.AddRow("Request ID", requestData.RequestId.ToString());
-        table.AddRow("Customer ID", requestData.CustomerId);
-        table.AddRow("Target Efficiency", $"[green]{requestData.Specs.TargetEfficiency}[/]");
-        table.AddRow("Power", $"{requestData.Specs.PowerKW} kW");
-        table.AddRow("Priority", requestData.Constraints.Priority.ToString());
-        
-        AnsiConsole.Write(table);
-
-// 4. Send to Gateway
-        await AnsiConsole.Status()
-            .StartAsync("Submitting request to Gateway...", async ctx =>
-            {
-                var payload = new 
-                {
-                    RequestId = requestData.RequestId,
-                    CustomerId = requestData.CustomerId,
-                    Power = requestData.Specs.PowerKW.ToString(),
-                    TargetEfficiency = requestData.Specs.TargetEfficiency.ToString()
-                };
-
-                // FIX: Update URL to match the new route "api/optimization/submit"
-                var response = await httpClient.PostAsJsonAsync("/api/optimization/submit", payload);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    AnsiConsole.MarkupLine("[green]✓ Success! Request submitted.[/]");
-                    string responseBody = await response.Content.ReadAsStringAsync();
-                    AnsiConsole.WriteLine(responseBody);
-                }
-                else
-                {
-                    AnsiConsole.MarkupLine($"[red]✗ Failed: {response.StatusCode}[/]");
-                    string error = await response.Content.ReadAsStringAsync();
-                    AnsiConsole.MarkupLine($"[dim]{Markup.Escape(error)}[/]");
-                }
-            });
-    }
-    catch (Exception ex)
-    {
-        AnsiConsole.WriteException(ex);
-    }
-}
-
-// --- EXISTING FUNCTIONS ---
-
-async Task RequestOptimization()
-{
-    Guid? commandId = null;
-    
     await AnsiConsole.Status()
-        .StartAsync("Sending random demo request...", async ctx =>
+        .Spinner(Spinner.Known.Dots)
+        .StartAsync("[yellow]Submitting request to Gateway...[/]", async ctx =>
         {
             try
             {
-                var response = await httpClient.PostAsync("/api/optimization/request", null);
-                
+                var response = await httpClient.PostAsJsonAsync("/api/optimization/request", motorRequest);
+
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<OptimizationRequestResponse>();
-                    commandId = result?.CommandId;
-                    AnsiConsole.MarkupLine("[green]✓ Request sent![/]");
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    
+                    ctx.Status("[green]✓ Request submitted successfully![/]");
+                    AnsiConsole.MarkupLine($"[dim]Request ID: {requestId}[/]");
+                    AnsiConsole.WriteLine();
+
+                    // Poll for strategies
+                    ctx.Status("[yellow]Waiting for optimization strategies...[/]");
+                    
+                    var startTime = DateTime.UtcNow;
+                    var timeout = TimeSpan.FromMinutes(10);
+                    var pollInterval = TimeSpan.FromSeconds(3);
+                    
+                    while (DateTime.UtcNow - startTime < timeout)
+                    {
+                        await Task.Delay(pollInterval);
+                        
+                        try
+                        {
+                            var statusResponse = await httpClient.GetAsync($"/api/optimization/strategies/{requestId}");
+                            
+                            if (statusResponse.IsSuccessStatusCode)
+                            {
+                                var statusResult = await statusResponse.Content.ReadFromJsonAsync<StrategiesResponse>();
+                                
+                                if (statusResult?.IsReady == true && statusResult.Strategies?.Any() == true)
+                                {
+                                    strategies = statusResult.Strategies;
+                                    ctx.Status("[green]✓ Strategies ready![/]");
+                                    break;
+                                }
+                                
+                                ctx.Status($"[yellow]Generating strategies... ({(int)(DateTime.UtcNow - startTime).TotalSeconds}s)[/]");
+                            }
+                        }
+                        catch
+                        {
+                            // Continue polling
+                        }
+                    }
+                    
+                    if (strategies == null)
+                    {
+                        AnsiConsole.MarkupLine("[red]✗ Timeout waiting for strategies[/]");
+                    }
                 }
                 else
                 {
-                    AnsiConsole.MarkupLine($"[red]✗ Error: {response.StatusCode}[/]");
+                    AnsiConsole.MarkupLine($"[red]✗ Failed to submit: {response.StatusCode}[/]");
+                    var error = await response.Content.ReadAsStringAsync();
+                    AnsiConsole.MarkupLine($"[dim]{Markup.Escape(error)}[/]");
+                }
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLine($"[red]✗ Error: {ex.Message}[/]");
+                AnsiConsole.WriteException(ex);
+            }
+        });
+
+    if (strategies == null || !strategies.Any())
+    {
+        AnsiConsole.MarkupLine("[yellow]No strategies available. Request may still be processing.[/]");
+        return;
+    }
+
+    // Display strategies
+    AnsiConsole.WriteLine();
+    AnsiConsole.Write(new Rule("[green]Available Optimization Strategies[/]").RuleStyle("green"));
+    AnsiConsole.WriteLine();
+
+    var strategiesTable = new Table()
+        .Border(TableBorder.Rounded)
+        .BorderColor(Color.Green)
+        .AddColumn(new TableColumn("[yellow]#[/]").Centered())
+        .AddColumn("[yellow]Strategy[/]")
+        .AddColumn(new TableColumn("[yellow]Cost[/]").RightAligned())
+        .AddColumn(new TableColumn("[yellow]Duration[/]").RightAligned())
+        .AddColumn(new TableColumn("[yellow]Quality[/]").RightAligned())
+        .AddColumn(new TableColumn("[yellow]Emissions[/]").RightAligned())
+        .AddColumn(new TableColumn("[yellow]Warranty[/]").Centered())
+        .AddColumn(new TableColumn("[yellow]Insurance[/]").Centered());
+
+    int index = 1;
+    foreach (var strategy in strategies)
+    {
+        strategiesTable.AddRow(
+            index.ToString(),
+            $"[bold]{strategy.StrategyName}[/]\n[dim]{strategy.Description}[/]",
+            $"€{strategy.Metrics.TotalCost:N2}",
+            $"{strategy.Metrics.TotalDuration.TotalDays:N1} days",
+            strategy.Metrics.AverageQuality.ToString("N2"),
+            $"{strategy.Metrics.TotalEmissionsKgCO2:N1} kg",
+            strategy.WarrantyTerms ?? "-",
+            strategy.IncludesInsurance ? "[green]✓[/]" : "[dim]-[/]"
+        );
+        index++;
+    }
+
+    AnsiConsole.Write(strategiesTable);
+    AnsiConsole.WriteLine();
+
+    // Customer selects strategy
+    var selectedIndex = AnsiConsole.Prompt(
+        new SelectionPrompt<int>()
+            .Title("[cyan]Select your preferred strategy:[/]")
+            .AddChoices(Enumerable.Range(1, strategies.Count).ToArray())
+            .UseConverter(i => $"{i}. {strategies[i - 1].StrategyName}"));
+
+    var selectedStrategy = strategies[selectedIndex - 1];
+
+    // Send selection to Gateway
+    await AnsiConsole.Status()
+        .Spinner(Spinner.Known.Dots)
+        .StartAsync("[yellow]Submitting strategy selection...[/]", async ctx =>
+        {
+            try
+            {
+                var selectionDto = new
+                {
+                    RequestId = requestId,
+                    StrategyId = selectedStrategy.StrategyId,
+                    StrategyName = selectedStrategy.StrategyName
+                };
+
+                var response = await httpClient.PostAsJsonAsync("/api/optimization/select", selectionDto);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    ctx.Status("[green]✓ Strategy selected![/]");
+                    AnsiConsole.WriteLine();
+                    
+                    // Display detailed strategy information
+                    var detailsTable = new Table()
+                        .Border(TableBorder.Rounded)
+                        .BorderColor(Color.Green)
+                        .AddColumn("[yellow]Property[/]")
+                        .AddColumn("[green]Value[/]");
+                    
+                    detailsTable.AddRow("Strategy Name", $"[bold]{selectedStrategy.StrategyName}[/]");
+                    detailsTable.AddRow("Priority", selectedStrategy.Priority.ToString());
+                    detailsTable.AddRow("Workflow Type", selectedStrategy.WorkflowType);
+                    detailsTable.AddRow("Total Cost", $"€{selectedStrategy.Metrics.TotalCost:N2}");
+                    detailsTable.AddRow("Total Duration", $"{selectedStrategy.Metrics.TotalDuration.TotalHours:N1} hours ({selectedStrategy.Metrics.TotalDuration.TotalDays:N1} days)");
+                    detailsTable.AddRow("Average Quality", $"{selectedStrategy.Metrics.AverageQuality:P0}");
+                    detailsTable.AddRow("Total Emissions", $"{selectedStrategy.Metrics.TotalEmissionsKgCO2:N2} kg CO₂");
+                    detailsTable.AddRow("Warranty Terms", selectedStrategy.WarrantyTerms ?? "-");
+                    detailsTable.AddRow("Insurance", selectedStrategy.IncludesInsurance ? "[green]Included[/]" : "[dim]Not included[/]");
+                    detailsTable.AddRow("Solver Status", selectedStrategy.Metrics.SolverStatus ?? "-");
+                    detailsTable.AddRow("Objective Value", selectedStrategy.Metrics.ObjectiveValue.ToString("N4"));
+                    detailsTable.AddRow("Generated At", selectedStrategy.GeneratedAt.ToString("yyyy-MM-dd HH:mm:ss UTC"));
+                    
+                    AnsiConsole.Write(new Panel(detailsTable)
+                        .Header("[yellow]Selected Strategy Details[/]")
+                        .BorderColor(Color.Green));
+                    
+                    AnsiConsole.WriteLine();
+                    
+                    // Display process steps
+                    if (selectedStrategy.Steps?.Any() == true)
+                    {
+                        var stepsTable = new Table()
+                            .Border(TableBorder.Rounded)
+                            .BorderColor(Color.Blue)
+                            .AddColumn(new TableColumn("[yellow]Step[/]").Centered())
+                            .AddColumn("[yellow]Activity[/]")
+                            .AddColumn("[yellow]Provider[/]")
+                            .AddColumn(new TableColumn("[yellow]Cost[/]").RightAligned())
+                            .AddColumn(new TableColumn("[yellow]Time[/]").RightAligned())
+                            .AddColumn(new TableColumn("[yellow]Quality[/]").RightAligned())
+                            .AddColumn(new TableColumn("[yellow]Emissions[/]").RightAligned());
+                        
+                        foreach (var step in selectedStrategy.Steps.OrderBy(s => s.StepNumber))
+                        {
+                            stepsTable.AddRow(
+                                step.StepNumber.ToString(),
+                                step.Activity,
+                                step.SelectedProviderName,
+                                $"€{step.CostEstimate:N2}",
+                                $"{step.TimeEstimate.TotalHours:N1}h",
+                                step.QualityScore.ToString("P0"),
+                                $"{step.EmissionsKgCO2:N2} kg"
+                            );
+                        }
+                        
+                        AnsiConsole.Write(new Panel(stepsTable)
+                            .Header($"[blue]Process Steps ({selectedStrategy.Steps.Count} total)[/]")
+                            .BorderColor(Color.Blue));
+                        
+                        AnsiConsole.WriteLine();
+                    }
+                    
+                    // Summary panel
+                    AnsiConsole.Write(new Panel($"""
+                        [green]✓ Your optimization plan is confirmed![/]
+                        
+                        [dim]Request ID: {requestId}[/]
+                        [dim]Strategy ID: {selectedStrategy.StrategyId}[/]
+                        
+                        {selectedStrategy.Description}
+                        """)
+                        .Header("[yellow]Plan Confirmation[/]")
+                        .BorderColor(Color.Green)
+                        .Padding(1, 1));
+                }
+                else
+                {
+                    AnsiConsole.MarkupLine($"[red]✗ Failed to select strategy: {response.StatusCode}[/]");
                 }
             }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[red]✗ Error: {ex.Message}[/]");
             }
-        });
-    
-    if (commandId.HasValue)
-    {
-        await WaitForResponse(commandId.Value);
-    }
-}
-
-async Task WaitForResponse(Guid commandId)
-{
-    await AnsiConsole.Status()
-        .StartAsync("Waiting for response (simulated)...", async ctx =>
-        {
-            for (int i = 0; i < 30; i++)
-            {
-                await Task.Delay(1000);
-                
-                try
-                {
-                    var response = await httpClient.GetAsync($"/api/optimization/status/{commandId}");
-                    
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var result = await response.Content.ReadFromJsonAsync<StatusResponse>();
-                        
-                        if (result?.Status == "completed" && result.Data != null)
-                        {
-                            var providerId = result.Data.Value.GetProperty("providerId").GetGuid();
-                            var providerResponse = result.Data.Value.GetProperty("response").GetString();
-                            
-                            var color = providerResponse == "accepted" ? "green" : "yellow";
-                            AnsiConsole.MarkupLine($"[{color}]✓ Response: {providerResponse}[/]");
-                            AnsiConsole.MarkupLine($"[dim]Provider: {providerId}[/]");
-                            return;
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                    // Continue waiting
-                }
-            }
-            
-            AnsiConsole.MarkupLine("[red]✗ Timeout waiting for response[/]");
         });
 }
 
@@ -247,7 +423,6 @@ async Task GetProviders()
 }
 
 // --- DTOs ---
-record OptimizationRequestResponse(Guid CommandId);
 record ProvidersListResponse(int TotalProviders, List<ProviderInfo> Providers);
-record StatusResponse(string Status, JsonElement? Data);
 record ProviderInfo(Guid ProviderId, string ProviderType, string ProviderName, DateTime RegisteredAt);
+record StrategiesResponse(bool IsReady, List<OptimizationStrategy>? Strategies, string? Status);

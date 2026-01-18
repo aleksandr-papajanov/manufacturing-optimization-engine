@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment; // NEW: Added for SelectStrategyCommand
+using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
+using ManufacturingOptimization.Gateway.Services;
 using System.Text.RegularExpressions;
 using System.Globalization;
 
@@ -15,13 +18,16 @@ namespace ManufacturingOptimization.Gateway.Controllers
     {
         private readonly ILogger<OptimizationRequestController> _logger;
         private readonly IMessagePublisher _messagePublisher;
+        private readonly StrategyCacheService _strategyCache;
 
         public OptimizationRequestController(
             ILogger<OptimizationRequestController> logger,
-            IMessagePublisher messagePublisher)
+            IMessagePublisher messagePublisher,
+            StrategyCacheService strategyCache)
         {
             _logger = logger;
             _messagePublisher = messagePublisher;
+            _strategyCache = strategyCache;
         }
 
         // --- DTOs ---
@@ -38,13 +44,48 @@ namespace ManufacturingOptimization.Gateway.Controllers
         public class SelectStrategyDto
         {
             public Guid RequestId { get; set; }
-            public string ProviderId { get; set; } = string.Empty;
+            public Guid StrategyId { get; set; }
             public string StrategyName { get; set; } = string.Empty;
         }
 
         // --- ENDPOINTS ---
 
-        // [US-06] Submit Initial Request
+        // [NEW] Submit Optimization Request with full MotorRequest
+        [HttpPost("request")]
+        public IActionResult RequestOptimizationPlan([FromBody] MotorRequest motorRequest)
+        {
+            _logger.LogInformation(
+                "Received optimization request {RequestId} for Customer {CustomerId}: {PowerKW} kW, {TargetEfficiency}, Priority: {Priority}",
+                motorRequest.RequestId,
+                motorRequest.CustomerId,
+                motorRequest.Specs.PowerKW,
+                motorRequest.Specs.TargetEfficiency,
+                motorRequest.Constraints.Priority);
+
+            // Create command with full MotorRequest
+            var command = new RequestOptimizationPlanCommand
+            {
+                Request = motorRequest
+            };
+
+            // Publish to optimization engine
+            _messagePublisher.Publish(
+                Exchanges.Optimization, 
+                OptimizationRoutingKeys.PlanRequested, 
+                command);
+
+            _logger.LogInformation("✓ Published RequestOptimizationPlanCommand for Request {RequestId}", motorRequest.RequestId);
+
+            return Accepted(new 
+            { 
+                status = "Request accepted", 
+                commandId = command.CommandId,
+                requestId = motorRequest.RequestId,
+                message = "Your optimization request is being processed. Multiple strategies will be generated."
+            });
+        }
+
+        // [US-06] Submit Initial Request (Legacy - for backward compatibility)
         [HttpPost("submit")] 
         public IActionResult SubmitRequest([FromBody] MotorRequestDto request)
         {
@@ -75,20 +116,48 @@ namespace ManufacturingOptimization.Gateway.Controllers
         [HttpPost("select")]
         public IActionResult SelectStrategy([FromBody] SelectStrategyDto selection)
         {
-            _logger.LogInformation($"Received strategy selection for Request {selection.RequestId}: Provider {selection.ProviderId}");
+            _logger.LogInformation(
+                "Received strategy selection for Request {RequestId}: Strategy '{StrategyName}' (ID: {StrategyId})",
+                selection.RequestId, selection.StrategyName, selection.StrategyId);
 
             var command = new SelectStrategyCommand
             {
                 RequestId = selection.RequestId,
-                SelectedProviderId = selection.ProviderId,
+                SelectedStrategyId = selection.StrategyId,
                 SelectedStrategyName = selection.StrategyName
             };
 
-            // Publish to RabbitMQ using the routing key the Engine is listening for
-            // We reuse the existing 'Exchanges.Optimization'
-            _messagePublisher.Publish(Exchanges.Optimization, "optimization.strategy.selected", command);
+            // Publish with request-specific routing key so only the waiting pipeline receives it
+            var routingKey = $"{OptimizationRoutingKeys.StrategySelected}.{selection.RequestId}";
+            _messagePublisher.Publish(Exchanges.Optimization, routingKey, command);
 
-            return Ok(new { status = "Selection Received", requestId = selection.RequestId });
+            return Ok(new { 
+                status = "Strategy selection received", 
+                requestId = selection.RequestId,
+                strategyId = selection.StrategyId
+            });
+        }
+
+        // NEW: [US-07] Get Strategies for Request
+        [HttpGet("strategies/{requestId}")]
+        public IActionResult GetStrategies(Guid requestId)
+        {
+            var strategies = _strategyCache.GetStrategies(requestId);
+            
+            if (strategies != null && strategies.Any())
+            {
+                return Ok(new { 
+                    isReady = true, 
+                    strategies = strategies,
+                    status = "Ready"
+                });
+            }
+
+            return Ok(new { 
+                isReady = false, 
+                strategies = (object?)null,
+                status = "Processing"
+            });
         }
     }
 }
