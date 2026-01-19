@@ -1,0 +1,83 @@
+@startuml
+!theme plain
+skinparam componentStyle rectangle
+left to right direction
+skinparam linetype poly
+
+actor Customer
+
+package "Client" {
+  [UI Application] as UI
+}
+
+package "API Gateway" {
+  [Gateway API] as Gateway
+  [Strategy Storage]
+  [Plan Storage]
+}
+
+package "Optimization Engine" {
+  [Engine Service] as Engine
+  [Workflow Pipeline] as Pipeline
+  [Optimization Solver\n(OR-Tools)]
+}
+
+package "Provider Systems" {
+  [Provider A]
+  [Provider B]
+  [Provider C]
+}
+
+package "Provider Registry" {
+  [Registry Service]
+}
+
+' Client interaction
+Customer --> UI : Configure optimization request
+UI --> Gateway : HTTP API
+Gateway --> UI : Poll strategies / Get plan
+
+' Async communication (implicit broker)
+Gateway ..> Engine : Publish optimization request\n(async via message broker)
+Engine ..> Gateway : Publish strategies / plan ready\n(async events)
+
+' Internal engine flow
+Engine --> Pipeline : Execute workflow
+Pipeline --> [Optimization Solver\n(OR-Tools)] : Optimize alternatives
+
+' Providers
+Pipeline ..> [Provider A] : Request proposals\n(async)
+Pipeline ..> [Provider B] : Request proposals\n(async)
+Pipeline ..> [Provider C] : Request proposals\n(async)
+
+[Provider A] ..> Pipeline : Proposals / Confirmations
+[Provider B] ..> Pipeline : Proposals / Confirmations
+[Provider C] ..> Pipeline : Proposals / Confirmations
+
+' Registry
+[Registry Service] ..> Engine : Provider registration events
+
+' Persistence
+Gateway --> [Strategy Storage] : Store strategies
+Gateway --> [Plan Storage] : Store final plan
+
+note right of Engine
+  Long-running, asynchronous process.
+  Waits for external events:
+  - provider proposals
+  - customer strategy selection
+end note
+
+note bottom of Pipeline
+  Orchestrates workflow:
+  matching → estimation → optimization
+  → confirmation → plan creation
+end note
+
+note top of Gateway
+  Stateless HTTP API.
+  Persists user-visible state
+  and exposes polling endpoints.
+end note
+
+@enduml
