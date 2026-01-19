@@ -1,7 +1,13 @@
-﻿namespace ManufacturingOptimization.Common.Messaging.Abstractions
+﻿namespace ManufacturingOptimization.Common.Messaging.Abstractions;
+
+/// <summary>
+/// Represents a command - an instruction to perform an action.
+/// Commands have a unique ID for tracking and correlation.
+/// </summary>
+public interface ICommand : IMessage
 {
-    public interface ICommand
-    {
-        public Guid CommandId { get; set; }
-    }
+    /// <summary>
+    /// Unique identifier for this command.
+    /// </summary>
+    Guid CommandId { get; set; }
 }

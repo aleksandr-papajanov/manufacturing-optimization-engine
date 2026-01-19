@@ -21,7 +21,10 @@ public class InMemoryRequestResponseRepository : IRequestResponseRepository
 
     public void AddResponse(IEvent response)
     {
-        _responses[response.CommandId] = response;
+        if (response.CorrelationId.HasValue)
+        {
+            _responses[response.CorrelationId.Value] = response;
+        }
     }
 
     public IEvent? GetByCommandId(Guid commandId)

@@ -13,18 +13,15 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 /// </summary>
 public class PlanPersistenceStep : IWorkflowStep
 {
-    private readonly ILogger<PlanPersistenceStep> _logger;
     private readonly IOptimizationPlanRepository _planRepository;
     private readonly IMessagePublisher _messagePublisher;
 
     public string Name => "Plan Persistence";
 
     public PlanPersistenceStep(
-        ILogger<PlanPersistenceStep> logger,
         IOptimizationPlanRepository planRepository,
         IMessagePublisher messagePublisher)
     {
-        _logger = logger;
         _planRepository = planRepository;
         _messagePublisher = messagePublisher;
     }
@@ -33,40 +30,39 @@ public class PlanPersistenceStep : IWorkflowStep
     {
         if (context.SelectedStrategy == null)
         {
-            context.Errors.Add("Cannot persist plan: no strategy selected");
-            return;
+            throw new InvalidOperationException("Cannot persist plan: no strategy selected");
         }
 
-        try
+        if (!context.PlanId.HasValue)
         {
-            // Create optimization plan from context
-            var plan = new OptimizationPlan
-            {
-                RequestId = context.Request.RequestId,
-                SelectedStrategy = context.SelectedStrategy,
-                Status = OptimizationPlanStatus.Selected,
-                CreatedAt = DateTime.UtcNow,
-                SelectedAt = DateTime.UtcNow,
-                IsSuccess = context.IsSuccess,
-                Errors = context.Errors.ToList()
-            };
-
-            // Save to repository
-            var savedPlan = _planRepository.Create(plan);
-
-            // Publish plan ready event
-            var planReadyEvent = new OptimizationPlanReadyEvent
-            {
-                CommandId = Guid.NewGuid(),
-                Plan = savedPlan
-            };
-
-            _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanReady, planReadyEvent);
+            throw new InvalidOperationException("Cannot persist plan: Plan ID is missing in context");
         }
-        catch (Exception ex)
+
+        // Create optimization plan from context with pre-assigned PlanId
+        var plan = new OptimizationPlan
         {
-            context.Errors.Add($"Failed to persist plan: {ex.Message}");
-        }
+            PlanId = context.PlanId.Value,
+            RequestId = context.Request.RequestId,
+            SelectedStrategy = context.SelectedStrategy,
+            Status = OptimizationPlanStatus.Confirmed, // Changed to Confirmed after provider confirmations
+            CreatedAt = DateTime.UtcNow,
+            SelectedAt = DateTime.UtcNow
+        };
+
+        // Save to repository
+        var savedPlan = _planRepository.Create(plan);
+        
+        // Store in context for subsequent steps
+        context.SavedPlan = savedPlan;
+
+        // Publish plan ready event
+        var planReadyEvent = new OptimizationPlanReadyEvent
+        {
+            CorrelationId = context.Request.RequestId,
+            Plan = savedPlan
+        };
+
+        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanReady, planReadyEvent);
 
         await Task.CompletedTask;
     }

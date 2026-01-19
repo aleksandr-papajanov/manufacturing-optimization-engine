@@ -1,14 +1,12 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 
-namespace ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
+namespace ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 
 /// <summary>
 /// Command sent by customer to select their preferred optimization strategy.
 /// </summary>
-public class SelectStrategyCommand : IMessage, ICommand
+public class SelectStrategyCommand : BaseCommand
 {
-    public Guid CommandId { get; set; } = Guid.NewGuid();
-    
     /// <summary>
     /// The original request ID.
     /// </summary>

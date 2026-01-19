@@ -20,8 +20,6 @@ public class WorkflowContext
     /// </summary>
     public List<WorkflowProcessStep> ProcessSteps { get; set; } = [];
     
-    public List<string> Errors { get; set; } = [];
-    
     /// <summary>
     /// Optimization results (used for backward compatibility with single optimization).
     /// </summary>
@@ -38,6 +36,15 @@ public class WorkflowContext
     /// </summary>
     public OptimizationStrategy? SelectedStrategy { get; set; }
     
-    public bool IsSuccess => Errors.Count == 0;
+    /// <summary>
+    /// Plan ID assigned after strategy selection.
+    /// Used for provider confirmations before actual plan persistence.
+    /// </summary>
+    public Guid? PlanId { get; set; }
+    
+    /// <summary>
+    /// Saved optimization plan (available after PlanPersistenceStep).
+    /// </summary>
+    public OptimizationPlan? SavedPlan { get; set; }
 }
 

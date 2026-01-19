@@ -1,4 +1,6 @@
-﻿using ManufacturingOptimization.Gateway.Abstractions;
+﻿using AutoMapper;
+using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Gateway.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManufacturingOptimization.Gateway.Controllers;
@@ -9,41 +11,36 @@ public class ProviderController : ControllerBase
 {
     private readonly IProviderRepository _providerRegistry;
     private readonly ILogger<ProviderController> _logger;
+    private readonly IMapper _mapper;
 
     public ProviderController(
         IProviderRepository providerRegistry,
-        ILogger<ProviderController> logger)
+        ILogger<ProviderController> logger,
+        IMapper mapper)
     {
         _providerRegistry = providerRegistry;
         _logger = logger;
+        _mapper = mapper;
     }
 
     /// <summary>
     /// Get list of all registered providers from in-memory registry
     /// </summary>
     [HttpGet]
-    public IActionResult GetProviders()
+    [ProducesResponseType(typeof(ProvidersResponse), StatusCodes.Status200OK)]
+    public ActionResult<ProvidersResponse> GetProviders()
     {
         var providers = _providerRegistry.GetAll();
         
-        return Ok(new
+        // Map domain models to DTOs
+        var providerDtos = _mapper.Map<List<ProviderDto>>(providers);
+        
+        var response = new ProvidersResponse
         {
-            totalProviders = providers.Count(),
-            providers = providers.Select(p => new
-            {
-                providerId = p.Id,
-                providerType = p.Type,
-                providerName = p.Name,
-                enabled = p.Enabled,
-                processCapabilities = p.ProcessCapabilities.Select(pc => new 
-                {
-                    processName = pc.ProcessName,
-                    costPerHour = pc.CostPerHour,
-                    qualityScore = pc.QualityScore,
-                    carbonIntensityKgCO2PerKwh = pc.CarbonIntensityKgCO2PerKwh,
-                    usesRenewableEnergy = pc.UsesRenewableEnergy
-                })
-            })
-        });
+            TotalProviders = providerDtos.Count,
+            Providers = providerDtos
+        };
+
+        return Ok(response);
     }
 }

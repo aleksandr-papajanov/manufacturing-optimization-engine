@@ -44,35 +44,42 @@ public class ProviderSimulatorWorker : BackgroundService
     {
         // Listen to proposals from Engine
         _messagingInfrastructure.DeclareExchange(Exchanges.Process);
-        _messagingInfrastructure.DeclareQueue("provider.process.proposals");
-        _messagingInfrastructure.BindQueue("provider.process.proposals", Exchanges.Process, ProcessRoutingKeys.Propose);
-        _messagingInfrastructure.PurgeQueue("provider.process.proposals");
+        
+        // Listen to process proposals for this specific provider
+        var proposalQueueName = $"process.proposal.{_providerLogic.Provider.Id}";
+        _messagingInfrastructure.DeclareQueue(proposalQueueName);
+        _messagingInfrastructure.BindQueue(proposalQueueName, Exchanges.Process, proposalQueueName);
+        _messagingInfrastructure.PurgeQueue(proposalQueueName);
+        _messageSubscriber.Subscribe<ProposeProcessToProviderCommand>(proposalQueueName, HandleProposal);
 
-        // Listen to estimate requests for this specific provider
-        var estimateQueueName = $"process.estimate.{_providerLogic.ProviderId}";
-        _messagingInfrastructure.DeclareQueue(estimateQueueName);
-        _messagingInfrastructure.BindQueue(estimateQueueName, Exchanges.Process, estimateQueueName);
-        _messagingInfrastructure.PurgeQueue(estimateQueueName);
-        _messageSubscriber.Subscribe<RequestProcessEstimateCommand>(estimateQueueName, HandleEstimateRequest);
+        // Listen to confirmations for this specific provider
+        var confirmationQueueName = $"process.confirm.{_providerLogic.Provider.Id}";
+        _messagingInfrastructure.DeclareQueue(confirmationQueueName);
+        _messagingInfrastructure.BindQueue(confirmationQueueName, Exchanges.Process, confirmationQueueName);
+        _messagingInfrastructure.PurgeQueue(confirmationQueueName);
+        _messageSubscriber.Subscribe<ConfirmProcessProposalCommand>(confirmationQueueName, HandleConfirmation);
 
         // Listen to provider coordination commands
-        var providerCoordinationQueue = $"provider.coordination.{_providerLogic.ProviderId}";
+        var providerCoordinationQueue = $"provider.coordination.{_providerLogic.Provider.Id}";
         _messagingInfrastructure.DeclareQueue(providerCoordinationQueue);
         _messagingInfrastructure.BindQueue(providerCoordinationQueue, Exchanges.Provider, ProviderRoutingKeys.RequestRegistrationAll);
         _messagingInfrastructure.PurgeQueue(providerCoordinationQueue);
         _messageSubscriber.Subscribe<RequestProvidersRegistrationCommand>(providerCoordinationQueue, HandleProvidersRegistrationRequest);
 
-        // Send responses back to Engine (exchange already declared by Engine)
-        // Responses go to the same Process exchange
-
         // Setup for provider registration
         _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
     }
 
-    private void HandleEstimateRequest(RequestProcessEstimateCommand request)
+    private void HandleProposal(ProposeProcessToProviderCommand proposal)
     {
-        var estimate = _providerLogic.HandleEstimateRequest(request);
-        _messagePublisher.PublishReply(request.ReplyTo, request.CommandId.ToString(), estimate);
+        var response = _providerLogic.HandleProposal(proposal);
+        _messagePublisher.PublishReply(proposal, response);
+    }
+
+    private void HandleConfirmation(ConfirmProcessProposalCommand confirmation)
+    {
+        var response = _providerLogic.HandleConfirmation(confirmation);
+        _messagePublisher.PublishReply(confirmation, response);
     }
     
     private void HandleProvidersRegistrationRequest(RequestProvidersRegistrationCommand command)
@@ -84,11 +91,7 @@ public class ProviderSimulatorWorker : BackgroundService
     {
         var registeredEvent = new ProviderRegisteredEvent
         {
-            ProviderId = _providerLogic.ProviderId,
-            ProviderType = _providerLogic.GetType().Name,
-            ProviderName = _providerLogic.ProviderName,
-            ProcessCapabilities = _providerLogic.ProcessCapabilities,
-            TechnicalCapabilities = _providerLogic.TechnicalCapabilities
+            Provider = _providerLogic.Provider
         };
 
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.Registered, registeredEvent);
@@ -96,17 +99,9 @@ public class ProviderSimulatorWorker : BackgroundService
 
     private void PublishServiceReady()
     {
-        var queues = new List<string>
-        {
-            "provider.process.proposals",
-            $"process.estimate.{_providerLogic.ProviderId}",
-            $"provider.coordination.{_providerLogic.ProviderId}"
-        };
-
         var evt = new ServiceReadyEvent
         {
-            ServiceName = $"ProviderSimulator_{_providerLogic.ProviderName}",
-            SubscribedQueues = queues
+            ServiceName = $"ProviderSimulator_{_providerLogic.Provider.Name}"
         };
 
         _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, evt);

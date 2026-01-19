@@ -3,11 +3,8 @@ using ManufacturingOptimization.Common.Messaging.Abstractions;
 
 namespace ManufacturingOptimization.Common.Messaging
 {
-    public class CustomerRequestSubmittedEvent : IMessage
+    public class CustomerRequestSubmittedEvent : BaseEvent
     {
-        public Guid MessageId { get; set; } = Guid.NewGuid();
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-
         public string RequestId { get; set; } = string.Empty;
         public string CustomerId { get; set; } = string.Empty;
 

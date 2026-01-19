@@ -29,7 +29,6 @@ public class ProviderCapabilityValidationService : BackgroundService
         IMessageSubscriber subscriber,
         IMessagePublisher publisher,
         IMessagingInfrastructure messagingInfrastructure,
-        IProviderRepository providerRepository,
         IOptions<ProviderValidationSettings> settings)
     {
         _logger = logger;
@@ -65,42 +64,36 @@ public class ProviderCapabilityValidationService : BackgroundService
 
             response = new ProviderCapabilityValidatedEvent
             {
-                ProviderId = request.ProviderId,
-                ProviderType = request.ProviderType,
-                ProviderName = request.ProviderName,
+                ProviderId = request.Provider.Id,
                 IsApproved = validationResult.IsValid,
-                Reason = validationResult.IsValid ? null : validationResult.Reason,
-                CommandId = request.CommandId
+                Reason = validationResult.IsValid ? null : validationResult.Reason
             };
         }
         catch (Exception ex)
         {
             response = new ProviderCapabilityValidatedEvent
             {
-                ProviderId = request.ProviderId,
-                ProviderType = request.ProviderType,
-                ProviderName = request.ProviderName,
+                ProviderId = request.Provider.Id,
                 IsApproved = false,
-                Reason = $"Internal error: {ex.Message}",
-                CommandId = request.CommandId
+                Reason = $"Internal error: {ex.Message}"
             };
         }
 
-        _publisher.PublishReply(request.ReplyTo, request.CommandId.ToString(), response);
+        _publisher.PublishReply(request, response);
     }
 
     private ValidationResult ValidateProvider(ValidateProviderCapabilityCommand request)
     {
         // Validate process capabilities
-        var processNames = request.ProcessCapabilities.Select(pc => pc.ProcessName).ToList();
-        var capabilitiesResult = ValidateCapabilities(request.ProviderType, processNames);
+        var processNames = request.Provider.ProcessCapabilities.Select(pc => pc.Process).ToList();
+        var capabilitiesResult = ValidateCapabilities(request.Provider.Type, processNames);
         if (!capabilitiesResult.IsValid)
         {
             return capabilitiesResult;
         }
 
         // Validate technical requirements
-        var technicalResult = ValidateTechnicalRequirements(request.TechnicalCapabilities);
+        var technicalResult = ValidateTechnicalRequirements(request.Provider.TechnicalCapabilities);
         if (!technicalResult.IsValid)
         {
             return technicalResult;
@@ -109,7 +102,7 @@ public class ProviderCapabilityValidationService : BackgroundService
         return new ValidationResult { IsValid = true };
     }
 
-    private ValidationResult ValidateCapabilities(string providerType, List<string>? capabilities)
+    private ValidationResult ValidateCapabilities(string providerType, List<ProcessType>? capabilities)
     {
         var expectedCapabilities = providerType switch
         {

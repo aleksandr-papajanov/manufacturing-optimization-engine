@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ManufacturingOptimization.Common.Models;
 
 /// <summary>
@@ -8,8 +10,10 @@ public class ProviderProcessCapability
 {
     /// <summary>
     /// Process name (e.g., "Turning", "Grinding", "Cleaning").
+    /// Maps from JSON "processName" field to ProcessType enum.
     /// </summary>
-    public string ProcessName { get; set; } = string.Empty;
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ProcessType Process { get; set; }
     
     /// <summary>
     /// Base cost per hour for this process (USD/hour).

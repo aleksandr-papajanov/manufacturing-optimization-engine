@@ -35,19 +35,13 @@ public class PipelineFactory : IWorkflowPipelineFactory
     {
         var steps = new IWorkflowStep[]
         {
-            new WorkflowMatchingStep(_loggerFactory.CreateLogger<WorkflowMatchingStep>()),
-            new ProviderMatchingStep(_providerRepository, _loggerFactory.CreateLogger<ProviderMatchingStep>()),
-            new EstimationStep(_loggerFactory.CreateLogger<EstimationStep>(), _messagePublisher),
-            new OptimizationStep(_loggerFactory.CreateLogger<OptimizationStep>()),
-            new StrategySelectionStep(
-                _loggerFactory.CreateLogger<StrategySelectionStep>(),
-                _messagePublisher,
-                _messagingInfrastructure,
-                _messageSubscriber),
-            new PlanPersistenceStep(
-                _loggerFactory.CreateLogger<PlanPersistenceStep>(),
-                _planRepository,
-                _messagePublisher)
+            new WorkflowMatchingStep(),
+            new ProviderMatchingStep(_providerRepository),
+            new EstimationStep(_messagePublisher),
+            new OptimizationStep(),
+            new StrategySelectionStep(_messagePublisher, _messagingInfrastructure, _messageSubscriber),
+            new ConfirmationStep(_messagePublisher),
+            new PlanPersistenceStep(_planRepository, _messagePublisher)
         };
 
         return new WorkflowPipeline(steps, _loggerFactory.CreateLogger<WorkflowPipeline>());

@@ -1,13 +1,9 @@
-namespace ManufacturingOptimization.Gateway.Controllers
+namespace ManufacturingOptimization.Gateway.DTOs
 {
-    public partial class OptimizationController
+    public class SelectStrategyDto
     {
-        // NEW: DTO for Strategy Selection (US-07-T4)
-        public class SelectStrategyDto
-        {
-            public Guid RequestId { get; set; }
-            public Guid StrategyId { get; set; }
-            public string StrategyName { get; set; } = string.Empty;
-        }
+        public Guid RequestId { get; set; }
+        public Guid StrategyId { get; set; }
+        public string StrategyName { get; set; } = string.Empty;
     }
 }

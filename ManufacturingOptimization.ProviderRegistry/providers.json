@@ -7,7 +7,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Cleaning",
+          "process": "Cleaning",
           "costPerHour": 50.0,
           "speedMultiplier": 1.0,
           "qualityScore": 0.90,
@@ -16,7 +16,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Disassembly",
+          "process": "Disassembly",
           "costPerHour": 75.0,
           "speedMultiplier": 0.95,
           "qualityScore": 0.95,
@@ -25,7 +25,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "PartSubstitution",
+          "process": "PartSubstitution",
           "costPerHour": 60.0,
           "speedMultiplier": 1.0,
           "qualityScore": 0.85,
@@ -34,7 +34,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Reassembly",
+          "process": "Reassembly",
           "costPerHour": 80.0,
           "speedMultiplier": 0.90,
           "qualityScore": 0.92,
@@ -43,7 +43,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Certification",
+          "process": "Certification",
           "costPerHour": 100.0,
           "speedMultiplier": 1.0,
           "qualityScore": 0.98,
@@ -65,7 +65,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Cleaning",
+          "process": "Cleaning",
           "costPerHour": 55.0,
           "speedMultiplier": 0.95,
           "qualityScore": 0.88,
@@ -74,7 +74,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Disassembly",
+          "process": "Disassembly",
           "costPerHour": 70.0,
           "speedMultiplier": 0.90,
           "qualityScore": 0.90,
@@ -83,7 +83,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "PartSubstitution",
+          "process": "PartSubstitution",
           "costPerHour": 65.0,
           "speedMultiplier": 0.95,
           "qualityScore": 0.87,
@@ -92,7 +92,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Reassembly",
+          "process": "Reassembly",
           "costPerHour": 75.0,
           "speedMultiplier": 0.92,
           "qualityScore": 0.89,
@@ -101,7 +101,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Certification",
+          "process": "Certification",
           "costPerHour": 95.0,
           "speedMultiplier": 1.05,
           "qualityScore": 0.95,
@@ -123,7 +123,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Cleaning",
+          "process": "Cleaning",
           "costPerHour": 45.0,
           "speedMultiplier": 0.85,
           "qualityScore": 0.80,
@@ -132,7 +132,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Disassembly",
+          "process": "Disassembly",
           "costPerHour": 60.0,
           "speedMultiplier": 0.80,
           "qualityScore": 0.82,
@@ -141,7 +141,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "PartSubstitution",
+          "process": "PartSubstitution",
           "costPerHour": 50.0,
           "speedMultiplier": 0.85,
           "qualityScore": 0.78,
@@ -150,7 +150,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Reassembly",
+          "process": "Reassembly",
           "costPerHour": 65.0,
           "speedMultiplier": 0.85,
           "qualityScore": 0.83,
@@ -159,7 +159,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Certification",
+          "process": "Certification",
           "costPerHour": 85.0,
           "speedMultiplier": 0.90,
           "qualityScore": 0.88,
@@ -181,7 +181,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Cleaning",
+          "process": "Cleaning",
           "costPerHour": 70.0,
           "speedMultiplier": 1.1,
           "qualityScore": 0.95,
@@ -190,7 +190,7 @@
           "usesRenewableEnergy": true
         },
         {
-          "processName": "Disassembly",
+          "process": "Disassembly",
           "costPerHour": 90.0,
           "speedMultiplier": 1.05,
           "qualityScore": 0.97,
@@ -199,7 +199,7 @@
           "usesRenewableEnergy": true
         },
         {
-          "processName": "PartSubstitution",
+          "process": "PartSubstitution",
           "costPerHour": 80.0,
           "speedMultiplier": 1.1,
           "qualityScore": 0.93,
@@ -208,7 +208,7 @@
           "usesRenewableEnergy": true
         },
         {
-          "processName": "Reassembly",
+          "process": "Reassembly",
           "costPerHour": 95.0,
           "speedMultiplier": 1.0,
           "qualityScore": 0.96,
@@ -217,7 +217,7 @@
           "usesRenewableEnergy": true
         },
         {
-          "processName": "Certification",
+          "process": "Certification",
           "costPerHour": 120.0,
           "speedMultiplier": 1.15,
           "qualityScore": 0.99,
@@ -239,7 +239,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Redesign",
+          "process": "Redesign",
           "costPerHour": 150.0,
           "speedMultiplier": 1.0,
           "qualityScore": 0.95,
@@ -261,7 +261,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Redesign",
+          "process": "Redesign",
           "costPerHour": 130.0,
           "speedMultiplier": 0.95,
           "qualityScore": 0.92,
@@ -283,7 +283,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Turning",
+          "process": "Turning",
           "costPerHour": 120.0,
           "speedMultiplier": 1.05,
           "qualityScore": 0.92,
@@ -292,7 +292,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Grinding",
+          "process": "Grinding",
           "costPerHour": 130.0,
           "speedMultiplier": 1.0,
           "qualityScore": 0.93,
@@ -314,7 +314,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Turning",
+          "process": "Turning",
           "costPerHour": 110.0,
           "speedMultiplier": 1.0,
           "qualityScore": 0.88,
@@ -323,7 +323,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Grinding",
+          "process": "Grinding",
           "costPerHour": 115.0,
           "speedMultiplier": 0.95,
           "qualityScore": 0.89,
@@ -345,7 +345,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Turning",
+          "process": "Turning",
           "costPerHour": 145.0,
           "speedMultiplier": 1.15,
           "qualityScore": 0.96,
@@ -354,7 +354,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Grinding",
+          "process": "Grinding",
           "costPerHour": 150.0,
           "speedMultiplier": 1.2,
           "qualityScore": 0.97,
@@ -376,7 +376,7 @@
       "enabled": true,
       "processCapabilities": [
         {
-          "processName": "Turning",
+          "process": "Turning",
           "costPerHour": 85.0,
           "speedMultiplier": 0.85,
           "qualityScore": 0.80,
@@ -385,7 +385,7 @@
           "usesRenewableEnergy": false
         },
         {
-          "processName": "Grinding",
+          "process": "Grinding",
           "costPerHour": 90.0,
           "speedMultiplier": 0.80,
           "qualityScore": 0.78,
@@ -402,3 +402,4 @@
     }
   ]
 }
+

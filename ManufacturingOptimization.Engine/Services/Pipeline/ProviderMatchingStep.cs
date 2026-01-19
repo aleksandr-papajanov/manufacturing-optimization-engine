@@ -11,16 +11,12 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 public class ProviderMatchingStep : IWorkflowStep
 {
     private readonly IProviderRepository _providerRepository;
-    private readonly ILogger<ProviderMatchingStep> _logger;
 
     public string Name => "Provider Matching";
 
-    public ProviderMatchingStep(
-        IProviderRepository providerRepository,
-        ILogger<ProviderMatchingStep> logger)
+    public ProviderMatchingStep(IProviderRepository providerRepository)
     {
         _providerRepository = providerRepository;
-        _logger = logger;
     }
 
     public Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
@@ -28,7 +24,7 @@ public class ProviderMatchingStep : IWorkflowStep
         foreach (var processStep in context.ProcessSteps)
         {
             // Find providers that can perform this process
-            var providersWithCapabilities = _providerRepository.FindByProcess(processStep.RequiredCapability);
+            var providersWithCapabilities = _providerRepository.FindByProcess(processStep.Process);
             
             // Filter by technical requirements
             var matchedProviders = providersWithCapabilities
@@ -36,9 +32,7 @@ public class ProviderMatchingStep : IWorkflowStep
                 .Select(pc => new MatchedProvider
                 {
                     ProviderId = pc.Provider.Id,
-                    ProviderName = pc.Provider.Name,
-                    ProviderType = pc.Provider.Type
-                    // Cost, time, quality, and emissions will be filled by EstimationStep
+                    ProviderName = pc.Provider.Name
                 })
                 .ToList();
 
@@ -46,7 +40,7 @@ public class ProviderMatchingStep : IWorkflowStep
 
             if (processStep.MatchedProviders.Count == 0)
             {
-                context.Errors.Add($"No providers found for step {processStep.StepNumber} ({processStep.Activity}) requiring '{processStep.RequiredCapability}' capability with sufficient technical capabilities");
+                throw new InvalidOperationException($"No providers found for step {processStep.StepNumber} ({processStep.Process}) requiring '{processStep.Process}' capability with sufficient technical capabilities");
             }
         }
 

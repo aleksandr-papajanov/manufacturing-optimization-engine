@@ -1,3 +1,6 @@
+using ManufacturingOptimization.Common.Models;
+using System.Text.Json.Serialization;
+
 namespace ManufacturingOptimization.Engine.Settings;
 
 public class ProviderValidationSettings
@@ -6,7 +9,9 @@ public class ProviderValidationSettings
 
     public TechnicalLimits TechnicalLimits { get; set; } = new();
     public RequiredCapabilities RequiredCapabilities { get; set; } = new();
-    public List<string> RequiredProcesses { get; set; } = new();
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public List<ProcessType> RequiredProcesses { get; set; } = new();
 }
 
 public class TechnicalLimits
@@ -21,7 +26,12 @@ public class TechnicalLimits
 
 public class RequiredCapabilities
 {
-    public List<string> MainRemanufacturingCenter { get; set; } = new();
-    public List<string> EngineeringDesignFirm { get; set; } = new();
-    public List<string> PrecisionMachineShop { get; set; } = new();
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public List<ProcessType> MainRemanufacturingCenter { get; set; } = new();
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public List<ProcessType> EngineeringDesignFirm { get; set; } = new();
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public List<ProcessType> PrecisionMachineShop { get; set; } = new();
 }

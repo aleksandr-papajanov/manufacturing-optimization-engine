@@ -17,6 +17,11 @@ builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<Rab
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 
+// System readiness coordination
+builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Engine");
+builder.Services.AddSingleton<ISystemReadinessService, StartupCoordinator>();
+builder.Services.AddHostedService(sp => (StartupCoordinator)sp.GetRequiredService<ISystemReadinessService>());
+
 // Provider registry
 builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
 

@@ -3,19 +3,14 @@ using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 
-public class ProviderRegisteredEvent : IMessage
+/// <summary>
+/// Event published when a provider has been registered in the system.
+/// Contains complete provider information including capabilities.
+/// </summary>
+public class ProviderRegisteredEvent : BaseEvent
 {
-    public Guid ProviderId { get; set; }
-    public string ProviderName { get; set; } = string.Empty;
-    public string ProviderType { get; set; } = string.Empty;
-    
     /// <summary>
-    /// List of processes this provider can perform with specific characteristics.
+    /// The registered provider with all capabilities and specifications.
     /// </summary>
-    public List<ProviderProcessCapability> ProcessCapabilities { get; set; } = [];
-    
-    /// <summary>
-    /// Technical requirements/capabilities of the provider.
-    /// </summary>
-    public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
+    public Provider Provider { get; set; } = new();
 }

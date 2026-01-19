@@ -7,17 +7,10 @@ namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement
 /// Command to validate provider capabilities before registration/startup.
 /// Published by ProviderRegistry, consumed by Engine using RPC pattern.
 /// </summary>
-public class ValidateProviderCapabilityCommand : IMessage, ICommand
+public class ValidateProviderCapabilityCommand : BaseRequestReplyCommand
 {
-    public Guid CommandId { get; set; } = Guid.NewGuid();
-    public Guid ProviderId { get; set; }
-    public string ProviderType { get; set; } = string.Empty;
-    public string ProviderName { get; set; } = string.Empty;
-    public List<ProviderProcessCapability> ProcessCapabilities { get; set; } = [];
-    public ProviderTechnicalCapabilities TechnicalCapabilities { get; set; } = new();
-    
     /// <summary>
-    /// RPC: Queue name where response should be sent.
+    /// Provider to validate with all capabilities and specifications.
     /// </summary>
-    public string ReplyTo { get; set; } = string.Empty;
+    public Provider Provider { get; set; } = new();
 }

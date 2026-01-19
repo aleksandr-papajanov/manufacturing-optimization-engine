@@ -33,11 +33,11 @@ public class InMemoryProviderRepository : IProviderRepository
         return _providers.Values.ToList();
     }
     
-    public List<(Provider Provider, ProviderProcessCapability Capability)> FindByProcess(string processName)
+    public List<(Provider Provider, ProviderProcessCapability Capability)> FindByProcess(ProcessType process)
     {
         return _providers.Values
             .SelectMany(p => p.ProcessCapabilities
-                .Where(cap => cap.ProcessName.Equals(processName, StringComparison.OrdinalIgnoreCase))
+                .Where(cap => cap.Process.Equals(process))
                 .Select(cap => (Provider: p, Capability: cap)))
             .ToList();
     }

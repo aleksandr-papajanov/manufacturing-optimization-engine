@@ -41,15 +41,5 @@ public class OptimizationPlan
     /// Timestamp when the plan was confirmed and sent to providers.
     /// </summary>
     public DateTime? ConfirmedAt { get; set; }
-    
-    /// <summary>
-    /// Indicates whether the plan creation was successful.
-    /// </summary>
-    public bool IsSuccess { get; set; } = true;
-    
-    /// <summary>
-    /// List of errors encountered during plan creation.
-    /// </summary>
-    public List<string> Errors { get; set; } = [];
 }
 

@@ -48,7 +48,7 @@ public class ComposeManagedOrchestrator : ProviderOrchestratorBase, IProviderOrc
 
         lock (_registeredProviders)
         {
-            _registeredProviders.Add(evt.ProviderId);
+            _registeredProviders.Add(evt.Provider.Id);
             allRegistered = _registeredProviders.Count == EXPECTED_PROVIDERS;
         }
 

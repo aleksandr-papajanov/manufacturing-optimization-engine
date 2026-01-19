@@ -20,5 +20,5 @@ public interface IProviderRepository
     /// Find all providers that can perform the specified process.
     /// Returns providers with their ProcessCapability for that process.
     /// </summary>
-    List<(Provider Provider, ProviderProcessCapability Capability)> FindByProcess(string processName);
+    List<(Provider Provider, ProviderProcessCapability Capability)> FindByProcess(ProcessType process);
 }

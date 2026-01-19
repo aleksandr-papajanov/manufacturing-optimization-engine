@@ -63,7 +63,7 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         
         lock (_registeredProviders)
         {
-            _registeredProviders.Add(evt.ProviderId);
+            _registeredProviders.Add(evt.Provider.Id);
             registeredCount = _registeredProviders.Count;
             
             lock (_runningProviders)
@@ -130,8 +130,8 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         var envVars = new List<string>
         {
             $"PROVIDER_TYPE={provider.Type}",
-            $"{provider.Type}__ProviderId={provider.Id}",
-            $"{provider.Type}__ProviderName={provider.Name}",
+            $"Provider__ProviderId={provider.Id}",
+            $"Provider__ProviderName={provider.Name}",
             $"RabbitMQ__Host={_rabbitMqSettings.Host}",
             $"RabbitMQ__Port={_rabbitMqSettings.Port}",
             $"RabbitMQ__Username={_rabbitMqSettings.Username}",
@@ -142,16 +142,16 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         for (int i = 0; i < provider.ProcessCapabilities.Count; i++)
         {
             var capability = provider.ProcessCapabilities[i];
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__ProcessName={capability.ProcessName}");
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__CostPerHour={capability.CostPerHour}");
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__QualityScore={capability.QualityScore}");
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__CarbonIntensityKgCO2PerKwh={capability.CarbonIntensityKgCO2PerKwh}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__Process={capability.Process}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__CostPerHour={capability.CostPerHour}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__QualityScore={capability.QualityScore}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__CarbonIntensityKgCO2PerKwh={capability.CarbonIntensityKgCO2PerKwh}");
         }
 
         // Add technical capabilities
-        envVars.Add($"{provider.Type}__AxisHeight={provider.TechnicalCapabilities.AxisHeight}");
-        envVars.Add($"{provider.Type}__Power={provider.TechnicalCapabilities.Power}");
-        envVars.Add($"{provider.Type}__Tolerance={provider.TechnicalCapabilities.Tolerance}");
+        envVars.Add($"Provider__TechnicalCapabilities__AxisHeight={provider.TechnicalCapabilities.AxisHeight}");
+        envVars.Add($"Provider__TechnicalCapabilities__Power={provider.TechnicalCapabilities.Power}");
+        envVars.Add($"Provider__TechnicalCapabilities__Tolerance={provider.TechnicalCapabilities.Tolerance}");
 
         var createParams = new CreateContainerParameters
         {

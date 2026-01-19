@@ -19,22 +19,36 @@ public class WorkflowPipeline : IWorkflowPipeline
 
     public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
-        foreach (var step in _steps)
-        {
-            if (!context.IsSuccess)
-            {
-                return;
-            }
+        var startTime = DateTime.UtcNow;
+        _logger.LogInformation(
+            "Starting workflow pipeline for request {RequestId}. Workflow type: {WorkflowType}",
+            context.Request.RequestId, context.WorkflowType ?? "Unknown");
 
-            try
+        try
+        {
+            foreach (var step in _steps)
             {
                 await step.ExecuteAsync(context, cancellationToken);
             }
-            catch (Exception ex)
-            {
-                context.Errors.Add($"{step.Name}: {ex.Message}");
-                return;
-            }
+
+            var duration = DateTime.UtcNow - startTime;
+            _logger.LogInformation(
+                "Pipeline completed successfully in {Duration}ms. Request {RequestId}, Workflow: {WorkflowType}, Strategies: {StrategyCount}, Selected: {SelectedPriority}, PlanId: {PlanId}",
+                duration.TotalMilliseconds,
+                context.Request.RequestId,
+                context.WorkflowType,
+                context.Strategies.Count,
+                context.SelectedStrategy?.Priority.ToString() ?? "None",
+                context.PlanId?.ToString() ?? "None");
+        }
+        catch (Exception ex)
+        {
+            var duration = DateTime.UtcNow - startTime;
+            _logger.LogError(ex,
+                "Pipeline failed in {Duration}ms. Request {RequestId}, Error: {ErrorMessage}",
+                duration.TotalMilliseconds,
+                context.Request.RequestId,
+                ex.Message);
         }
     }
 }

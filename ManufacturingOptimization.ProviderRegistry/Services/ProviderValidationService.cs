@@ -26,11 +26,7 @@ public class ProviderValidationService : IProviderValidationService
     {
         var validationRequest = new ValidateProviderCapabilityCommand
         {
-            ProviderId = provider.Id,
-            ProviderType = provider.Type,
-            ProviderName = provider.Name,
-            ProcessCapabilities = provider.ProcessCapabilities,
-            TechnicalCapabilities = provider.TechnicalCapabilities
+            Provider = provider
         };
 
         var response = await _messagePublisher.RequestReplyAsync<ProviderCapabilityValidatedEvent>(

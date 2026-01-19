@@ -1,7 +1,7 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
-using ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
 using ManufacturingOptimization.Common.Models;
@@ -18,6 +18,7 @@ public class GatewayWorker : BackgroundService
     private readonly IRequestResponseRepository _repository;
     private readonly IProviderRepository _providerRepository;
     private readonly IOptimizationStrategyRepository _strategyRepository;
+    private readonly ISystemReadinessService _readinessService;
 
     public GatewayWorker(
         ILogger<GatewayWorker> logger,
@@ -26,7 +27,8 @@ public class GatewayWorker : BackgroundService
         IMessagePublisher messagePublisher,
         IRequestResponseRepository repository,
         IProviderRepository providerRepository,
-        IOptimizationStrategyRepository strategyRepository)
+        IOptimizationStrategyRepository strategyRepository,
+        ISystemReadinessService readinessService)
     {
         _logger = logger;
         _messagingInfrastructure = messagingInfrastructure;
@@ -35,6 +37,7 @@ public class GatewayWorker : BackgroundService
         _repository = repository;
         _providerRepository = providerRepository;
         _strategyRepository = strategyRepository;
+        _readinessService = readinessService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,12 +50,7 @@ public class GatewayWorker : BackgroundService
         // Publish service ready event
         var readyEvent = new ServiceReadyEvent
         {
-            ServiceName = "Gateway",
-            SubscribedQueues = { 
-                "gateway.provider.events", 
-                "gateway.optimization.responses",
-                "gateway.strategies.ready"
-            }
+            ServiceName = "Gateway"
         };
 
         _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, readyEvent);
@@ -86,17 +84,7 @@ public class GatewayWorker : BackgroundService
 
     private void HandleProviderRegistered(ProviderRegisteredEvent evt)
     {
-        var provider = new Provider
-        {
-            Id = evt.ProviderId,
-            Type = evt.ProviderType,
-            Name = evt.ProviderName,
-            Enabled = true,
-            ProcessCapabilities = evt.ProcessCapabilities,
-            TechnicalCapabilities = evt.TechnicalCapabilities
-        };
-        
-        _providerRepository.Create(provider);
+        _providerRepository.Create(evt.Provider);
     }
 
     private void HandleOptimizationResponse(OptimizationPlanCreatedEvent response)

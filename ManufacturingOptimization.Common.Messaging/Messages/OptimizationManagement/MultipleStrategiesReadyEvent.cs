@@ -7,13 +7,8 @@ namespace ManufacturingOptimization.Common.Messaging.Messages.OptimizationManage
 /// Published when multiple optimization strategies are ready for customer selection.
 /// Contains all generated strategies with different optimization priorities.
 /// </summary>
-public class MultipleStrategiesReadyEvent : IMessage, IEvent
+public class MultipleStrategiesReadyEvent : BaseEvent
 {
-    /// <summary>
-    /// Command that triggered this event (for correlation).
-    /// </summary>
-    public Guid CommandId { get; set; }
-    
     /// <summary>
     /// Request ID for tracking.
     /// </summary>

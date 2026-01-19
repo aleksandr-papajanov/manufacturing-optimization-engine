@@ -1,82 +1,69 @@
+using AutoMapper;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.PanManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Gateway.DTOs;
 using Microsoft.AspNetCore.Mvc;
-using System.Globalization;
-using System.Text.RegularExpressions;
-using IMessagePublisher = ManufacturingOptimization.Common.Messaging.Abstractions.IMessagePublisher;
 
 namespace ManufacturingOptimization.Gateway.Controllers
 {
     [ApiController]
     [Route("api/optimization")]
-    public partial class OptimizationController : ControllerBase
+    public class OptimizationController : ControllerBase
     {
         private readonly ILogger<OptimizationController> _logger;
         private readonly IMessagePublisher _messagePublisher;
         private readonly IOptimizationStrategyRepository _strategyRepository;
+        private readonly IMapper _mapper;
 
         public OptimizationController(
             ILogger<OptimizationController> logger,
             IMessagePublisher messagePublisher,
-            IOptimizationStrategyRepository strategyRepository)
+            IOptimizationStrategyRepository strategyRepository,
+            IMapper mapper)
         {
             _logger = logger;
             _messagePublisher = messagePublisher;
             _strategyRepository = strategyRepository;
+            _mapper = mapper;
         }
 
-        // [NEW] Submit Optimization Request with full MotorRequest
+        /// <summary>
+        /// Submit optimization request
+        /// </summary>
         [HttpPost("request")]
-        public IActionResult RequestOptimizationPlan([FromBody] OptimizationRequest motorRequest)
+        [ProducesResponseType(typeof(OptimizationRequestResponse), StatusCodes.Status202Accepted)]
+        public ActionResult<OptimizationRequestResponse> RequestOptimizationPlan([FromBody] OptimizationRequestDto requestDto)
         {
-            // Create command with full MotorRequest
+            // Map DTO to domain model
+            var motorRequest = _mapper.Map<OptimizationRequest>(requestDto);
+            
             var command = new RequestOptimizationPlanCommand
             {
                 Request = motorRequest
             };
 
-            // Publish to optimization engine
             _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanRequested, command);
 
-            return Accepted(new 
-            { 
-                status = "Request accepted", 
-                commandId = command.CommandId,
-                requestId = motorRequest.RequestId,
-                message = "Your optimization request is being processed. Multiple strategies will be generated."
-            });
-        }
-
-        // [US-06] Submit Initial Request (Legacy - for backward compatibility)
-        [HttpPost("submit")] 
-        public IActionResult SubmitRequest([FromBody] MotorRequestDto request)
-        {
-            _logger.LogInformation("Received request {RequestId}. Raw Power: {Power}", request.RequestId, request.Power);
-
-            double powerValue = 0;
-            if (!string.IsNullOrEmpty(request.Power))
+            var response = new OptimizationRequestResponse
             {
-                string cleanedPower = Regex.Replace(request.Power, "[^0-9.,]", "").Replace(",", ".");
-                double.TryParse(cleanedPower, NumberStyles.Any, CultureInfo.InvariantCulture, out powerValue);
-            }
-
-            var eventMessage = new global::ManufacturingOptimization.Common.Messaging.CustomerRequestSubmittedEvent
-            {
-                RequestId = request.RequestId,
-                CustomerId = request.CustomerId,
-                RequiredPowerKW = powerValue
+                Status = "Request accepted",
+                CommandId = command.CommandId,
+                RequestId = motorRequest.RequestId,
+                Message = "Your optimization request is being processed. Multiple strategies will be generated."
             };
 
-            _messagePublisher.Publish(Exchanges.Optimization, "optimization.request", eventMessage);
-            
-            return Accepted(new { status = "Request submitted", requestId = request.RequestId });
+            return Accepted(response);
         }
 
-        // NEW: [US-07-T4] Select Preferred Strategy
+        /// <summary>
+        /// Select preferred optimization strategy
+        /// </summary>
         [HttpPost("select")]
-        public IActionResult SelectStrategy([FromBody] SelectStrategyDto selection)
+        [ProducesResponseType(typeof(StrategySelectionResponse), StatusCodes.Status200OK)]
+        public ActionResult<StrategySelectionResponse> SelectStrategy([FromBody] SelectStrategyDto selection)
         {
             _logger.LogInformation(
                 "Received strategy selection for Request {RequestId}: Strategy '{StrategyName}' (ID: {StrategyId})",
@@ -89,36 +76,46 @@ namespace ManufacturingOptimization.Gateway.Controllers
                 SelectedStrategyName = selection.StrategyName
             };
 
-            // Publish with request-specific routing key so only the waiting pipeline receives it
             var routingKey = $"{OptimizationRoutingKeys.StrategySelected}.{selection.RequestId}";
             _messagePublisher.Publish(Exchanges.Optimization, routingKey, command);
 
-            return Ok(new { 
-                status = "Strategy selection received", 
-                requestId = selection.RequestId,
-                strategyId = selection.StrategyId
-            });
+            var response = new StrategySelectionResponse
+            {
+                Status = "Strategy selection received",
+                RequestId = selection.RequestId,
+                StrategyId = selection.StrategyId
+            };
+
+            return Ok(response);
         }
 
-        // NEW: [US-07] Get Strategies for Request
+        /// <summary>
+        /// Get available optimization strategies for a request
+        /// </summary>
         [HttpGet("strategies/{requestId}")]
-        public IActionResult GetStrategies(Guid requestId)
+        [ProducesResponseType(typeof(StrategiesResponse), StatusCodes.Status200OK)]
+        public ActionResult<StrategiesResponse> GetStrategies(Guid requestId)
         {
             var strategies = _strategyRepository.GetStrategies(requestId);
             
             if (strategies != null && strategies.Any())
             {
-                return Ok(new { 
-                    isReady = true, 
-                    strategies = strategies,
-                    status = "Ready"
+                // Map domain models to DTOs
+                var strategyDtos = _mapper.Map<List<OptimizationStrategyDto>>(strategies);
+                
+                return Ok(new StrategiesResponse
+                {
+                    IsReady = true,
+                    Strategies = strategyDtos,
+                    Status = "Ready"
                 });
             }
 
-            return Ok(new { 
-                isReady = false, 
-                strategies = (object?)null,
-                status = "Processing"
+            return Ok(new StrategiesResponse
+            {
+                IsReady = false,
+                Strategies = null,
+                Status = "Processing"
             });
         }
     }

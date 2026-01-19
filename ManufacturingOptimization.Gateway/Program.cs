@@ -1,6 +1,7 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Gateway.Middleware;
 using ManufacturingOptimization.Gateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient(); // Required for Legacy "Get Providers"
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(Program));
 
 // Configure RabbitMQ Settings from appsettings.json
 builder.Services.Configure<RabbitMqSettings>(
@@ -22,6 +26,11 @@ builder.Services.AddSingleton<RabbitMqService>();
 builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
+
+// System readiness coordination
+builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Gateway");
+builder.Services.AddSingleton<ISystemReadinessService, SystemReadinessService>();
+builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredService<ISystemReadinessService>());
 
 // Register Repositories (Singleton for in-memory implementations)
 builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
@@ -36,6 +45,10 @@ var app = builder.Build();
 // Configure Pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Add system readiness middleware before authorization
+app.UseSystemReadiness();
+
 app.UseAuthorization();
 app.MapControllers();
 

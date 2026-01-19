@@ -139,7 +139,7 @@ async Task SubmitOptimizationRequest()
 
     // Submit request to Gateway
     Guid requestId = motorRequest.RequestId;
-    List<OptimizationStrategy>? strategies = null;
+    List<OptimizationStrategyDto>? strategies = null;
 
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -329,10 +329,10 @@ async Task SubmitOptimizationRequest()
                                 step.StepNumber.ToString(),
                                 step.Activity,
                                 step.SelectedProviderName,
-                                $"€{step.CostEstimate:N2}",
-                                $"{step.TimeEstimate.TotalHours:N1}h",
-                                step.QualityScore.ToString("P0"),
-                                $"{step.EmissionsKgCO2:N2} kg"
+                                $"€{step.Estimate.Cost:N2}",
+                                $"{step.Estimate.Duration.TotalHours:N1}h",
+                                step.Estimate.QualityScore.ToString("P0"),
+                                $"{step.Estimate.EmissionsKgCO2:N2} kg"
                             );
                         }
                         
@@ -389,15 +389,15 @@ async Task GetProviders()
                             .AddColumn("[yellow]Provider ID[/]")
                             .AddColumn("[yellow]Type[/]")
                             .AddColumn("[yellow]Name[/]")
-                            .AddColumn("[yellow]Registered At[/]");
+                            .AddColumn("[yellow]Status[/]");
                         
                         foreach (var provider in result.Providers)
                         {
                             table.AddRow(
-                                provider.ProviderId.ToString(),
-                                provider.ProviderType,
-                                provider.ProviderName,
-                                provider.RegisteredAt.ToString("yyyy-MM-dd HH:mm:ss")
+                                provider.Id.ToString(),
+                                provider.Type,
+                                provider.Name,
+                                provider.Enabled ? "[green]Active[/]" : "[dim]Inactive[/]"
                             );
                         }
                         
@@ -422,6 +422,68 @@ async Task GetProviders()
 }
 
 // --- DTOs ---
-record ProvidersListResponse(int TotalProviders, List<ProviderInfo> Providers);
-record ProviderInfo(Guid ProviderId, string ProviderType, string ProviderName, DateTime RegisteredAt);
-record StrategiesResponse(bool IsReady, List<OptimizationStrategy>? Strategies, string? Status);
+record ProvidersListResponse(int TotalProviders, List<ProviderDto> Providers);
+
+record ProviderDto(
+    Guid Id,
+    string Type,
+    string Name,
+    bool Enabled,
+    List<ProviderProcessCapabilityDto> ProcessCapabilities,
+    ProviderTechnicalCapabilitiesDto TechnicalCapabilities
+);
+
+record ProviderProcessCapabilityDto(
+    string ProcessName,
+    decimal CostPerHour,
+    double SpeedMultiplier,
+    double QualityScore,
+    double EnergyConsumptionKwhPerHour,
+    double CarbonIntensityKgCO2PerKwh,
+    bool UsesRenewableEnergy
+);
+
+record ProviderTechnicalCapabilitiesDto(
+    double AxisHeight,
+    double Power,
+    double Tolerance
+);
+
+record StrategiesResponse(bool IsReady, List<OptimizationStrategyDto>? Strategies, string? Status);
+
+record OptimizationStrategyDto(
+    Guid StrategyId,
+    string StrategyName,
+    string Priority,
+    string WorkflowType,
+    List<OptimizationProcessStepDto> Steps,
+    OptimizationMetricsDto Metrics,
+    string WarrantyTerms,
+    bool IncludesInsurance,
+    string Description,
+    DateTime GeneratedAt
+);
+
+record OptimizationProcessStepDto(
+    int StepNumber,
+    string Activity,
+    Guid SelectedProviderId,
+    string SelectedProviderName,
+    ProcessEstimateDto Estimate
+);
+
+record ProcessEstimateDto(
+    decimal Cost,
+    TimeSpan Duration,
+    double QualityScore,
+    double EmissionsKgCO2
+);
+
+record OptimizationMetricsDto(
+    decimal TotalCost,
+    TimeSpan TotalDuration,
+    double AverageQuality,
+    double TotalEmissionsKgCO2,
+    string SolverStatus,
+    double ObjectiveValue
+);

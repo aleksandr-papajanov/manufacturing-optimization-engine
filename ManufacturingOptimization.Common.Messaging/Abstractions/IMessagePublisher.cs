@@ -23,14 +23,13 @@ public interface IMessagePublisher
     /// <param name="request">Request message</param>
     /// <param name="timeout">Maximum time to wait for response</param>
     /// <returns>Response message or null if timeout</returns>
-    Task<TResponse?> RequestReplyAsync<TResponse>(
-        string exchangeName, 
-        string routingKey, 
-        IMessage request, 
-        TimeSpan? timeout = null) where TResponse : class, IMessage;
+    Task<TResponse?> RequestReplyAsync<TResponse>(string exchangeName, string routingKey, IMessage request, TimeSpan? timeout = null) where TResponse : class, IMessage;
     
     /// <summary>
-    /// Publishes a reply message directly to a queue (used for RPC responses).
+    /// Publishes a reply using request's ReplyTo queue and CommandId.
+    /// Automatically sets CorrelationId on the response event.
     /// </summary>
-    void PublishReply<T>(string replyToQueue, string correlationId, T message) where T : IMessage;
+    void PublishReply<TRequest, TResponse>(TRequest request, TResponse response) 
+        where TRequest : IRequestReplyCommand 
+        where TResponse : IMessage;
 }
