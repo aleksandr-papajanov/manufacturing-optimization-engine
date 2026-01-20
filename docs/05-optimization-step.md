@@ -59,6 +59,26 @@ j
 
 This ensures that each process is executed by exactly one provider.
 
+**Budget constraint (if specified):**
+
+```
+Σ Σ (cost[i,j] × x[i,j]) ≤ MaxBudget
+i j
+```
+
+Ensures total cost does not exceed customer's maximum budget.
+
+**Deadline constraint (if specified):**
+
+```
+Σ Σ (time[i,j] × x[i,j]) ≤ (RequiredDeadline - Now).TotalHours
+i j
+```
+
+Ensures total duration does not exceed time until customer's required deadline.
+
+These constraints are enforced **during optimization**, not after. The solver will only find solutions that satisfy all constraints, or report INFEASIBLE if no valid solution exists.
+
 ### Objective Function
 
 Minimize weighted sum:
@@ -119,7 +139,7 @@ for (int i = 0; i < processSteps.Count; i++)
         assignments[(i, j)] = solver.MakeBoolVar($"x_{i}_{j}");
 ```
 
-### 3. Adding Constraints
+### 3. Adding "One Provider Per Step" Constraints
 
 ```csharp
 for (int i = 0; i < processSteps.Count; i++)
@@ -130,7 +150,41 @@ for (int i = 0; i < processSteps.Count; i++)
 }
 ```
 
-### 4. Objective Function Setup
+### 4. Building Total Cost and Time Expressions
+
+```csharp
+LinearExpr totalCostExpr = 0;
+LinearExpr totalTimeExpr = 0;
+
+for (int i = 0; i < processSteps.Count; i++)
+{
+    for (int j = 0; j < step.MatchedProviders.Count; j++)
+    {
+        var estimate = step.MatchedProviders[j].Estimate;
+        totalCostExpr += estimate.Cost * assignments[(i, j)];
+        totalTimeExpr += estimate.Duration.TotalHours * assignments[(i, j)];
+    }
+}
+```
+
+### 5. Adding Budget and Deadline Constraints
+
+```csharp
+if (constraints.MaxBudget.HasValue)
+{
+    solver.Add(totalCostExpr <= (double)constraints.MaxBudget.Value);
+}
+
+if (constraints.RequiredDeadline.HasValue)
+{
+    var maxHours = (constraints.RequiredDeadline.Value - DateTime.Now).TotalHours;
+    solver.Add(totalTimeExpr <= maxHours);
+}
+```
+
+**Important:** Deadline is converted to relative duration (hours from now), not absolute DateTime.
+
+### 6. Objective Function Setup
 
 ```csharp
 var objective = solver.Objective();
@@ -147,7 +201,7 @@ for each (step, provider):
 objective.SetMinimization();
 ```
 
-### 5. Solving
+### 7. Solving
 
 ```csharp
 var status = solver.Solve();
@@ -161,6 +215,12 @@ if (status == OPTIMAL || status == FEASIBLE)
 }
 ```
 
+**Possible statuses:**
+- `OPTIMAL` — optimal solution found
+- `FEASIBLE` — feasible solution found (may not be optimal)
+- `INFEASIBLE` — no solution exists that satisfies all constraints (e.g., budget too low or deadline too tight)
+- `UNBOUNDED` — problem is unbounded (should not happen with our formulation)
+
 ## Extracting Results
 
 After solving:
@@ -172,23 +232,6 @@ After solving:
    - `AverageQuality` — average quality score
    - `TotalEmissionsKgCO2` — sum of emissions
 3. **Create OptimizationStrategy** with selected providers for each step
-
-## Filtering Strategies by Constraints
-
-After generating all strategies, customer constraints are applied:
-
-**MaxBudget** — if maximum budget specified:
-```csharp
-strategies = strategies.Where(s => s.Metrics.TotalCost <= MaxBudget)
-```
-
-**RequiredDeadline** — if deadline specified:
-```csharp
-maxAllowedHours = (RequiredDeadline - DateTime.Now).TotalHours
-strategies = strategies.Where(s => s.Metrics.TotalDuration.TotalHours <= maxAllowedHours)
-```
-
-If strategies remain after filtering, only they are returned. If all strategies are filtered out, originals are returned (so customer knows their constraints are unfeasible).
 
 ## Additional Strategy Parameters
 

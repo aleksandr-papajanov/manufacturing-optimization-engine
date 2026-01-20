@@ -47,14 +47,6 @@ public sealed class OptimizationStep : IWorkflowStep
         {
             throw new InvalidOperationException("Failed to generate any optimization strategies.");
         }
-
-        // Apply request-level constraints (budget, deadline)
-        var filteredStrategies = ApplyConstraintFiltering(context);
-
-        if (filteredStrategies.Count > 0 && filteredStrategies.Count < context.Strategies.Count)
-        {
-            context.Strategies = filteredStrategies;
-        }
     }
 
     /// <summary>
@@ -66,31 +58,6 @@ public sealed class OptimizationStep : IWorkflowStep
         {
             throw new InvalidOperationException("Cannot optimize: some steps have no matched providers.");
         }
-    }
-
-    /// <summary>
-    /// Applies request-level constraints
-    /// </summary>
-    private List<OptimizationStrategy> ApplyConstraintFiltering(WorkflowContext context)
-    {
-        var constraints = context.Request.Constraints;
-        IEnumerable<OptimizationStrategy> result = context.Strategies;
-
-        // Filter by budget
-        if (constraints.MaxBudget.HasValue)
-        {
-            result = result.Where(s => s.Metrics.TotalCost <= constraints.MaxBudget.Value);
-        }
-
-        // Filter by deadline
-        if (constraints.RequiredDeadline.HasValue)
-        {
-            var maxAllowedHours = (constraints.RequiredDeadline.Value - DateTime.Now).TotalHours;
-
-            result = result.Where(s => s.Metrics.TotalDuration.TotalHours <= maxAllowedHours);
-        }
-
-        return result.ToList();
     }
 
     /// <summary>
@@ -115,6 +82,10 @@ public sealed class OptimizationStep : IWorkflowStep
             // Constraint:
             // Each process step must select exactly ONE provider
             AddOneProviderPerStepConstraints(solver, context, assignments);
+
+            // Build total cost and time expressions, then add budget and deadline constraints
+            var (totalCostExpr, totalTimeExpr) = BuildTotalCostAndTimeExpressions(context, assignments);
+            AddBudgetAndDeadlineConstraints(solver, context, totalCostExpr, totalTimeExpr);
 
             // Objective:
             // Minimize weighted sum based on selected priority
@@ -171,6 +142,50 @@ public sealed class OptimizationStep : IWorkflowStep
             {
                 constraint.SetCoefficient(assignments[(i, j)], 1);
             }
+        }
+    }
+
+    /// <summary>
+    /// Builds linear expressions for total cost and total time across all selected providers.
+    /// </summary>
+    private static (LinearExpr totalCost,LinearExpr totalTime) BuildTotalCostAndTimeExpressions(WorkflowContext context, Dictionary<(int step, int provider), Variable> assignments)
+    {
+        LinearExpr totalCostExpr = new LinearExpr();
+        LinearExpr totalTimeExpr = new LinearExpr();
+
+        for (int i = 0; i < context.ProcessSteps.Count; i++)
+        {
+            var step = context.ProcessSteps[i];
+
+            for (int j = 0; j < step.MatchedProviders.Count; j++)
+            {
+                var estimate = step.MatchedProviders[j].Estimate;
+                totalCostExpr += (double)estimate.Cost * assignments[(i, j)];
+                totalTimeExpr += estimate.Duration.TotalHours * assignments[(i, j)];
+            }
+        }
+
+        return (totalCostExpr, totalTimeExpr);
+    }
+
+    /// <summary>
+    /// Adds budget and deadline constraints to the solver.
+    /// </summary>
+    private static void AddBudgetAndDeadlineConstraints(Solver solver, WorkflowContext context, LinearExpr totalCostExpr, LinearExpr totalTimeExpr)
+    {
+        var constraints = context.Request.Constraints;
+
+        // Max budget constraint
+        if (constraints.MaxBudget.HasValue)
+        {
+            solver.Add(totalCostExpr <= (double)constraints.MaxBudget.Value);
+        }
+
+        // Deadline constraint (relative to now)
+        if (constraints.RequiredDeadline.HasValue)
+        {
+            var maxHours = (constraints.RequiredDeadline.Value - DateTime.Now).TotalHours;
+            solver.Add(totalTimeExpr <= maxHours);
         }
     }
 
