@@ -91,7 +91,7 @@ Solver solver = Solver.CreateSolver("SCIP");
 
 **SCIP** (Solving Constraint Integer Programs) solver is used — a powerful open-source solver for mixed-integer programming problems.
 
-### 2. Создание переменных
+### 2. Variable Creation
 
 ```csharp
 var assignments = new Dictionary<(int stepIdx, int providerIdx), Variable>();
