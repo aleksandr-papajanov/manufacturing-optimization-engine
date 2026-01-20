@@ -84,7 +84,8 @@ public class EngineWorker : BackgroundService
     {
         // Wait for system to be ready before processing
         await _readinessService.WaitForSystemReadyAsync();
-        
+        await _readinessService.WaitForProvidersReadyAsync();
+
         var pipeline = _pipelineFactory.CreateWorkflowPipeline();
         var context = new WorkflowContext { Request = command.Request };
 

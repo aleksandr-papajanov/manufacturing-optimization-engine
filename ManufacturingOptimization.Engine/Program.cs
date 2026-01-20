@@ -31,9 +31,6 @@ builder.Services.AddSingleton<IOptimizationPlanRepository, InMemoryOptimizationP
 // Pipeline factory
 builder.Services.AddSingleton<IWorkflowPipelineFactory, PipelineFactory>();
 
-// Startup coordination
-builder.Services.AddHostedService<StartupCoordinator>();
-
 builder.Services.AddHostedService<ProviderCapabilityValidationService>();
 builder.Services.AddHostedService<EngineWorker>();
 

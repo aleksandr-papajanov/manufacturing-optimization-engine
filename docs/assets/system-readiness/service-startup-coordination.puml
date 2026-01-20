@@ -37,8 +37,8 @@ PR -> PR: TaskCompletionSource.SetResult(true)
 GW -> GW: TaskCompletionSource.SetResult(true)
 ENG -> ENG: TaskCompletionSource.SetResult(true)
 
-PR -> PR: Continue execution\nStartAllAsync()
-GW -> GW: Continue execution\nHandle HTTP requests
-ENG -> ENG: Continue execution\nProcess optimization requests
+PR -> PR: Continue execution
+GW -> GW: Continue execution
+ENG -> ENG: Continue execution
 
 @enduml

@@ -2,162 +2,121 @@
 
 _(User Story: [US-20](project-overview.md#epic-5-platform-features--extensibility) — Platform extensibility, [US-26](project-overview.md#epic-7-infrastructure--deployment) — Containerization)_
 
-When the system starts up, multiple microservices must coordinate their startup to ensure correct initialization of all components before request processing begins. The **System Readiness** mechanism ensures startup synchronization through event exchange and execution blocking.
+When the system starts, microservices coordinate their initialization using a **two-phase readiness model** based on `TaskCompletionSource`.
 
-## Core Components
+## Implementation
+
+### Architecture Overview
+
+**Common.Messaging (base layer):**
+- [ISystemReadinessService](../ManufacturingOptimization.Common.Messaging/Abstractions/ISystemReadinessService.cs) — interface with wait/check methods for both phases
+- [SystemReadinessService](../ManufacturingOptimization.Common.Messaging/SystemReadinessService.cs) — base implementation with `TaskCompletionSource` for each phase
+- Events: `ServiceReadyEvent`, `SystemReadyEvent`, `AllProvidersRegisteredEvent`
+
+**Engine (extended layer):**
+- [StartupCoordinator](../ManufacturingOptimization.Engine/Services/StartupCoordinator.cs) — extends `SystemReadinessService`, adds coordination logic
+
+**Gateway:**
+- [SystemReadinessMiddleware](../ManufacturingOptimization.Gateway/Middleware/SystemReadinessMiddleware.cs) — HTTP protection with two-phase checks
+
+### ISystemReadinessService
+
+Interface defines operations for both phases:
+- `WaitForSystemReadyAsync()` / `WaitForProvidersReadyAsync()` — blocking wait
+- `IsSystemReady` / `IsProvidersReady` — non-blocking check
 
 ### SystemReadinessService
 
-[SystemReadinessService](../ManufacturingOptimization.Common.Messaging/SystemReadinessService.cs) — base service in `Common.Messaging`, implementing the [ISystemReadinessService](../ManufacturingOptimization.Common.Messaging/Abstractions/ISystemReadinessService.cs) interface.
-
-**Key capabilities:**
-- **`WaitForSystemReadyAsync()`** — blocks execution via `TaskCompletionSource` until receiving `SystemReadyEvent`
-- **`MarkSystemReady()`** — sets `TaskCompletionSource`, unblocking all waiting threads
-- **Subscription to `SystemReadyEvent`** — automatically calls `MarkSystemReady()` when event is received
+Base implementation in `Common.Messaging`:
+- Two `TaskCompletionSource` instances (one per phase)
+- Subscribes to `SystemReadyEvent` and `AllProvidersRegisteredEvent`
+- Marks phase ready when event received
+- Used directly in Gateway and ProviderRegistry
 
 ### StartupCoordinator
 
-[StartupCoordinator](../ManufacturingOptimization.Engine/Services/StartupCoordinator.cs) — extension of `SystemReadinessService` in Engine, acts as the coordinator.
+Extends `SystemReadinessService` in Engine with coordination logic:
+- Tracks `ServiceReadyEvent` from Gateway, Engine, ProviderRegistry
+- When all 3 ready → publishes `SystemReadyEvent`
+- Inherits Phase 2 tracking from base class
 
-**Functions:**
-- Stores list of required services: `Gateway`, `ProviderRegistry`, `Engine`
-- Subscribes to [ServiceReadyEvent](../ManufacturingOptimization.Common.Messaging/Messages/SystemManagement/ServiceReadyEvent.cs) events
-- Tracks which services have reported readiness
-- Publishes [SystemReadyEvent](../ManufacturingOptimization.Common.Messaging/Messages/SystemManagement/SystemReadyEvent.cs) when all required services have started
+### SystemReadinessMiddleware
 
-## Workflow Sequence
-
-### Startup Synchronization Diagram
-
-![Service Startup Coordination](assets/system-readiness/service-startup-coordination.png)
-
-_[Source PlantUML](assets/system-readiness/service-startup-coordination.puml)_
-
-### 1. Microservice Startup (e.g., ProviderRegistry)
-
-When [ProviderRegistryWorker](../ManufacturingOptimization.ProviderRegistry/ProviderRegistryWorker.cs) starts:
+[SystemReadinessMiddleware](../ManufacturingOptimization.Gateway/Middleware/SystemReadinessMiddleware.cs) — protects HTTP endpoints. `IsSystemReady`, `IsProvidersReady` for all requests  
 
 ```csharp
-protected override async Task ExecuteAsync(CancellationToken cancellationToken)
-{
-    SetupRabbitMq();  // Setup queues and subscriptions
-    
-    await Task.Delay(1000, cancellationToken);  // Give time for subscription registration
-    
-    // Publish readiness event
-    var readyEvent = new ServiceReadyEvent { ServiceName = "ProviderRegistry" };
-    _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, readyEvent);
-    
-    // Block until entire system is ready
-    await _readinessService.WaitForSystemReadyAsync(cancellationToken);
-    
-    // Continue execution only after unblocking
-    await _orchestrator.StartAllAsync(cancellationToken);
-}
+if (!readinessService.IsSystemReady)
+    return HTTP 503;
+if (!readinessService.IsProvidersReady)
+    return HTTP 503;
 ```
 
-**Similarly work:**
-- [EngineWorker](../ManufacturingOptimization.Engine/EngineWorker.cs) — publishes `ServiceReadyEvent` for `Engine`
-- Gateway — publishes `ServiceReadyEvent` for `Gateway`
+## The Unified Mechanism
 
-### 2. Coordination in StartupCoordinator
+Both phases use **identical synchronization pattern**:
 
-`StartupCoordinator` in Engine receives `ServiceReadyEvent` events:
+1. **TaskCompletionSource** — blocks execution until specific event received
+2. **Event subscription** — service listens for readiness event
+3. **Mark ready** — event triggers `TaskCompletionSource.SetResult(true)`
+4. **Unblock** — waiting code continues execution
 
+The only difference between phases: **which event** triggers unblocking.
+
+## Phase 1: System Readiness
+
+**Goal:** Ensure core services (Gateway, Engine, ProviderRegistry) are initialized.
+
+**How it works:**
+- Each service publishes `ServiceReadyEvent` after setup
+- `StartupCoordinator` collects events from all 3 services
+- When all ready, publishes `SystemReadyEvent`
+- Services unblock via `WaitForSystemReadyAsync()`
+
+**Code example:**
 ```csharp
-private void HandleServiceReady(ServiceReadyEvent evt)
-{
-    lock (_readyServices)
-    {
-        _readyServices.Add(evt.ServiceName);  // Add to ready list
-        CheckAndPublishSystemReady();         // Check and publish
-    }
-}
-
-private void CheckAndPublishSystemReady()
-{
-    var allReady = REQUIRED_SERVICES.All(s => _readyServices.Contains(s));
-    
-    if (allReady)
-    {
-        // All required services are ready
-        var evt = new SystemReadyEvent { ReadyServices = _readyServices.ToList() };
-        _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.SystemReady, evt);
-    }
-}
+// ProviderRegistry startup
+await _readinessService.WaitForSystemReadyAsync();
+await _orchestrator.StartAllAsync();  // Can start providers now
 ```
 
-### 3. Service Unblocking
+![System Readiness Flow](assets/system-readiness/service-startup-coordination.png)
 
-After `SystemReadyEvent` is published:
+## Phase 2: Provider Readiness
 
-1. **SystemReadinessService** in each service receives the event
-2. `HandleSystemReady()` → `MarkSystemReady()` is called
-3. `TaskCompletionSource` is set to `true`
-4. `WaitForSystemReadyAsync()` method completes
-5. Code execution continues
+**Goal:** Ensure all providers are registered before processing optimization requests.
 
-## HTTP Endpoint Protection — SystemReadinessMiddleware
+**How it works:**
+- ProviderRegistry requests provider registration after Phase 1
+- Each provider publishes `ProviderRegisteredEvent`
+- When all registered, ProviderRegistry publishes `AllProvidersRegisteredEvent`
+- Services unblock via `WaitForProvidersReadyAsync()`
 
-[SystemReadinessMiddleware](../ManufacturingOptimization.Gateway/Middleware/SystemReadinessMiddleware.cs) is registered in Gateway, which checks system readiness before processing HTTP requests.
-
-**Operating principle:**
-- Checks `ISystemReadinessService.IsSystemReady`
-- If system is not ready, returns **HTTP 503 Service Unavailable** with JSON message
-- If system is ready, passes request further down the pipeline
-
-**Registration in Program.cs:**
+**Code example:**
 ```csharp
-app.UseSystemReadiness(); // Added to middleware pipeline
+// Engine optimization handler
+await _readinessService.WaitForSystemReadyAsync();    // Phase 1
+await _readinessService.WaitForProvidersReadyAsync(); // Phase 2
+// Start optimization
 ```
 
-This ensures that all incoming requests are correctly rejected until full system initialization is complete.
+> **Note:** Phase 2 uses the **exact same mechanism** as Phase 1 — different event type, same pattern.
 
-## Provider Startup and Registration Process
+### Provider Registration and Startup Process
 
-### Provider Registration Diagram
+After Phase 1 completes, ProviderRegistry orchestrates provider startup: in **development mode** ([ComposeManagedOrchestrator](../ManufacturingOptimization.ProviderRegistry/Services/ComposeManagedOrchestrator.cs)) containers are already running via docker-compose and immediately receive registration request; in **production mode** ([DockerProviderOrchestrator](../ManufacturingOptimization.ProviderRegistry/Services/DockerProviderOrchestrator.cs)) each provider is validated through Engine's [ProviderCapabilityValidationService](../ManufacturingOptimization.Engine/Services/ProviderCapabilityValidationService.cs) before Docker container creation, then registration is requested from all started providers.
 
-![Provider Registration Flow](assets/system-readiness/provider-registration-flow.png)
+![Provider Registration](assets/system-readiness/provider-registration-flow.png)
 
-_[Source PlantUML](assets/system-readiness/provider-registration-flow.puml)_
+## Differential Dependencies
 
-After system unblocking (receiving `SystemReadyEvent`), provider initialization process starts in ProviderRegistry.
+Different components wait for different phases:
 
-### Provider Startup — StartAllAsync
+| Component | Phase 1 | Phase 2 | Reason |
+|-----------|---------|---------|--------|
+| **ProviderRegistry** | yes | no | Cannot wait for providers — it starts them |
+| **Gateway** | yes | yes | Blocks optimization requests until providers ready |
+| **Engine** | yes | yes | Needs complete provider pool for optimization |
 
-[ProviderRegistryWorker](../ManufacturingOptimization.ProviderRegistry/ProviderRegistryWorker.cs) calls `_orchestrator.StartAllAsync()` after `WaitForSystemReadyAsync()`.
+## The Whole Mechanism
 
-Behavior depends on orchestration mode:
-
-#### Development Mode
-
-[ComposeManagedOrchestrator](../ManufacturingOptimization.ProviderRegistry/Services/ComposeManagedOrchestrator.cs) — providers are already started via docker-compose, so `RequestRegistrationAll` event is published immediately.
-
-#### Production Mode
-
-[DockerProviderOrchestrator](../ManufacturingOptimization.ProviderRegistry/Services/DockerProviderOrchestrator.cs) performs full validation and startup cycle:
-
-1. **Get provider list** from repository
-2. **Validate each provider** via [ProviderValidationService](../ManufacturingOptimization.ProviderRegistry/Services/ProviderValidationService.cs):
-   - `ValidateProviderCapabilityCommand` command is published (routing key: `provider.validation-requested`)
-   - Engine ([ProviderCapabilityValidationService](../ManufacturingOptimization.Engine/Services/ProviderCapabilityValidationService.cs)) processes the request
-   - Provider capabilities and technical specifications are checked
-   - `ProviderCapabilityValidatedEvent` event is published in response
-3. **Start container** — if validation successful, `StartAsync()` is called, Docker container is created
-4. **Publish `RequestRegistrationAll`** — after all providers are started
-
-### Provider Registration
-
-After `RequestRegistrationAll` event is published _(User Story: [US-01](project-overview.md#epic-1-technology-provider-management) — Provider registration)_:
-
-1. **Providers receive event** — all [ProviderSimulator](../ManufacturingOptimization.ProviderSimulator/ProviderSimulatorWorker.cs) instances are subscribed to `RequestRegistrationAll`
-2. **Publish `ProviderRegisteredEvent`** — each provider sends:
-   - Its metadata (ID, name, type)
-   - Technical capabilities (`TechnicalCapabilities`)
-   - Process capabilities (`ProcessCapabilities`)
-3. **Data storage** by system components:
-   - **Gateway** — stores for serving via HTTP requests
-   - **Engine** — stores for use in optimization and planning
-   - **ProviderRegistry** — tracks for monitoring registration completion
-
-4. **Publish `AllProvidersRegisteredEvent`** — when all started providers have registered, orchestrator publishes final event
+![Two phase readiness](assets/system-readiness/two-phase-readiness.png)

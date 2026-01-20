@@ -10,26 +10,26 @@ package "Client" {
   [UI Application] as UI
 }
 
-package "API Gateway" {
-  [Gateway API] as Gateway
-  [Strategy Storage]
-  [Plan Storage]
+package "Gateway API" {
+  [Gateway] as Gateway
+  [Optimization Strategy Repository]
+  [Provider Repository]
 }
 
 package "Optimization Engine" {
-  [Engine Service] as Engine
+  [Engine] as Engine
   [Workflow Pipeline] as Pipeline
   [Optimization Solver\n(OR-Tools)]
 }
 
-package "Provider Systems" {
+package "Provider Simulators" {
   [Provider A]
   [Provider B]
   [Provider C]
 }
 
-package "Provider Registry" {
-  [Registry Service]
+package "Provider Ocrchestration" {
+  [ProviderRegistry]
 }
 
 ' Client interaction
@@ -55,11 +55,11 @@ Pipeline ..> [Provider C] : Request proposals\n(async)
 [Provider C] ..> Pipeline : Proposals / Confirmations
 
 ' Registry
-[Registry Service] ..> Engine : Provider registration events
+[ProviderRegistry] ..> Engine : Provider registration events
 
 ' Persistence
-Gateway --> [Strategy Storage] : Store strategies
-Gateway --> [Plan Storage] : Store final plan
+Gateway --> [Optimization Strategy Repository] : Store strategies
+Gateway --> [Provider Repository]
 
 note right of Engine
   Long-running, asynchronous process.

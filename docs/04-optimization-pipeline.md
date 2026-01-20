@@ -8,22 +8,14 @@ Optimization Pipeline is the main mechanism for processing customer requests for
 
 ![High-level architecture](assets/optimization-pipeline/05-high-level.png)
 
-_[Source PlantUML](assets/optimization-pipeline/05-high-level.puml)_
-
 **Key Components:**
 
-1. **UI Application** — client application for submitting requests and selecting strategies
-2. **API Gateway** — REST API with strategy and plan storage, polling support
-3. **Optimization Engine** — optimization service with Workflow Pipeline and OR-Tools solver
-4. **Provider Systems** — manufacturing providers (can be simulators or real systems)
+1. **UI** — client application for submitting requests and selecting strategies
+2. **Gateway** — REST API with strategy and plan storage, polling support
+3. **Engine** — optimization service with Workflow Pipeline and OR-Tools solver
+4. **Provider Simulators** — manufacturing providers (can be simulators or real systems)
 5. **Provider Registry** — provider registration service, publishes events about new capabilities
 6. **Message Broker (RabbitMQ)** — asynchronous communication between services (implicitly shown via dashed lines)
-
-**Key Patterns:**
-- **Asynchronous communication** — all interactions between services via message broker
-- **Polling pattern** — UI periodically polls Gateway for strategies
-- **RPC pattern** — Pipeline requests proposals and confirmations from providers
-- **Long-running process** — Engine blocks waiting for external events (customer strategy selection)
 
 ## Pipeline Pattern
 
@@ -31,40 +23,24 @@ _[Source PlantUML](assets/optimization-pipeline/05-high-level.puml)_
 
 [WorkflowContext](../ManufacturingOptimization.Engine/Models/WorkflowContext.cs) — context object that flows through all pipeline steps.
 
-**Contents:**
-- **`Request`** ([OptimizationRequest](../ManufacturingOptimization.Common.Models/OptimizationRequest.cs)) — original customer request with motor parameters:
-  - `RequestId` — unique request identifier
-  - `CustomerId` — customer identifier
-  - `MotorSpecs` ([MotorSpecifications](../ManufacturingOptimization.Common.Models/MotorSpecifications.cs)) — motor specifications:
-    - `PowerKW` — power in kW (e.g., 5.5 kW)
-    - `AxisHeightMM` — axis height in mm (e.g., 75 mm)
-    - `CurrentEfficiency` — current efficiency class (IE1, IE2, IE3, IE4)
-    - `TargetEfficiency` — target efficiency class (IE2 → Refurbish, IE4 → Upgrade)
-    - `MalfunctionDescription` — malfunction description (optional)
-  - `Constraints` ([OptimizationRequestConstraints](../ManufacturingOptimization.Common.Models/OptimizationRequestConstraints.cs)) — constraints:
-    - `MaxBudget` — maximum budget (optional)
-    - `RequiredDeadline` — required completion date (optional)
-  - `CreatedAt` — request creation time
-- **`WorkflowType`** — process type: `"Upgrade"` or `"Refurbish"` (determined at Workflow Matching step)
-- **`ProcessSteps`** — list of manufacturing steps (8 for Upgrade, 5 for Refurbish), each contains:
-  - Process type (Cleaning, Disassembly, Redesign, etc.)
-  - List of matching providers (`MatchedProviders`)
-  - Estimates from each provider (`Estimate`)
-- **`OptimizationMetrics`** ([OptimizationMetrics](../ManufacturingOptimization.Common.Models/OptimizationMetrics.cs)) — optimization metrics (for backward compatibility):
-  - `TotalCost` — total cost
-  - `TotalDuration` — total duration
-  - `AverageQuality` — average quality score (0.0-1.0)
-  - `TotalEmissionsKgCO2` — total CO₂ emissions in kg
-  - `SolverStatus` — solver status (OPTIMAL, FEASIBLE, INFEASIBLE)
-  - `ObjectiveValue` — objective function value
-- **`Strategies`** — list of 4 generated strategies ([OptimizationStrategy](../ManufacturingOptimization.Common.Models/OptimizationStrategy.cs)):
-  - `LowestCost` — lowest cost strategy
-  - `FastestDelivery` — fastest time strategy
-  - `HighestQuality` — highest quality strategy
-  - `LowestEmissions` — lowest emissions strategy
-- **`SelectedStrategy`** ([OptimizationStrategy](../ManufacturingOptimization.Common.Models/OptimizationStrategy.cs)) — customer-selected strategy (filled after Strategy Selection Step)
-- **`PlanId`** — plan identifier after strategy selection (used for provider confirmations)
-- **`SavedPlan`** ([OptimizationPlan](../ManufacturingOptimization.Common.Models/OptimizationPlan.cs)) — saved plan after final step (Plan Persistence Step)
+**Critical Note:** WorkflowContext is the **key interaction point of the entire system**. Most data used during the optimization process flows through it. WorkflowContext contains the majority of shared models from the [ManufacturingOptimization.Common.Models](../ManufacturingOptimization.Common.Models/) project.
+
+**Models Used in WorkflowContext:**
+- [OptimizationRequest](../ManufacturingOptimization.Common.Models/OptimizationRequest.cs)
+- [OptimizationRequestConstraints](../ManufacturingOptimization.Common.Models/OptimizationRequestConstraints.cs)
+- [MotorSpecifications](../ManufacturingOptimization.Common.Models/MotorSpecifications.cs)
+- [MotorEfficiencyClass](../ManufacturingOptimization.Common.Models/MotorEfficiencyClass.cs)
+- [OptimizationProcessStep](../ManufacturingOptimization.Common.Models/OptimizationProcessStep.cs)
+- [ProcessType](../ManufacturingOptimization.Common.Models/ProcessType.cs)
+- [ProcessEstimate](../ManufacturingOptimization.Common.Models/ProcessEstimate.cs)
+- [Provider](../ManufacturingOptimization.Common.Models/Provider.cs)
+- [ProviderProcessCapability](../ManufacturingOptimization.Common.Models/ProviderProcessCapability.cs)
+- [ProviderTechnicalCapabilities](../ManufacturingOptimization.Common.Models/ProviderTechnicalCapabilities.cs)
+- [OptimizationStrategy](../ManufacturingOptimization.Common.Models/OptimizationStrategy.cs)
+- [OptimizationPriority](../ManufacturingOptimization.Common.Models/OptimizationPriority.cs)
+- [OptimizationMetrics](../ManufacturingOptimization.Common.Models/OptimizationMetrics.cs)
+- [OptimizationPlan](../ManufacturingOptimization.Common.Models/OptimizationPlan.cs)
+- [OptimizationPlanStatus](../ManufacturingOptimization.Common.Models/OptimizationPlanStatus.cs)
 
 ### IWorkflowStep
 
@@ -106,8 +82,6 @@ public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancel
 ### Pipeline Steps Overview
 
 ![Pipeline Steps Overview](assets/optimization-pipeline/pipeline-steps-overview.png)
-
-_[Source PlantUML](assets/optimization-pipeline/pipeline-steps-overview.puml)_
 
 ### 1. Workflow Matching Step
 
@@ -252,15 +226,11 @@ _[Source PlantUML](assets/optimization-pipeline/pipeline-steps-overview.puml)_
 
 ![Optimization Request Flow](assets/optimization-pipeline/01-optimization-request-flow.png)
 
-_[Source PlantUML](assets/optimization-pipeline/01-optimization-request-flow.puml)_
-
 Customer enters motor parameters via UI, Gateway publishes command to RabbitMQ, Engine initializes Workflow Pipeline.
 
 ### 2. Matching and Estimation
 
 ![Pipeline Matching and Estimation](assets/optimization-pipeline/02-pipeline-matching-and-estimation.png)
-
-_[Source PlantUML](assets/optimization-pipeline/02-pipeline-matching-and-estimation.puml)_
 
 Pipeline determines workflow type (Upgrade/Refurbish), selects providers, and requests estimates via RPC pattern.
 
@@ -268,25 +238,12 @@ Pipeline determines workflow type (Upgrade/Refurbish), selects providers, and re
 
 ![Optimization and Strategy Selection](assets/optimization-pipeline/03-optimization-and-strategy-selection.png)
 
-_[Source PlantUML](assets/optimization-pipeline/03-optimization-and-strategy-selection.puml)_
-
 OR-Tools generates 4 strategies, Gateway saves them, UI polls Gateway (polling), customer selects strategy.
 
 ### 4. Confirmation and Plan Delivery
 
 ![Confirmation and Plan Delivery](assets/optimization-pipeline/04-confirmation-and-plan-delivery.png)
 
-_[Source PlantUML](assets/optimization-pipeline/04-confirmation-and-plan-delivery.puml)_
-
 Pipeline requests confirmations from providers, creates final plan, Gateway saves plan, customer receives result.
 
 ---
-
-**Key Sequence Points:**
-
-1. **Asynchronous communication** — all interactions between Gateway and Engine via RabbitMQ
-2. **RPC Pattern** — EstimationStep and ConfirmationStep use Request-Reply for receiving provider responses with timeout
-3. **Polling Pattern** — UI periodically polls Gateway for strategies (every 2-5 seconds)
-4. **Blocking with TaskCompletionSource** — Pipeline blocks at Strategy Selection step until customer selection (10-minute timeout)
-5. **7 Sequential Steps** — each step modifies WorkflowContext and passes it to the next step
-6. **Linear Programming** — Optimization Step uses Google OR-Tools SCIP solver to generate 4 optimal strategies

@@ -1,0 +1,97 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam handwritten false
+
+title Two-Phase Readiness: Same Mechanism, Different Events
+
+participant "Gateway" as GW
+participant "Engine" as ENG
+participant "ProviderRegistry" as PR
+participant "StartupCoordinator\n(in Engine)" as SC
+participant "Provider Simulator" as PROV
+
+== Phase 1: System Readiness ==
+
+note over GW,SC
+  **Mechanism:** TaskCompletionSource blocks 
+  until SystemReadyEvent received
+end note
+
+GW -> GW: SetupRabbitMq()
+GW -> SC: ServiceReadyEvent\n("Gateway")
+
+PR -> PR: SetupRabbitMq()
+PR -> SC: ServiceReadyEvent\n("ProviderRegistry")
+
+ENG -> ENG: SetupRabbitMq()
+ENG -> SC: ServiceReadyEvent\n("Engine")
+
+SC -> SC: All 3 services ready!
+
+SC -> GW: SystemReadyEvent
+SC -> PR: SystemReadyEvent
+SC -> ENG: SystemReadyEvent
+
+GW -> GW: MarkSystemReady()\n✅ IsSystemReady = true
+PR -> PR: MarkSystemReady()\n✅ IsSystemReady = true
+ENG -> ENG: MarkSystemReady()\n✅ IsSystemReady = true
+
+note over GW,ENG
+  **Phase 1 Complete**
+  WaitForSystemReadyAsync() unblocks
+end note
+
+== Phase 2: Provider Readiness ==
+
+note over PR,PROV
+  **Same Mechanism:** TaskCompletionSource blocks
+  until AllProvidersRegisteredEvent received
+end note
+
+PR -> PR: WaitForSystemReadyAsync()\n✅ Already complete
+PR -> PROV: RequestProvidersRegistrationCommand
+
+activate PROV
+PROV -> PR: ProviderRegisteredEvent
+PROV -> GW: ProviderRegisteredEvent
+PROV -> ENG: ProviderRegisteredEvent
+deactivate PROV
+
+PR -> PR: All providers registered!
+
+PR -> GW: AllProvidersRegisteredEvent
+PR -> ENG: AllProvidersRegisteredEvent
+
+GW -> GW: MarkProvidersReady()\n✅ IsProvidersReady = true
+ENG -> ENG: MarkProvidersReady()\n✅ IsProvidersReady = true
+
+note over GW,ENG
+  **Phase 2 Complete**
+  WaitForProvidersReadyAsync() unblocks
+  
+  **Note:** ProviderRegistry does NOT 
+  wait for providers (it starts them!)
+end note
+
+== Optimization Request Processing ==
+
+note over GW,ENG
+  Both phases complete → optimization ready
+end note
+
+GW -> GW: Middleware checks:\n✅ IsSystemReady\n✅ IsProvidersReady
+
+GW -> ENG: RequestOptimizationPlanCommand
+
+ENG -> ENG: WaitForSystemReadyAsync()\n✅ Already complete
+ENG -> ENG: WaitForProvidersReadyAsync()\n✅ Already complete
+ENG -> ENG: Execute Optimization Pipeline
+
+note bottom
+  **Key Insight:** Both phases use identical 
+  TaskCompletionSource pattern.
+  Only event type differs!
+end note
+
+@enduml

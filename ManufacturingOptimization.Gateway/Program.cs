@@ -46,7 +46,7 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Add system readiness middleware before authorization
+// Add system readiness middleware (checks both system and provider readiness)
 app.UseSystemReadiness();
 
 app.UseAuthorization();

@@ -33,10 +33,6 @@ public class ProviderSimulatorWorker : BackgroundService
     {
         SetupRabbitMq();
 
-        // Publish ServiceReadyEvent after a short delay to ensure subscriptions are ready
-        await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
-        PublishServiceReady();
-
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
@@ -84,26 +80,11 @@ public class ProviderSimulatorWorker : BackgroundService
     
     private void HandleProvidersRegistrationRequest(RequestProvidersRegistrationCommand command)
     {
-        PublishProviderRegistered();
-    }
-
-    private void PublishProviderRegistered()
-    {
         var registeredEvent = new ProviderRegisteredEvent
         {
             Provider = _providerLogic.Provider
         };
 
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.Registered, registeredEvent);
-    }
-
-    private void PublishServiceReady()
-    {
-        var evt = new ServiceReadyEvent
-        {
-            ServiceName = $"ProviderSimulator_{_providerLogic.Provider.Name}"
-        };
-
-        _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, evt);
     }
 }

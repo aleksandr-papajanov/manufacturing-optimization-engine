@@ -18,10 +18,8 @@ namespace ManufacturingOptimization.Gateway.Middleware
         public async Task InvokeAsync(HttpContext context, ISystemReadinessService readinessService)
         {
             // Check if system is ready
-            if (!readinessService.IsSystemReady)
+            if (!readinessService.IsSystemReady || !readinessService.IsProvidersReady)
             {
-                _logger.LogWarning("Request rejected: System not ready yet. Path: {Path}", context.Request.Path);
-                
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 context.Response.ContentType = "application/json";
 
@@ -38,6 +36,7 @@ namespace ManufacturingOptimization.Gateway.Middleware
                 }));
                 return;
             }
+
 
             await _next(context);
         }
