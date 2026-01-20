@@ -1,4 +1,4 @@
-using Google.OrTools.LinearSolver;
+﻿using Google.OrTools.LinearSolver;
 using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
@@ -6,377 +6,313 @@ using ManufacturingOptimization.Engine.Models;
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
 /// <summary>
-/// Generates multiple optimization strategies using Google OR-Tools.
-/// Each strategy optimizes for a different priority (Cost, Time, Quality, Emissions).
+/// Workflow step responsible for generating multiple optimization strategies
+/// using Google OR-Tools.
 /// </summary>
-public partial class OptimizationStep : IWorkflowStep
+public sealed class OptimizationStep : IWorkflowStep
 {
-    private static readonly OptimizationPriority[] PRIORITIES_TO_GENERATE = new[]
+    /// All optimization priorities we want to generate strategies for.
+    private static readonly OptimizationPriority[] Priorities =
     {
         OptimizationPriority.LowestCost,
         OptimizationPriority.FastestDelivery,
         OptimizationPriority.HighestQuality,
         OptimizationPriority.LowestEmissions
     };
-    
-    public OptimizationStep()
-    {
-    }
+
+    /// Normalization constants calibrated to bring different units into comparable ranges (0..1).
+    private const double CostNormalization = 2000.0; // Based on typical motor manufacturing costs $2000
+    private const double TimeNormalizationHours = 40.0; // Based on typical manufacturing lead time (1-5 working days = 8-40 hours)
+    private const double EmissionsNormalization = 100.0; // Based on typical CO2 emissions per manufacturing step 100 kg
 
     public string Name => "Optimization & Strategy Generation";
 
     /// <summary>
-    /// Execute optimization - generates multiple strategies.
+    /// Main workflow execution method.
     /// </summary>
     public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
-        // Validate that all steps have providers
-        if (context.ProcessSteps.Any(s => s.MatchedProviders.Count == 0))
+        // Ensure all process steps have at least one provider.
+        // Optimization is impossible otherwise.
+        ValidateProviders(context);
+
+        foreach (var priority in Priorities)
         {
-            throw new InvalidOperationException("Cannot optimize: some steps have no matched providers");
-        }
+            // Run pure optimization calculation
+            var result = await OptimizeForPriorityAsync(context,priority, cancellationToken);
 
-        // Generate strategies for each priority
-        foreach (var priority in PRIORITIES_TO_GENERATE)
-        {
-            // Create a snapshot of process steps for this optimization
-            var stepsSnapshot = CreateProcessStepsSnapshot(context.ProcessSteps);
-            
-            // Create temporary context for this optimization
-            var tempContext = new WorkflowContext
-            {
-                Request = context.Request,
-                WorkflowType = context.WorkflowType,
-                ProcessSteps = stepsSnapshot
-            };
+            if (result == null)
+                continue;
 
-            // Run optimization with this priority
-            var result = await OptimizeForPriorityAsync(tempContext, priority, cancellationToken);
-
-            if (result != null)
-            {
-                // Create strategy from optimization result
-                var strategy = CreateStrategy(priority, tempContext, result);
-                context.Strategies.Add(strategy);
-            }
+            // Convert calculation result into a domain strategy
+            context.Strategies.Add(CreateStrategy(priority, context, result));
         }
 
         if (context.Strategies.Count == 0)
         {
-            throw new InvalidOperationException("Failed to generate any optimization strategies");
+            throw new InvalidOperationException("Failed to generate any optimization strategies.");
         }
-        else
+
+        // Apply request-level constraints (budget, deadline)
+        var filteredStrategies = ApplyConstraintFiltering(context);
+
+        if (filteredStrategies.Count > 0 && filteredStrategies.Count < context.Strategies.Count)
         {
-            // Apply constraint filtering
-            var filteredStrategies = ApplyConstraintFiltering(context);
-            
-            if (filteredStrategies.Count > 0 && filteredStrategies.Count < context.Strategies.Count)
-            {
-                context.Strategies = filteredStrategies;
-            }
+            context.Strategies = filteredStrategies;
         }
     }
 
     /// <summary>
-    /// Filter strategies based on MaxBudget and RequiredDeadline constraints.
+    /// Ensures that every workflow step has at least one matched provider.
+    /// </summary>
+    private static void ValidateProviders(WorkflowContext context)
+    {
+        if (context.ProcessSteps.Any(s => s.MatchedProviders.Count == 0))
+        {
+            throw new InvalidOperationException("Cannot optimize: some steps have no matched providers.");
+        }
+    }
+
+    /// <summary>
+    /// Applies request-level constraints
     /// </summary>
     private List<OptimizationStrategy> ApplyConstraintFiltering(WorkflowContext context)
     {
         var constraints = context.Request.Constraints;
-        var filteredStrategies = new List<OptimizationStrategy>(context.Strategies);
+        IEnumerable<OptimizationStrategy> result = context.Strategies;
 
-        // Filter by MaxBudget if specified
+        // Filter by budget
         if (constraints.MaxBudget.HasValue)
         {
-            filteredStrategies = filteredStrategies
-                .Where(s => s.Metrics.TotalCost <= constraints.MaxBudget.Value)
-                .ToList();
+            result = result.Where(s => s.Metrics.TotalCost <= constraints.MaxBudget.Value);
         }
 
-        // Filter by RequiredDeadline if specified
+        // Filter by deadline
         if (constraints.RequiredDeadline.HasValue)
         {
             var maxAllowedHours = (constraints.RequiredDeadline.Value - DateTime.Now).TotalHours;
-            
-            filteredStrategies = filteredStrategies
-                .Where(s => s.Metrics.TotalDuration.TotalHours <= maxAllowedHours)
-                .ToList();
+
+            result = result.Where(s => s.Metrics.TotalDuration.TotalHours <= maxAllowedHours);
         }
 
-        return filteredStrategies;
+        return result.ToList();
     }
 
-    
     /// <summary>
-    /// Execute optimization with specific priority.
+    /// Runs optimization for a specific priority.
     /// </summary>
-    private Task<OptimizationMetrics?> OptimizeForPriorityAsync(WorkflowContext context, OptimizationPriority priority, CancellationToken cancellationToken = default)
+    private Task<OptimizationResult?> OptimizeForPriorityAsync(WorkflowContext context, OptimizationPriority priority, CancellationToken cancellationToken)
     {
-        // Get weights based on priority
-        var weights = GetWeightsForPriority(priority);
-        
-        // Create solver
-        Solver solver = Solver.CreateSolver("SCIP");
+        var weights = priority.GetWeights();
+
+        // Create OR-Tools solver
+        var solver = Solver.CreateSolver("SCIP");
+
         if (solver == null)
-        {
-            return Task.FromResult<OptimizationMetrics?>(null);
-        }
+            return Task.FromResult<OptimizationResult?>(null);
 
         try
         {
-            // Decision variables: x[i,j] = 1 if provider j is assigned to step i
-            var assignments = new Dictionary<(int stepIdx, int providerIdx), Variable>();
-            
-            for (int i = 0; i < context.ProcessSteps.Count; i++)
-            {
-                var step = context.ProcessSteps[i];
-                for (int j = 0; j < step.MatchedProviders.Count; j++)
-                {
-                    var key = (i, j);
-                    assignments[key] = solver.MakeBoolVar($"x_{i}_{j}");
-                }
-            }
+            // Decision variables:
+            // x[i,j] = 1 if provider j is selected for step i
+            var assignments = CreateDecisionVariables(solver, context);
 
-            // CONSTRAINT: Each step must have exactly one provider assigned
-            for (int i = 0; i < context.ProcessSteps.Count; i++)
-            {
-                var constraint = solver.MakeConstraint(1, 1, $"one_provider_step_{i}");
-                var step = context.ProcessSteps[i];
-                
-                for (int j = 0; j < step.MatchedProviders.Count; j++)
-                {
-                    constraint.SetCoefficient(assignments[(i, j)], 1);
-                }
-            }
+            // Constraint:
+            // Each process step must select exactly ONE provider
+            AddOneProviderPerStepConstraints(solver, context, assignments);
 
-            // OBJECTIVE: Minimize weighted sum based on priority
-            var objective = solver.Objective();
-            
-            for (int i = 0; i < context.ProcessSteps.Count; i++)
-            {
-                var step = context.ProcessSteps[i];
-                
-                for (int j = 0; j < step.MatchedProviders.Count; j++)
-                {
-                    var provider = step.MatchedProviders[j];
-                    var key = (i, j);
-                    
-                    // Normalize values to 0-1 range
-                    double normalizedCost = (double)provider.Estimate.Cost / 2000.0;
-                    double normalizedTime = provider.Estimate.Duration.TotalHours / 40.0;
-                    double normalizedQuality = provider.Estimate.QualityScore; // already 0-1
-                    double normalizedEmissions = provider.Estimate.EmissionsKgCO2 / 100.0; // normalize
-                    
-                    // Apply weights based on priority
-                    double coefficient = 
-                        weights.CostWeight * normalizedCost +
-                        weights.TimeWeight * normalizedTime +
-                        weights.EmissionsWeight * normalizedEmissions -
-                        weights.QualityWeight * normalizedQuality; // negative = maximize
-                    
-                    objective.SetCoefficient(assignments[key], coefficient);
-                }
-            }
-            
+            // Objective:
+            // Minimize weighted sum based on selected priority
+            var objective = BuildObjective(solver, context, assignments, weights);
+
             objective.SetMinimization();
 
-            // SOLVE
             var status = solver.Solve();
 
-            if (status == Solver.ResultStatus.OPTIMAL || status == Solver.ResultStatus.FEASIBLE)
+            if (status is not Solver.ResultStatus.OPTIMAL and not Solver.ResultStatus.FEASIBLE)
             {
-                // Extract solution
-                decimal totalCost = 0;
-                TimeSpan totalTime = TimeSpan.Zero;
-                double totalQuality = 0;
-                double totalEmissions = 0;
-                
-                for (int i = 0; i < context.ProcessSteps.Count; i++)
-                {
-                    var step = context.ProcessSteps[i];
-                    
-                    for (int j = 0; j < step.MatchedProviders.Count; j++)
-                    {
-                        var key = (i, j);
-                        
-                        // Check if this provider was selected
-                        if (assignments[key].SolutionValue() > 0.5)
-                        {
-                            var provider = step.MatchedProviders[j];
-                            step.SelectedProvider = provider;
-                            
-                            totalCost += provider.Estimate.Cost;
-                            totalTime += provider.Estimate.Duration;
-                            totalQuality += provider.Estimate.QualityScore;
-                            totalEmissions += provider.Estimate.EmissionsKgCO2;
-                            
-                            break;
-                        }
-                    }
-                }
-                
-                var result = new OptimizationMetrics
-                {
-                    TotalCost = totalCost,
-                    TotalDuration = totalTime,
-                    AverageQuality = totalQuality / context.ProcessSteps.Count,
-                    TotalEmissionsKgCO2 = totalEmissions,
-                    SolverStatus = status.ToString(),
-                    ObjectiveValue = objective.Value()
-                };
-                
-                return Task.FromResult<OptimizationMetrics?>(result);
+                return Task.FromResult<OptimizationResult?>(null);
             }
-            
-            return Task.FromResult<OptimizationMetrics?>(null);
+
+            return Task.FromResult<OptimizationResult?>(ExtractResult(context, assignments, objective, status));
         }
         catch
         {
-            return Task.FromResult<OptimizationMetrics?>(null);
+            // Fail-safe: optimization errors should not crash workflow
+            return Task.FromResult<OptimizationResult?>(null);
         }
     }
-    
+
     /// <summary>
-    /// Create a deep copy of process steps.
+    /// Creates boolean decision variables for each (step, provider) pair.
     /// </summary>
-    private static List<WorkflowProcessStep> CreateProcessStepsSnapshot(List<WorkflowProcessStep> originalSteps)
+    private static Dictionary<(int step, int provider), Variable> CreateDecisionVariables(Solver solver,WorkflowContext context)
     {
-        return originalSteps.Select(step => new WorkflowProcessStep
+        var variables = new Dictionary<(int, int), Variable>();
+
+        for (int i = 0; i < context.ProcessSteps.Count; i++)
         {
-            StepNumber = step.StepNumber,
-            Process = step.Process,
-            MatchedProviders = step.MatchedProviders.Select(p => new MatchedProvider
+            var step = context.ProcessSteps[i];
+
+            for (int j = 0; j < step.MatchedProviders.Count; j++)
             {
-                ProviderId = p.ProviderId,
-                ProviderName = p.ProviderName,
-                Estimate = p.Estimate
-            }).ToList()
-        }).ToList();
+                variables[(i, j)] = solver.MakeBoolVar($"x_{i}_{j}");
+            }
+        }
+
+        return variables;
     }
-    
+
     /// <summary>
-    /// Create an optimization strategy from optimization result.
+    /// Adds constraint that each process step must select exactly one provider.
     /// </summary>
-    private OptimizationStrategy CreateStrategy(OptimizationPriority priority, WorkflowContext context, OptimizationMetrics result)
+    private static void AddOneProviderPerStepConstraints(Solver solver, WorkflowContext context, Dictionary<(int step, int provider), Variable> assignments)
     {
-        var (strategyName, description) = GetStrategyNameAndDescription(priority);
-        var (warranty, insurance) = GetWarrantyAndInsurance(priority, context.WorkflowType ?? "Refurbish");
+        for (int i = 0; i < context.ProcessSteps.Count; i++)
+        {
+            var constraint = solver.MakeConstraint(1, 1);
+
+            for (int j = 0; j < context.ProcessSteps[i].MatchedProviders.Count; j++)
+            {
+                constraint.SetCoefficient(assignments[(i, j)], 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Builds objective function using weighted normalized metrics.
+    /// </summary>
+    private Objective BuildObjective(Solver solver, WorkflowContext context, Dictionary<(int step, int provider), Variable> assignments, OptimizationWeights weights)
+    {
+        var objective = solver.Objective();
+
+        for (int i = 0; i < context.ProcessSteps.Count; i++)
+        {
+            var step = context.ProcessSteps[i];
+
+            for (int j = 0; j < step.MatchedProviders.Count; j++)
+            {
+                var estimate = step.MatchedProviders[j].Estimate;
+
+                // Normalize values to comparable ranges
+                var cost = (double)estimate.Cost / CostNormalization;
+                var time = estimate.Duration.TotalHours / TimeNormalizationHours;
+                var quality = estimate.QualityScore; // already 0..1
+                var emissions = estimate.EmissionsKgCO2 / EmissionsNormalization;
+
+                // Lower is better (quality is inverted)
+                var coefficient =
+                    weights.CostWeight * cost +
+                    weights.TimeWeight * time +
+                    weights.EmissionsWeight * emissions -
+                    weights.QualityWeight * quality;
+
+                objective.SetCoefficient(
+                    assignments[(i, j)],
+                    coefficient);
+            }
+        }
+
+        return objective;
+    }
+
+    /// <summary>
+    /// Extracts selected providers and aggregated metrics from solver solution.
+    /// </summary>
+    private static OptimizationResult ExtractResult(WorkflowContext context, Dictionary<(int step, int provider), Variable> assignments, Objective objective, Solver.ResultStatus status)
+    {
+        decimal totalCost = 0;
+        TimeSpan totalDuration = TimeSpan.Zero;
+        double totalQuality = 0;
+        double totalEmissions = 0;
+
+        var selectedProviders = new Dictionary<int, MatchedProvider>();
+
+        for (int i = 0; i < context.ProcessSteps.Count; i++)
+        {
+            var step = context.ProcessSteps[i];
+
+            for (int j = 0; j < step.MatchedProviders.Count; j++)
+            {
+                if (assignments[(i, j)].SolutionValue() <= 0.5)
+                    continue;
+
+                var provider = step.MatchedProviders[j];
+                selectedProviders[step.StepNumber] = provider;
+
+                totalCost += provider.Estimate.Cost;
+                totalDuration += provider.Estimate.Duration;
+                totalQuality += provider.Estimate.QualityScore;
+                totalEmissions += provider.Estimate.EmissionsKgCO2;
+                break;
+            }
+        }
+
+        return new OptimizationResult
+        {
+            Metrics = new OptimizationMetrics
+            {
+                TotalCost = totalCost,
+                TotalDuration = totalDuration,
+                AverageQuality = totalQuality / context.ProcessSteps.Count,
+                TotalEmissionsKgCO2 = totalEmissions,
+                SolverStatus = status.ToString(),
+                ObjectiveValue = objective.Value()
+            },
+            SelectedProviders = selectedProviders
+        };
+    }
+
+    /// <summary>
+    /// Builds a domain-level optimization strategy from calculation result.
+    /// </summary>
+    private OptimizationStrategy CreateStrategy(OptimizationPriority priority, WorkflowContext context, OptimizationResult result)
+    {
+        if (context.WorkflowType == null)
+        {
+            throw new InvalidOperationException("Cannot create strategy: WorkflowType is null.");
+        }
+
+        var (name, description) = priority.GetStrategyNameAndDescription();
+        var warrantyTerms = priority.GetWarrantyTerms(context.WorkflowType);
 
         return new OptimizationStrategy
         {
-            StrategyName = strategyName,
+            StrategyName = name,
             Priority = priority,
-            WorkflowType = context.WorkflowType ?? "Unknown",
-            Steps = context.ProcessSteps
-                .Where(s => s.SelectedProvider != null)
-                .Select(s => new OptimizationProcessStep
-                {
-                    StepNumber = s.StepNumber,
-                    Process = s.Process,
-                    SelectedProviderId = s.SelectedProvider!.ProviderId,
-                    SelectedProviderName = s.SelectedProvider!.ProviderName,
-                    Estimate = s.SelectedProvider!.Estimate
-                }).ToList(),
-            Metrics = new OptimizationMetrics
+            WorkflowType = context.WorkflowType,
+            Steps = context.ProcessSteps.Select(step =>
             {
-                TotalCost = result.TotalCost,
-                TotalDuration = result.TotalDuration,
-                AverageQuality = result.AverageQuality,
-                TotalEmissionsKgCO2 = result.TotalEmissionsKgCO2,
-                SolverStatus = result.SolverStatus,
-                ObjectiveValue = result.ObjectiveValue
-            },
-            WarrantyTerms = warranty,
-            IncludesInsurance = insurance,
+                var provider = result.SelectedProviders[step.StepNumber];
+
+                return new OptimizationProcessStep
+                {
+                    StepNumber = step.StepNumber,
+                    Process = step.Process,
+                    SelectedProviderId = provider.ProviderId,
+                    SelectedProviderName = provider.ProviderName,
+                    Estimate = provider.Estimate
+                };
+            }).ToList(),
+            Metrics = result.Metrics,
+            WarrantyTerms = warrantyTerms.Description,
+            IncludesInsurance = warrantyTerms.IncludesInsurance,
             Description = description
         };
     }
-    
-    /// <summary>
-    /// Get strategy name and description based on priority.
-    /// </summary>
-    private static (string name, string description) GetStrategyNameAndDescription(OptimizationPriority priority)
+
+
+    private class OptimizationResult
     {
-        return priority switch
-        {
-            OptimizationPriority.LowestCost => ("Budget Strategy", "Optimized for lowest total cost. Best for price-sensitive customers."),
-            OptimizationPriority.FastestDelivery => ("Express Strategy", "Optimized for fastest completion time. Best for urgent orders."),
-            OptimizationPriority.HighestQuality => ("Premium Strategy", "Optimized for highest quality and reliability. Best long-term value."),
-            OptimizationPriority.LowestEmissions => ("Eco Strategy", "Optimized for minimal carbon emissions. Best for sustainability goals."),
-            _ => ("Balanced Strategy", "Balanced optimization across all factors.")
-        };
-    }
+        /// <summary>
+        /// Aggregated optimization metrics.
+        /// </summary>
+        public OptimizationMetrics Metrics { get; init; } = default!;
 
-    /// <summary>
-    /// Determine warranty terms and insurance based on priority and workflow type.
-    /// </summary>
-    private (string warranty, bool insurance) GetWarrantyAndInsurance(OptimizationPriority priority, string workflowType)
-    {
-        bool isUpgrade = workflowType == "Upgrade";
-
-        return priority switch
-        {
-            OptimizationPriority.HighestQuality => isUpgrade
-                ? ("Platinum 3 Years", true)
-                : ("Gold 18 Months", true),
-
-            OptimizationPriority.FastestDelivery => isUpgrade
-                ? ("Gold 12 Months", true)
-                : ("Silver 6 Months", false),
-
-            OptimizationPriority.LowestEmissions => isUpgrade
-                ? ("Gold 12 Months", true)
-                : ("Silver 9 Months", true),
-
-            OptimizationPriority.LowestCost => 
-                ("Basic 3 Months", false),
-
-            _ => ("Standard 6 Months", false)
-        };
-    }
-    
-    /// <summary>
-    /// Get optimization weights based on priority.
-    /// </summary>
-    private static OptimizationWeights GetWeightsForPriority(OptimizationPriority priority)
-    {
-        return priority switch
-        {
-            OptimizationPriority.LowestCost => new OptimizationWeights
-            {
-                CostWeight = 0.8,      // Heavily prioritize cost
-                TimeWeight = 0.1,
-                QualityWeight = 0.05,
-                EmissionsWeight = 0.05
-            },
-            OptimizationPriority.FastestDelivery => new OptimizationWeights
-            {
-                CostWeight = 0.1,
-                TimeWeight = 0.8,      // Heavily prioritize time
-                QualityWeight = 0.05,
-                EmissionsWeight = 0.05
-            },
-            OptimizationPriority.HighestQuality => new OptimizationWeights
-            {
-                CostWeight = 0.2,
-                TimeWeight = 0.2,
-                QualityWeight = 0.5,   // Heavily prioritize quality
-                EmissionsWeight = 0.1
-            },
-            OptimizationPriority.LowestEmissions => new OptimizationWeights
-            {
-                CostWeight = 0.1,
-                TimeWeight = 0.1,
-                QualityWeight = 0.2,
-                EmissionsWeight = 0.6  // Heavily prioritize low emissions
-            },
-            _ => new OptimizationWeights // Balanced default
-            {
-                CostWeight = 0.3,
-                TimeWeight = 0.3,
-                QualityWeight = 0.3,
-                EmissionsWeight = 0.1
-            }
-        };
+        /// <summary>
+        /// Selected provider per workflow step.
+        /// Key = StepNumber
+        /// </summary>
+        public Dictionary<int, MatchedProvider> SelectedProviders { get; init; } = [];
     }
 }
