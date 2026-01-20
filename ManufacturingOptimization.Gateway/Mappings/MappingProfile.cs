@@ -39,6 +39,12 @@ namespace ManufacturingOptimization.Gateway.Mappings
             CreateMap<OptimizationMetrics, OptimizationMetricsDto>();
             CreateMap<OptimizationMetricsDto, OptimizationMetrics>();
             
+            // OptimizationPlan mappings
+            CreateMap<OptimizationPlan, OptimizationPlanDto>()
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
+            CreateMap<OptimizationPlanDto, OptimizationPlan>()
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => Enum.Parse<OptimizationPlanStatus>(src.Status)));
+            
             // Provider mappings
             CreateMap<Provider, ProviderDto>();
             CreateMap<ProviderDto, Provider>();

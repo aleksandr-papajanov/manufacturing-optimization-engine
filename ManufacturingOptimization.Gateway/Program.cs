@@ -34,8 +34,8 @@ builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredSe
 
 // Register Repositories (Singleton for in-memory implementations)
 builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
-builder.Services.AddSingleton<IRequestResponseRepository, InMemoryRequestResponseRepository>();
 builder.Services.AddSingleton<IOptimizationStrategyRepository, InMemoryOptimizationStrategyRepository>();
+builder.Services.AddSingleton<IOptimizationPlanRepository, InMemoryOptimizationPlanRepository>();
 
 // Add Background Worker
 builder.Services.AddHostedService<GatewayWorker>();

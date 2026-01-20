@@ -16,17 +16,20 @@ namespace ManufacturingOptimization.Gateway.Controllers
         private readonly ILogger<OptimizationController> _logger;
         private readonly IMessagePublisher _messagePublisher;
         private readonly IOptimizationStrategyRepository _strategyRepository;
+        private readonly IOptimizationPlanRepository _planRepository;
         private readonly IMapper _mapper;
 
         public OptimizationController(
             ILogger<OptimizationController> logger,
             IMessagePublisher messagePublisher,
             IOptimizationStrategyRepository strategyRepository,
+            IOptimizationPlanRepository planRepository,
             IMapper mapper)
         {
             _logger = logger;
             _messagePublisher = messagePublisher;
             _strategyRepository = strategyRepository;
+            _planRepository = planRepository;
             _mapper = mapper;
         }
 
@@ -117,6 +120,25 @@ namespace ManufacturingOptimization.Gateway.Controllers
                 Strategies = null,
                 Status = "Processing"
             });
+        }
+
+        /// <summary>
+        /// Get optimization plan by request ID
+        /// </summary>
+        [HttpGet("plan/{requestId}")]
+        [ProducesResponseType(typeof(OptimizationPlanDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public ActionResult<OptimizationPlanDto> GetPlan(Guid requestId)
+        {
+            var plan = _planRepository.GetByRequestId(requestId);
+
+            if (plan == null)
+            {
+                return NotFound(new { Message = $"No optimization plan found for request {requestId}" });
+            }
+
+            var planDto = _mapper.Map<OptimizationPlanDto>(plan);
+            return Ok(planDto);
         }
     }
 }

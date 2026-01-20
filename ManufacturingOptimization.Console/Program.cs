@@ -262,7 +262,9 @@ async Task SubmitOptimizationRequest()
 
     var selectedStrategy = strategies[selectedIndex - 1];
 
-    // Send selection to Gateway
+    // Send selection to Gateway and retrieve plan
+    OptimizationPlanDto? plan = null;
+    
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
         .StartAsync("[yellow]Submitting strategy selection...[/]", async ctx =>
@@ -281,80 +283,34 @@ async Task SubmitOptimizationRequest()
                 if (response.IsSuccessStatusCode)
                 {
                     ctx.Status("[green]✓ Strategy selected![/]");
-                    AnsiConsole.WriteLine();
                     
-                    // Display detailed strategy information
-                    var detailsTable = new Table()
-                        .Border(TableBorder.Rounded)
-                        .BorderColor(Color.Green)
-                        .AddColumn("[yellow]Property[/]")
-                        .AddColumn("[green]Value[/]");
+                    // Wait and poll for plan to be generated
+                    ctx.Status("[yellow]Waiting for optimization plan...[/]");
                     
-                    detailsTable.AddRow("Strategy Name", $"[bold]{selectedStrategy.StrategyName}[/]");
-                    detailsTable.AddRow("Priority", selectedStrategy.Priority.ToString());
-                    detailsTable.AddRow("Workflow Type", selectedStrategy.WorkflowType);
-                    detailsTable.AddRow("Total Cost", $"€{selectedStrategy.Metrics.TotalCost:N2}");
-                    detailsTable.AddRow("Total Duration", $"{selectedStrategy.Metrics.TotalDuration.TotalHours:N1} hours ({selectedStrategy.Metrics.TotalDuration.TotalDays:N1} days)");
-                    detailsTable.AddRow("Average Quality", $"{selectedStrategy.Metrics.AverageQuality:P0}");
-                    detailsTable.AddRow("Total Emissions", $"{selectedStrategy.Metrics.TotalEmissionsKgCO2:N2} kg CO₂");
-                    detailsTable.AddRow("Warranty Terms", selectedStrategy.WarrantyTerms ?? "-");
-                    detailsTable.AddRow("Insurance", selectedStrategy.IncludesInsurance ? "[green]Included[/]" : "[dim]Not included[/]");
-                    detailsTable.AddRow("Solver Status", selectedStrategy.Metrics.SolverStatus ?? "-");
-                    detailsTable.AddRow("Objective Value", selectedStrategy.Metrics.ObjectiveValue.ToString("N4"));
-                    detailsTable.AddRow("Generated At", selectedStrategy.GeneratedAt.ToString("yyyy-MM-dd HH:mm:ss UTC"));
+                    var startTime = DateTime.UtcNow;
+                    var timeout = TimeSpan.FromSeconds(30);
+                    var pollInterval = TimeSpan.FromSeconds(1);
                     
-                    AnsiConsole.Write(new Panel(detailsTable)
-                        .Header("[yellow]Selected Strategy Details[/]")
-                        .BorderColor(Color.Green));
-                    
-                    AnsiConsole.WriteLine();
-                    
-                    // Display process steps
-                    if (selectedStrategy.Steps?.Any() == true)
+                    while (DateTime.UtcNow - startTime < timeout)
                     {
-                        var stepsTable = new Table()
-                            .Border(TableBorder.Rounded)
-                            .BorderColor(Color.Blue)
-                            .AddColumn(new TableColumn("[yellow]Step[/]").Centered())
-                            .AddColumn("[yellow]Activity[/]")
-                            .AddColumn("[yellow]Provider[/]")
-                            .AddColumn(new TableColumn("[yellow]Cost[/]").RightAligned())
-                            .AddColumn(new TableColumn("[yellow]Time[/]").RightAligned())
-                            .AddColumn(new TableColumn("[yellow]Quality[/]").RightAligned())
-                            .AddColumn(new TableColumn("[yellow]Emissions[/]").RightAligned());
+                        await Task.Delay(pollInterval);
                         
-                        foreach (var step in selectedStrategy.Steps.OrderBy(s => s.StepNumber))
+                        try
                         {
-                            stepsTable.AddRow(
-                                step.StepNumber.ToString(),
-                                step.Activity,
-                                step.SelectedProviderName,
-                                $"€{step.Estimate.Cost:N2}",
-                                $"{step.Estimate.Duration.TotalHours:N1}h",
-                                step.Estimate.QualityScore.ToString("P0"),
-                                $"{step.Estimate.EmissionsKgCO2:N2} kg"
-                            );
+                            var planResponse = await httpClient.GetAsync($"/api/optimization/plan/{requestId}");
+                            
+                            if (planResponse.IsSuccessStatusCode)
+                            {
+                                plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlanDto>();
+                                ctx.Status("[green]✓ Optimization plan retrieved![/]");
+                                break;
+                            }
                         }
-                        
-                        AnsiConsole.Write(new Panel(stepsTable)
-                            .Header($"[blue]Process Steps ({selectedStrategy.Steps.Count} total)[/]")
-                            .BorderColor(Color.Blue));
-                        
-                        AnsiConsole.WriteLine();
+                        catch
+                        {
+                            // Continue polling
+                        }
                     }
-                    
-                    // Summary panel
-                    AnsiConsole.Write(new Panel($"""
-                        [green]✓ Your optimization plan is confirmed![/]
-                        
-                        [dim]Request ID: {requestId}[/]
-                        [dim]Strategy ID: {selectedStrategy.StrategyId}[/]
-                        
-                        {selectedStrategy.Description}
-                        """)
-                        .Header("[yellow]Plan Confirmation[/]")
-                        .BorderColor(Color.Green)
-                        .Padding(1, 1));
                 }
                 else
                 {
@@ -366,6 +322,140 @@ async Task SubmitOptimizationRequest()
                 AnsiConsole.MarkupLine($"[red]✗ Error: {ex.Message}[/]");
             }
         });
+    
+    // Display plan outside of Status context to avoid concurrent interactive operations
+    AnsiConsole.WriteLine();
+    
+    if (plan != null)
+    {
+        DisplayOptimizationPlan(plan);
+    }
+    else
+    {
+        AnsiConsole.MarkupLine("[red]✗ Timeout waiting for optimization plan[/]");
+        AnsiConsole.MarkupLine("[dim]The plan may still be processing. Try retrieving it later using the Request ID.[/]");
+    }
+}
+
+void DisplayOptimizationPlan(OptimizationPlanDto plan)
+{
+    if (plan.SelectedStrategy == null)
+    {
+        AnsiConsole.MarkupLine("[red]✗ Plan has no selected strategy[/]");
+        return;
+    }
+
+    AnsiConsole.Write(new Rule("[green]Final Optimization Plan[/]").RuleStyle("green"));
+    AnsiConsole.WriteLine();
+    
+    // Plan overview
+    var overviewTable = new Table()
+        .Border(TableBorder.Rounded)
+        .BorderColor(Color.Green)
+        .AddColumn("[yellow]Property[/]")
+        .AddColumn("[green]Value[/]");
+    
+    overviewTable.AddRow("Plan ID", $"[bold]{plan.PlanId}[/]");
+    overviewTable.AddRow("Request ID", plan.RequestId.ToString());
+    overviewTable.AddRow("Strategy", $"[bold]{plan.SelectedStrategy.StrategyName}[/]");
+    overviewTable.AddRow("Priority", plan.SelectedStrategy.Priority);
+    overviewTable.AddRow("Workflow Type", plan.SelectedStrategy.WorkflowType);
+    overviewTable.AddRow("Status", $"[{GetStatusColor(plan.Status)}]{plan.Status}[/]");
+    overviewTable.AddRow("Total Cost", $"€{plan.SelectedStrategy.Metrics.TotalCost:N2}");
+    overviewTable.AddRow("Total Duration", $"{plan.SelectedStrategy.Metrics.TotalDuration.TotalDays:N1} days ({plan.SelectedStrategy.Metrics.TotalDuration.TotalHours:N1} hours)");
+    overviewTable.AddRow("Average Quality", $"{plan.SelectedStrategy.Metrics.AverageQuality:P0}");
+    overviewTable.AddRow("Total Emissions", $"{plan.SelectedStrategy.Metrics.TotalEmissionsKgCO2:N2} kg CO₂");
+    overviewTable.AddRow("Warranty", plan.SelectedStrategy.WarrantyTerms ?? "-");
+    overviewTable.AddRow("Insurance", plan.SelectedStrategy.IncludesInsurance ? "[green]✓ Included[/]" : "[dim]Not included[/]");
+    overviewTable.AddRow("Solver Status", plan.SelectedStrategy.Metrics.SolverStatus ?? "-");
+    overviewTable.AddRow("Objective Value", plan.SelectedStrategy.Metrics.ObjectiveValue.ToString("N6"));
+    overviewTable.AddRow("Created At", plan.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss UTC"));
+    
+    AnsiConsole.Write(new Panel(overviewTable)
+        .Header("[yellow]Plan Overview[/]")
+        .BorderColor(Color.Green));
+    
+    AnsiConsole.WriteLine();
+    
+    // Process steps with providers
+    if (plan.SelectedStrategy.Steps?.Any() == true)
+    {
+        var stepsTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Blue)
+            .AddColumn(new TableColumn("[yellow]Step[/]").Centered())
+            .AddColumn("[yellow]Process[/]")
+            .AddColumn("[yellow]Provider[/]")
+            .AddColumn(new TableColumn("[yellow]Provider ID[/]").Centered())
+            .AddColumn(new TableColumn("[yellow]Cost[/]").RightAligned())
+            .AddColumn(new TableColumn("[yellow]Duration[/]").RightAligned())
+            .AddColumn(new TableColumn("[yellow]Quality[/]").RightAligned())
+            .AddColumn(new TableColumn("[yellow]CO₂[/]").RightAligned());
+        
+        foreach (var step in plan.SelectedStrategy.Steps.OrderBy(s => s.StepNumber))
+        {
+            stepsTable.AddRow(
+                step.StepNumber.ToString(),
+                step.Activity,
+                $"[bold]{step.SelectedProviderName}[/]",
+                step.SelectedProviderId.ToString()[..8] + "...",
+                $"€{step.Estimate.Cost:N2}",
+                $"{step.Estimate.Duration.TotalHours:N1}h",
+                $"{step.Estimate.QualityScore:P0}",
+                $"{step.Estimate.EmissionsKgCO2:N2} kg"
+            );
+        }
+        
+        AnsiConsole.Write(new Panel(stepsTable)
+            .Header($"[blue]Execution Plan ({plan.SelectedStrategy.Steps.Count} steps)[/]")
+            .BorderColor(Color.Blue));
+        
+        AnsiConsole.WriteLine();
+    }
+    
+    // Success summary
+    AnsiConsole.Write(new Panel($"""
+        [green]✓ Your optimization plan is ready for execution![/]
+        
+        [bold]Plan ID:[/] [cyan]{plan.PlanId}[/]
+        [bold]Strategy:[/] {plan.SelectedStrategy.StrategyName}
+        
+        [dim]{plan.SelectedStrategy.Description}[/]
+        
+        [yellow]Next steps:[/]
+        • Providers will be notified to prepare for execution
+        • You will receive updates as work progresses
+        • Track progress via Plan ID: {plan.PlanId}
+        """)
+        .Header("[green]Plan Confirmed[/]")
+        .BorderColor(Color.Green)
+        .Padding(1, 1));
+    
+    AnsiConsole.WriteLine();
+    
+    // Display full plan as JSON
+    AnsiConsole.WriteLine();
+    var json = JsonSerializer.Serialize(plan, new JsonSerializerOptions 
+    { 
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    });
+    
+    AnsiConsole.Write(new Panel(Markup.Escape(json))
+        .Header("[yellow]Complete Optimization Plan (JSON)[/]")
+        .BorderColor(Color.Yellow)
+        .Expand());
+}
+
+string GetStatusColor(string status)
+{
+    return status switch
+    {
+        "InProgress" => "blue",
+        "Completed" => "green",
+        "Failed" => "red",
+        _ => "white"
+    };
 }
 
 async Task GetProviders()
@@ -486,4 +576,14 @@ record OptimizationMetricsDto(
     double TotalEmissionsKgCO2,
     string SolverStatus,
     double ObjectiveValue
+);
+
+record OptimizationPlanDto(
+    Guid PlanId,
+    Guid RequestId,
+    OptimizationStrategyDto? SelectedStrategy,
+    string Status,
+    DateTime CreatedAt,
+    DateTime? SelectedAt,
+    DateTime? ConfirmedAt
 );
