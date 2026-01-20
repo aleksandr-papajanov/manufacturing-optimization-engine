@@ -43,10 +43,10 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         _messagePublisher = messagePublisher;
         _dockerSettings = dockerSettings.Value;
         _rabbitMqSettings = rabbitMqSettings.Value;
-        
+
         SetupRabbitMq();
     }
-    
+
     private void SetupRabbitMq()
     {
         _messagingInfrastructure.DeclareQueue("orchestrator.provider.registered");
@@ -54,18 +54,18 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         _messagingInfrastructure.PurgeQueue("orchestrator.provider.registered");
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("orchestrator.provider.registered", async evt => await HandleProviderRegistered(evt));
     }
-    
+
     private async Task HandleProviderRegistered(ProviderRegisteredEvent evt)
     {
         bool allRegistered;
         int runningCount;
         int registeredCount;
-        
+
         lock (_registeredProviders)
         {
             _registeredProviders.Add(evt.Provider.Id);
             registeredCount = _registeredProviders.Count;
-            
+
             lock (_runningProviders)
             {
                 runningCount = _runningProviders.Count;
@@ -85,24 +85,24 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
     {
         var providers = await _repository.GetAllAsync(cancellationToken);
         var enabledProviders = providers.Where(p => p.Enabled).ToList();
-        
+
         if (enabledProviders.Count == 0)
         {
             return;
         }
-        
+
         foreach (var provider in enabledProviders)
         {
             try
             {
                 var (isApproved, declinedReason) = await _validationService.ValidateAsync(provider, cancellationToken: cancellationToken);
-                
+
                 if (!isApproved)
                 {
                     _logger.LogWarning("Provider {Type} ({Id}) declined during validation: {Reason}", provider.Type, provider.Id, declinedReason);
                     continue;
                 }
-                
+
                 await StartAsync(provider, cancellationToken);
             }
             catch (Exception ex)
@@ -144,8 +144,11 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
             var capability = provider.ProcessCapabilities[i];
             envVars.Add($"Provider__ProcessCapabilities__{i}__Process={capability.Process}");
             envVars.Add($"Provider__ProcessCapabilities__{i}__CostPerHour={capability.CostPerHour}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__SpeedMultiplier={capability.SpeedMultiplier}");
             envVars.Add($"Provider__ProcessCapabilities__{i}__QualityScore={capability.QualityScore}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__EnergyConsumptionKwhPerHour={capability.EnergyConsumptionKwhPerHour}");
             envVars.Add($"Provider__ProcessCapabilities__{i}__CarbonIntensityKgCO2PerKwh={capability.CarbonIntensityKgCO2PerKwh}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__UsesRenewableEnergy={capability.UsesRenewableEnergy}");
         }
 
         // Add technical capabilities

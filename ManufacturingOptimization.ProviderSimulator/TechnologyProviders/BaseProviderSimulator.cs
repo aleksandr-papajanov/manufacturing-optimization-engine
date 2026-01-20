@@ -64,11 +64,6 @@ public abstract class BaseProviderSimulator : IProviderSimulator
         };
         _proposalRepository.Add(acceptedProposal);
         
-        var acceptedCount = _proposalRepository.GetByProviderIdAndStatus(Provider.Id, ProposalStatus.Accepted).Count;
-        _logger.LogInformation(
-            "[{ProviderName}] Accepted proposal for {Activity}. Total accepted proposals: {Count}",
-            Provider.Name, proposal.Process, acceptedCount);
-
         return new ProcessProposalEstimatedEvent
         {
             RequestId = proposal.RequestId,
