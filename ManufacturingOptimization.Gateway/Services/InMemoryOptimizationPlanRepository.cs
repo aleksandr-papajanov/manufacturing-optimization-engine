@@ -20,8 +20,6 @@ public class InMemoryOptimizationPlanRepository : IOptimizationPlanRepository
             throw new ArgumentNullException(nameof(plan));
 
         _plans[plan.PlanId] = plan;
-        _logger.LogInformation("Stored optimization plan {PlanId} for request {RequestId}", 
-            plan.PlanId, plan.RequestId);
     }
 
     public OptimizationPlan? GetById(Guid planId)
@@ -45,12 +43,10 @@ public class InMemoryOptimizationPlanRepository : IOptimizationPlanRepository
             throw new ArgumentNullException(nameof(plan));
 
         _plans[plan.PlanId] = plan;
-        _logger.LogInformation("Updated optimization plan {PlanId}", plan.PlanId);
     }
 
     public void Delete(Guid planId)
     {
         _plans.TryRemove(planId, out _);
-        _logger.LogInformation("Deleted optimization plan {PlanId}", planId);
     }
 }

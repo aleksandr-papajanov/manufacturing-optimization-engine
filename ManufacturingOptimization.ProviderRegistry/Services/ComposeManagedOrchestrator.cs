@@ -61,26 +61,22 @@ public class ComposeManagedOrchestrator : ProviderOrchestratorBase, IProviderOrc
 
     public Task StartAllAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Development mode: sending StartAllProvidersCommand to provider simulators");
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.RequestRegistrationAll, new RequestProvidersRegistrationCommand());
         return Task.CompletedTask;
     }
 
     public Task StartAsync(Provider provider, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Development mode: provider {Type} managed by docker-compose", provider.Type);
         return Task.CompletedTask;
     }
 
     public Task StopAsync(Guid providerId, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Development mode: providers managed by docker-compose");
         return Task.CompletedTask;
     }
 
     public Task StopAllAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Development mode: providers managed by docker-compose");
         return Task.CompletedTask;
     }
 }

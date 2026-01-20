@@ -68,8 +68,6 @@ public class StartupCoordinator : SystemReadinessService
         
         if (allReady)
         {
-            _logger.LogInformation("All services ready! Publishing SystemReadyEvent...");
-            
             var evt = new SystemReadyEvent
             {
                 ReadyServices = _readyServices.ToList()
@@ -77,11 +75,6 @@ public class StartupCoordinator : SystemReadinessService
             
             _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.SystemReady, evt);
             _systemReadyPublished = true;
-        }
-        else
-        {
-            var missing = REQUIRED_SERVICES.Except(_readyServices).ToList();
-            _logger.LogInformation("Waiting for services: {Missing}", string.Join(", ", missing));
         }
     }
 }

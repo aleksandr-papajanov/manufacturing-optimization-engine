@@ -174,7 +174,6 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                             var message = JsonSerializer.Deserialize(json, type) as IMessage;
                             if (message != null)
                             {
-                                _logger.LogDebug("Received RPC response {CorrelationId}", correlationId);
                                 tcs.SetResult(message);
                             }
                         }

@@ -68,10 +68,6 @@ namespace ManufacturingOptimization.Gateway.Controllers
         [ProducesResponseType(typeof(StrategySelectionResponse), StatusCodes.Status200OK)]
         public ActionResult<StrategySelectionResponse> SelectStrategy([FromBody] SelectStrategyDto selection)
         {
-            _logger.LogInformation(
-                "Received strategy selection for Request {RequestId}: Strategy '{StrategyName}' (ID: {StrategyId})",
-                selection.RequestId, selection.StrategyName, selection.StrategyId);
-
             var command = new SelectStrategyCommand
             {
                 RequestId = selection.RequestId,
