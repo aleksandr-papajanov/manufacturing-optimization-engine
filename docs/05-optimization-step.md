@@ -73,11 +73,29 @@ minimize: Σ Σ x[i,j] × (
           )
 ```
 
-**Normalization:** values are scaled to 0-1 range:
-- Cost: divided by 2000
-- Time: divided by 40 (hours)
+**Normalization:** values are dynamically scaled to 0-1 range based on actual min/max values from all provider estimates:
+
+For each metric, we calculate ranges:
+- Cost range: `(min: allEstimates.Min(e => e.Cost), max: allEstimates.Max(e => e.Cost))`
+- Time range: `(min: allEstimates.Min(e => e.Duration.TotalHours), max: allEstimates.Max(e => e.Duration.TotalHours))`
+- Emissions range: `(min: allEstimates.Min(e => e.EmissionsKgCO2), max: allEstimates.Max(e => e.EmissionsKgCO2))`
+
+Then normalize each value:
+```csharp
+double Normalize(double value, double min, double max)
+{
+    if (max <= min) return 0;
+    return (value - min) / (max - min);
+}
+```
+
+Applied normalization:
+- Cost: `Normalize(estimate.Cost, costRange.min, costRange.max)`
+- Time: `Normalize(estimate.Duration.TotalHours, timeRange.min, timeRange.max)`
 - Quality: already in 0-1 range
-- Emissions: divided by 100
+- Emissions: `Normalize(estimate.EmissionsKgCO2, emissionsRange.min, emissionsRange.max)`
+
+This approach ensures fair comparison regardless of the actual value ranges in the current optimization request, making the optimization scale-independent and more robust.
 
 **Quality:** used with minus sign to **maximize** quality while minimizing overall function.
 

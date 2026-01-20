@@ -20,11 +20,6 @@ public sealed class OptimizationStep : IWorkflowStep
         OptimizationPriority.LowestEmissions
     };
 
-    /// Normalization constants calibrated to bring different units into comparable ranges (0..1).
-    private const double CostNormalization = 2000.0; // Based on typical motor manufacturing costs $2000
-    private const double TimeNormalizationHours = 40.0; // Based on typical manufacturing lead time (1-5 working days = 8-40 hours)
-    private const double EmissionsNormalization = 100.0; // Based on typical CO2 emissions per manufacturing step 100 kg
-
     public string Name => "Optimization & Strategy Generation";
 
     /// <summary>
@@ -186,6 +181,27 @@ public sealed class OptimizationStep : IWorkflowStep
     {
         var objective = solver.Objective();
 
+        // Collect all estimates to determine normalization ranges
+        var allEstimates = context.ProcessSteps
+            .SelectMany(s => s.MatchedProviders)
+            .Select(p => p.Estimate)
+            .ToList();
+
+        var costRange = (
+            min: allEstimates.Min(e => (double)e.Cost),
+            max: allEstimates.Max(e => (double)e.Cost)
+        );
+
+        var timeRange = (
+            min: allEstimates.Min(e => e.Duration.TotalHours),
+            max: allEstimates.Max(e => e.Duration.TotalHours)
+        );
+
+        var emissionsRange = (
+            min: allEstimates.Min(e => e.EmissionsKgCO2),
+            max: allEstimates.Max(e => e.EmissionsKgCO2)
+        );
+
         for (int i = 0; i < context.ProcessSteps.Count; i++)
         {
             var step = context.ProcessSteps[i];
@@ -194,11 +210,11 @@ public sealed class OptimizationStep : IWorkflowStep
             {
                 var estimate = step.MatchedProviders[j].Estimate;
 
-                // Normalize values to comparable ranges
-                var cost = (double)estimate.Cost / CostNormalization;
-                var time = estimate.Duration.TotalHours / TimeNormalizationHours;
+                // Normalize values to 0..1 range based on actual data
+                var cost = Normalize((double)estimate.Cost, costRange.min, costRange.max);
+                var time = Normalize(estimate.Duration.TotalHours, timeRange.min, timeRange.max);
                 var quality = estimate.QualityScore; // already 0..1
-                var emissions = estimate.EmissionsKgCO2 / EmissionsNormalization;
+                var emissions = Normalize(estimate.EmissionsKgCO2, emissionsRange.min, emissionsRange.max);
 
                 // Lower is better (quality is inverted)
                 var coefficient =
@@ -214,6 +230,17 @@ public sealed class OptimizationStep : IWorkflowStep
         }
 
         return objective;
+    }
+
+    /// <summary>
+    /// Normalizes a value to 0..1 range based on min and max values.
+    /// </summary>
+    private static double Normalize(double value, double min, double max)
+    {
+        if (max <= min)
+            return 0;
+
+        return (value - min) / (max - min);
     }
 
     /// <summary>
