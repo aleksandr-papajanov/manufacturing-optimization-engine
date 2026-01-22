@@ -11,18 +11,15 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure SQLite database
-var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
-Directory.CreateDirectory(dataDir);
-var dbPath = Path.Combine(dataDir, "GatewayDatabase.db");
+builder.Services.AddDatabase();
 
-builder.Services.AddDbContext<GatewayDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
-builder.Services.AddScoped<IProviderDbContext, GatewayDbContext>();
-builder.Services.AddScoped<IOptimizationDbContext, GatewayDbContext>();
-
-// Register repositories directly
+// Register repositories
 builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
 builder.Services.AddScoped<IOptimizationPlanRepository, OptimizationPlanRepository>();
 builder.Services.AddScoped<IOptimizationStrategyRepository, OptimizationStrategyRepository>();
+
+// Database lifecycle management
+builder.Services.AddHostedService<DatabaseManagementService>();
 
 // Add Services
 builder.Services.AddControllers();
@@ -54,9 +51,6 @@ builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<Ra
 builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Gateway");
 builder.Services.AddSingleton<ISystemReadinessService, SystemReadinessService>();
 builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredService<ISystemReadinessService>());
-
-// Database lifecycle management
-builder.Services.AddHostedService<DatabaseManagementService>();
 
 // Add Background Worker
 builder.Services.AddHostedService<GatewayWorker>();

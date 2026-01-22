@@ -38,8 +38,6 @@ services:
     volumes:
       # Mount Docker socket for container management
       - /var/run/docker.sock:/var/run/docker.sock
-      # Mount providers.json for seeding database
-      - ./ManufacturingOptimization.ProviderRegistry/providers.json:/app/providers.json:ro
       # Persistent database storage
       - provider_registry_data:/app/Data
     depends_on:

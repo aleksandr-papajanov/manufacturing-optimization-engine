@@ -11,7 +11,7 @@ namespace ManufacturingOptimization.Engine.Services;
 public class DatabaseManagementService : IHostedService
 {
     // Toggle to recreate database on every startup (useful during development)
-    private const bool RECREATE_DATABASE_ON_STARTUP = true;
+    private const bool RECREATE_DATABASE_ON_STARTUP = false;
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DatabaseManagementService> _logger;
@@ -33,13 +33,12 @@ public class DatabaseManagementService : IHostedService
 
             if (RECREATE_DATABASE_ON_STARTUP)
             {
-                await RecreateDatabase(dbContext, cancellationToken);
+                // Clear for development purposes
+                await dbContext.Database.EnsureDeletedAsync(cancellationToken);
             }
-            else
-            {
-                // Ensure database is created
-                await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-            }
+
+            // Apply migrations
+            await dbContext.Database.MigrateAsync(cancellationToken);
 
             ClearProvidersAsync(dbContext, cancellationToken).Wait(cancellationToken);
         }

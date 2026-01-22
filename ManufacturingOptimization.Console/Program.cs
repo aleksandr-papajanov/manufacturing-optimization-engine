@@ -4,10 +4,33 @@ using System.Text.Json;
 using ManufacturingOptimization.Common.Models.DTOs;
 using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.Common.Models.Enums;
+using AutoMapper;
 
 // Configuration
 var apiUrl = Environment.GetEnvironmentVariable("GATEWAY_API_URL") ?? "http://localhost:5000";
 var httpClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
+
+var mapperConfig = new MapperConfiguration(cfg =>
+{
+    cfg.CreateMap<OptimizationRequestModel, OptimizationRequestDto>()
+        .ForMember(dest => dest.MotorSpecs, opt => opt.MapFrom(src => new MotorSpecificationsDto
+        {
+            PowerKW = src.MotorSpecs.PowerKW,
+            AxisHeightMM = src.MotorSpecs.AxisHeightMM,
+            CurrentEfficiency = src.MotorSpecs.CurrentEfficiency.ToString(),
+            TargetEfficiency = src.MotorSpecs.TargetEfficiency.ToString(),
+            MalfunctionDescription = src.MotorSpecs.MalfunctionDescription
+        }))
+        .ForMember(dest => dest.Constraints, opt => opt.MapFrom(src => new OptimizationRequestConstraintsDto
+        {
+            MaxBudget = src.Constraints.MaxBudget,
+            RequiredDeadline = src.Constraints.RequiredDeadline
+        }))
+        .ForMember(dest => dest.RequestId, opt => opt.MapFrom(src => src.RequestId))
+        .ForMember(dest => dest.CustomerId, opt => opt.MapFrom(src => src.CustomerId))
+        .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
+});
+var mapper = mapperConfig.CreateMapper();
 
 // Welcome screen
 AnsiConsole.Clear();
@@ -101,17 +124,19 @@ async Task SubmitOptimizationRequest()
         MotorSpecs = new MotorSpecificationsModel
         {
             PowerKW = random.Next(50, 200),
-            AxisHeightMM = random.Next(63, 315), // Standard IEC motor sizes
+            AxisHeightMM = random.Next(63, 315),
             CurrentEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
             TargetEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
             MalfunctionDescription = random.Next(0, 2) == 0 ? "Normal operation" : "Reduced efficiency, overheating"
         },
         Constraints = new OptimizationRequestConstraintsModel
         {
-            MaxBudget = random.Next(0, 3) == 0 ? null : random.Next(5000, 20000), // 33% chance of no budget limit
-            RequiredDeadline = random.Next(0, 3) == 0 ? null : DateTime.Now.AddDays(random.Next(30, 90)) // 33% chance of no deadline
+            MaxBudget = random.Next(0, 3) == 0 ? null : random.Next(5000, 20000),
+            RequiredDeadline = random.Next(0, 3) == 0 ? null : DateTime.Now.AddDays(random.Next(30, 90))
         }
     };
+
+    var motorRequestDto = mapper.Map<OptimizationRequestDto>(motorRequest);
 
     // Display generated request
     var table = new Table()
@@ -151,7 +176,7 @@ async Task SubmitOptimizationRequest()
         {
             try
             {
-                var response = await httpClient.PostAsJsonAsync("/api/optimization/request", motorRequest);
+                var response = await httpClient.PostAsJsonAsync("/api/optimization/request", motorRequestDto);
 
                 if (response.IsSuccessStatusCode)
                 {

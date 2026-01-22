@@ -9,23 +9,19 @@ using ManufacturingOptimization.Engine.Data;
 using ManufacturingOptimization.Engine.Services;
 using ManufacturingOptimization.Engine.Services.Pipeline;
 using ManufacturingOptimization.Engine.Settings;
-using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // Configure SQLite database
-var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
-Directory.CreateDirectory(dataDir); // Ensure directory exists
-var dbPath = Path.Combine(dataDir, "EngineDatabase.db");
+builder.Services.AddDatabase();
 
-builder.Services.AddDbContext<EngineDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
-builder.Services.AddScoped<IProviderDbContext, EngineDbContext>();
-builder.Services.AddScoped<IOptimizationDbContext, EngineDbContext>();
-
-// Register repositories directly
+// Register repositories
 builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
 builder.Services.AddScoped<IOptimizationPlanRepository, OptimizationPlanRepository>();
 builder.Services.AddScoped<IOptimizationStrategyRepository, OptimizationStrategyRepository>();
+
+// Database lifecycle management
+builder.Services.AddHostedService<DatabaseManagementService>();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(c =>
@@ -50,9 +46,6 @@ builder.Services.AddHostedService(sp => (StartupCoordinator)sp.GetRequiredServic
 
 // Pipeline factory
 builder.Services.AddSingleton<IWorkflowPipelineFactory, PipelineFactory>();
-
-// Database lifecycle management
-builder.Services.AddHostedService<DatabaseManagementService>();
 
 builder.Services.AddHostedService<ProviderCapabilityValidationService>();
 builder.Services.AddHostedService<EngineWorker>();

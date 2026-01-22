@@ -7,20 +7,16 @@ using ManufacturingOptimization.ProviderRegistry;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 using ManufacturingOptimization.ProviderRegistry.Data;
 using ManufacturingOptimization.ProviderRegistry.Services;
-using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // Configure SQLite database
-var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
-Directory.CreateDirectory(dataDir); // Ensure directory exists
-var dbPath = Path.Combine(dataDir, "providers.db");
+builder.Services.AddDatabase();
 
-builder.Services.AddDbContext<ProviderRegistryDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
-builder.Services.AddScoped<IProviderDbContext, ProviderRegistryDbContext>();
-
+// Register repositories
 builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
 
+// Database lifecycle management
 builder.Services.AddHostedService<DatabaseManagementService>();
 
 // Add AutoMapper

@@ -9,11 +9,21 @@ namespace ManufacturingOptimization.Gateway.Data
     {
         public GatewayMappingProfile()
         {
-            CreateMap<OptimizationRequestModel, OptimizationRequestDto>().ReverseMap();
+            CreateMap<OptimizationRequestModel, OptimizationRequestDto>()
+                .ForMember(dest => dest.MotorSpecs, opt => opt.MapFrom(src => src.MotorSpecs))
+                .ForMember(dest => dest.Constraints, opt => opt.MapFrom(src => src.Constraints));
+            CreateMap<OptimizationRequestDto, OptimizationRequestModel>()
+                .ForMember(dest => dest.MotorSpecs, opt => opt.MapFrom(src => src.MotorSpecs))
+                .ForMember(dest => dest.Constraints, opt => opt.MapFrom(src => src.Constraints));
 
             CreateMap<OptimizationRequestConstraintsModel, OptimizationRequestConstraintsDto>().ReverseMap();
 
-            CreateMap<MotorSpecificationsModel, MotorSpecificationsDto>().ReverseMap();
+            CreateMap<MotorSpecificationsModel, MotorSpecificationsDto>()
+                .ForMember(dest => dest.CurrentEfficiency, opt => opt.MapFrom(src => src.CurrentEfficiency.ToString()))
+                .ForMember(dest => dest.TargetEfficiency, opt => opt.MapFrom(src => src.TargetEfficiency.ToString()));
+            CreateMap<MotorSpecificationsDto, MotorSpecificationsModel>()
+                .ForMember(dest => dest.CurrentEfficiency, opt => opt.MapFrom(src => Enum.Parse<MotorEfficiencyClass>(src.CurrentEfficiency)))
+                .ForMember(dest => dest.TargetEfficiency, opt => opt.MapFrom(src => Enum.Parse<MotorEfficiencyClass>(src.TargetEfficiency)));
 
             CreateMap<OptimizationPlanModel, OptimizationPlanDto>()
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
