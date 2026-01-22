@@ -9,7 +9,7 @@ public static class DatabaseExtensions
     {
         var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
         Directory.CreateDirectory(dataDir);
-        var dbPath = Path.Combine(dataDir, "providers.db");
+        var dbPath = Path.Combine(dataDir, "gateway.db");
 
         services.AddDbContext<GatewayDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
         
