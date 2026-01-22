@@ -4,10 +4,9 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
-using ManufacturingOptimization.Common.Models;
-using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Entities;
-using ManufacturingOptimization.Engine.Data.Repositories;
+using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 
 namespace ManufacturingOptimization.Engine;

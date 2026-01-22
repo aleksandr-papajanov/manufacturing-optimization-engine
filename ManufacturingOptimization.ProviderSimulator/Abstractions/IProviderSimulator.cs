@@ -1,5 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.ProviderSimulator.Models;
 
 namespace ManufacturingOptimization.ProviderSimulator.Abstractions;
@@ -9,7 +9,7 @@ public interface IProviderSimulator
     /// <summary>
     /// Provider information with all capabilities and specifications.
     /// </summary>
-    Provider Provider { get; }
+    ProviderModel Provider { get; }
     
     /// <summary>
     /// Handle a process proposal - provider can accept with estimates or decline.

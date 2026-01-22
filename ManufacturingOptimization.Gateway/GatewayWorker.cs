@@ -4,10 +4,8 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
-using ManufacturingOptimization.Common.Models;
-using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Entities;
-using ManufacturingOptimization.Gateway.Data;
 
 namespace ManufacturingOptimization.Gateway.Services;
 
@@ -102,7 +100,7 @@ public class GatewayWorker : BackgroundService
         await planRepo.SaveChangesAsync();
         
         // Get strategies for this request (not yet assigned to a plan)
-        var unusedStrategies = strategyRepo.GetStrategies(evt.Plan.RequestId);
+        var unusedStrategies = await strategyRepo.GetForRequesttAsync(evt.Plan.RequestId);
         
         if (unusedStrategies != null)
         {
@@ -120,7 +118,7 @@ public class GatewayWorker : BackgroundService
         }
         
         // Remove unused strategies for this request (those without PlanId)
-        strategyRepo.RemoveStrategies(evt.Plan.RequestId);
+        await strategyRepo.RemoveForRequestAsync(evt.Plan.RequestId);
     }
 
     private void HandleStrategiesReady(MultipleStrategiesReadyEvent evt)
@@ -138,6 +136,6 @@ public class GatewayWorker : BackgroundService
             entity.PlanId = null; // No plan yet
         }
         
-        strategyRepo.StoreStrategies(evt.RequestId, entities);
+        strategyRepo.AddForRequestAsync(evt.RequestId, entities);
     }
 }

@@ -55,7 +55,6 @@ public class EstimationStep : IWorkflowStep
                         {
                             // Provider declined - mark as unavailable
                             var reason = response.DeclineReason ?? "No reason provided";
-                            throw new InvalidOperationException($"Proposal declined: {reason}");
                         }
                     }
                     else

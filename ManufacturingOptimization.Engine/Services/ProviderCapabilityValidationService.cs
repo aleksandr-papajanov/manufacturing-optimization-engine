@@ -3,9 +3,10 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Settings;
 using Microsoft.Extensions.Options;
-using ManufacturingOptimization.Common.Models;
 using System.Collections.Concurrent;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.Engine.Services;
 
@@ -153,7 +154,7 @@ public class ProviderCapabilityValidationService : BackgroundService
         return new ValidationResult { IsValid = true };
     }
 
-    private ValidationResult ValidateTechnicalRequirements(ProviderTechnicalCapabilities? requirements)
+    private ValidationResult ValidateTechnicalRequirements(TechnicalCapabilitiesModel? requirements)
     {
         if (requirements == null)
         {

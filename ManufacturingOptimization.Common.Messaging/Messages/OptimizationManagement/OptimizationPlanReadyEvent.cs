@@ -1,5 +1,5 @@
-using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 
@@ -12,5 +12,5 @@ public class OptimizationPlanReadyEvent : BaseEvent
     /// <summary>
     /// Optimized plan with all details.
     /// </summary>
-    public OptimizationPlan Plan { get; set; } = new();
+    public OptimizationPlanModel Plan { get; set; } = new();
 }

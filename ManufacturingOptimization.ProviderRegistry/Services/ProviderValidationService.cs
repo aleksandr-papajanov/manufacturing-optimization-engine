@@ -1,7 +1,7 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;
@@ -22,7 +22,7 @@ public class ProviderValidationService : IProviderValidationService
         _messagePublisher = messagePublisher;
     }
 
-    public async Task<(bool IsApproved, string? DeclinedReason)> ValidateAsync(Provider provider, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public async Task<(bool IsApproved, string? DeclinedReason)> ValidateAsync(ProviderModel provider, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         var validationRequest = new ValidateProviderCapabilityCommand
         {

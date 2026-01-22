@@ -2,9 +2,9 @@ using AutoMapper;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.DTOs;
-using ManufacturingOptimization.Gateway.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManufacturingOptimization.Gateway.Controllers
@@ -37,18 +37,18 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// Submit optimization request
         /// </summary>
         [HttpPost("request")]
-        [ProducesResponseType(typeof(OptimizationRequestResponse), StatusCodes.Status202Accepted)]
-        public IActionResult RequestOptimizationPlan([FromBody] OptimizationRequest request)
+        [ProducesResponseType(typeof(OptimizationRequestAcceptedResponseDto), StatusCodes.Status202Accepted)]
+        public IActionResult RequestOptimizationPlan([FromBody] OptimizationRequestDto request)
         {
-            
+            var requestModel = _mapper.Map<OptimizationRequestModel>(request);
             var command = new RequestOptimizationPlanCommand
             {
-                Request = request
+                Request = requestModel
             };
 
             _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanRequested, command);
 
-            return Accepted(new OptimizationRequestResponse
+            return Accepted(new OptimizationRequestAcceptedResponseDto
             {
                 Status = "Request accepted",
                 CommandId = command.CommandId,
@@ -61,13 +61,18 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// Select preferred optimization strategy
         /// </summary>
         [HttpPost("select")]
-        [ProducesResponseType(typeof(StrategySelectionResponse), StatusCodes.Status200OK)]
-        public IActionResult SelectStrategy([FromBody] SelectStrategyCommand command)
+        [ProducesResponseType(typeof(StrategySelectionResponseDto), StatusCodes.Status200OK)]
+        public IActionResult SelectStrategy([FromBody] SelectOptimizationStrategyRequestDto request)
         {
+            var command = new SelectStrategyCommand
+            {
+                RequestId = request.RequestId,
+                SelectedStrategyId = request.SelectedStrategyId
+            };
             var routingKey = $"{OptimizationRoutingKeys.StrategySelected}.{command.RequestId}";
             _messagePublisher.Publish(Exchanges.Optimization, routingKey, command);
 
-            return Ok(new StrategySelectionResponse
+            return Ok(new StrategySelectionResponseDto
             {
                 Status = "Strategy selection received",
                 RequestId = command.RequestId,
@@ -79,16 +84,16 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// Get available optimization strategies for a request
         /// </summary>
         [HttpGet("strategies/{requestId}")]
-        [ProducesResponseType(typeof(StrategiesResponse), StatusCodes.Status200OK)]
-        public IActionResult GetStrategies(Guid requestId)
+        [ProducesResponseType(typeof(StrategiesResponseDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetStrategies(Guid requestId)
         {
-            var strategies = _strategyRepository.GetStrategies(requestId);
+            var strategies = await _strategyRepository.GetForRequesttAsync(requestId);
             
             if (strategies != null && strategies.Any())
             {
-                var strategyModels = _mapper.Map<List<OptimizationStrategy>>(strategies);
+                var strategyModels = _mapper.Map<List<OptimizationStrategyModel>>(strategies);
                 
-                return Ok(new StrategiesResponse
+                return Ok(new StrategiesResponseDto
                 {
                     IsReady = true,
                     Strategies = strategyModels,
@@ -96,10 +101,10 @@ namespace ManufacturingOptimization.Gateway.Controllers
                 });
             }
 
-            return Ok(new StrategiesResponse
+            return Ok(new StrategiesResponseDto
             {
                 IsReady = false,
-                Strategies = new List<OptimizationStrategy>(),
+                Strategies = new List<OptimizationStrategyModel>(),
                 Status = "Processing"
             });
         }
@@ -108,19 +113,20 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// Get optimization plan by request ID
         /// </summary>
         [HttpGet("plan/{requestId}")]
-        [ProducesResponseType(typeof(OptimizationPlan), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(OptimizationPlanModel), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetPlan(Guid requestId)
         {
             var planEntity = await _planRepository.GetByRequestIdAsync(requestId);
 
             if (planEntity == null)
             {
-                return NotFound(new ErrorResponse { Message = $"No optimization plan found for request {requestId}" });
+                return NotFound(new ErrorResponseDto { Message = $"No optimization plan found for request {requestId}" });
             }
 
-            var plan = _mapper.Map<OptimizationPlan>(planEntity);
-            return Ok(plan);
+            var planModel = _mapper.Map<OptimizationPlanModel>(planEntity);
+            var planDto = _mapper.Map<OptimizationPlanDto>(planModel);
+            return Ok(planDto);
         }
     }
 }

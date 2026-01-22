@@ -1,5 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 
@@ -20,7 +21,7 @@ public class ProcessProposalEstimatedEvent : BaseEvent
     /// <summary>
     /// Preliminary estimate (only present if accepted).
     /// </summary>
-    public ProcessEstimate? Estimate { get; set; }
+    public ProcessEstimateModel? Estimate { get; set; }
     
     /// <summary>
     /// Reason for declining (only present if rejected).

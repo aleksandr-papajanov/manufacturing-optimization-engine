@@ -1,4 +1,4 @@
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 

@@ -1,5 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 
@@ -18,7 +18,7 @@ public class MultipleStrategiesReadyEvent : BaseEvent
     /// List of optimization strategies for the customer to choose from.
     /// Typically includes: Budget, Express, Premium, and Eco strategies.
     /// </summary>
-    public List<OptimizationStrategy> Strategies { get; set; } = [];
+    public List<OptimizationStrategyModel> Strategies { get; set; } = [];
     
     /// <summary>
     /// Workflow type (Upgrade or Refurbish).

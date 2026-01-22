@@ -1,4 +1,4 @@
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.Engine.Models;
 

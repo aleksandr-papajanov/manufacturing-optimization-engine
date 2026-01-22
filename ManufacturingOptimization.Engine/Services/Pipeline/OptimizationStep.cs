@@ -1,8 +1,9 @@
 ﻿using Google.OrTools.LinearSolver;
-using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -293,7 +294,7 @@ public sealed class OptimizationStep : IWorkflowStep
 
         return new OptimizationResult
         {
-            Metrics = new OptimizationMetrics
+            Metrics = new OptimizationMetricsModel
             {
                 TotalCost = totalCost,
                 TotalDuration = totalDuration,
@@ -309,7 +310,7 @@ public sealed class OptimizationStep : IWorkflowStep
     /// <summary>
     /// Builds a domain-level optimization strategy from calculation result.
     /// </summary>
-    private OptimizationStrategy CreateStrategy(OptimizationPriority priority, WorkflowContext context, OptimizationResult result)
+    private OptimizationStrategyModel CreateStrategy(OptimizationPriority priority, WorkflowContext context, OptimizationResult result)
     {
         if (context.WorkflowType == null)
         {
@@ -319,7 +320,7 @@ public sealed class OptimizationStep : IWorkflowStep
         var (name, description) = priority.GetStrategyNameAndDescription();
         var warrantyTerms = priority.GetWarrantyTerms(context.WorkflowType);
 
-        return new OptimizationStrategy
+        return new OptimizationStrategyModel
         {
             StrategyName = name,
             Priority = priority,
@@ -328,13 +329,13 @@ public sealed class OptimizationStep : IWorkflowStep
             {
                 var provider = result.SelectedProviders[step.StepNumber];
 
-                return new OptimizationProcessStep
+                return new ProcessStepModel
                 {
                     StepNumber = step.StepNumber,
                     Process = step.Process,
                     SelectedProviderId = provider.ProviderId,
                     SelectedProviderName = provider.ProviderName,
-                    Estimate = new ProcessEstimate
+                    Estimate = new ProcessEstimateModel
                     {
                         Cost = provider.Estimate.Cost,
                         Duration = provider.Estimate.Duration,
@@ -355,7 +356,7 @@ public sealed class OptimizationStep : IWorkflowStep
         /// <summary>
         /// Aggregated optimization metrics.
         /// </summary>
-        public OptimizationMetrics Metrics { get; init; } = default!;
+        public OptimizationMetricsModel Metrics { get; init; } = default!;
 
         /// <summary>
         /// Selected provider per workflow step.

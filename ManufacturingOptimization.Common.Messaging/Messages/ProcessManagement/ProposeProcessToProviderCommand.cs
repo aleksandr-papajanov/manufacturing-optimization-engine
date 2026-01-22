@@ -1,5 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 
@@ -12,5 +13,5 @@ public class ProposeProcessToProviderCommand : BaseRequestReplyCommand
     public Guid RequestId { get; set; }
     public Guid ProviderId { get; set; }
     public ProcessType Process { get; set; }
-    public MotorSpecifications MotorSpecs { get; set; } = new();
+    public MotorSpecificationsModel MotorSpecs { get; set; } = new();
 }

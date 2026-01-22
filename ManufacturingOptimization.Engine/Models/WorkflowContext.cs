@@ -1,4 +1,4 @@
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.Engine.Models;
@@ -9,7 +9,7 @@ namespace ManufacturingOptimization.Engine.Models;
 /// </summary>
 public class WorkflowContext
 {
-    public required OptimizationRequest Request { get; init; }
+    public required OptimizationRequestModel Request { get; init; }
     
     /// <summary>
     /// Type of workflow: "Upgrade" or "Refurbish"
@@ -25,18 +25,18 @@ public class WorkflowContext
     /// <summary>
     /// Optimization results (used for backward compatibility with single optimization).
     /// </summary>
-    public OptimizationMetrics? OptimizationMetrics { get; set; }
+    public OptimizationMetricsModel? OptimizationMetrics { get; set; }
     
     /// <summary>
     /// Generated optimization strategies with different priorities.
     /// Each strategy represents a different way to optimize the workflow.
     /// </summary>
-    public List<OptimizationStrategy> Strategies { get; set; } = [];
+    public List<OptimizationStrategyModel> Strategies { get; set; } = [];
     
     /// <summary>
     /// Strategy selected by the customer.
     /// </summary>
-    public OptimizationStrategy? SelectedStrategy { get; set; }
+    public OptimizationStrategyModel? SelectedStrategy { get; set; }
     
     /// <summary>
     /// Plan ID assigned after strategy selection.

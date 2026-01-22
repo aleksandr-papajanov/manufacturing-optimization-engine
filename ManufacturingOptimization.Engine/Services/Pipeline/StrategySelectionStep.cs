@@ -5,6 +5,7 @@ using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 using AutoMapper;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -69,7 +70,7 @@ public class StrategySelectionStep : IWorkflowStep
             });
 
         // Map Entity strategies to Models for RabbitMQ
-        var strategyModels = _mapper.Map<List<Common.Models.OptimizationStrategy>>(context.Strategies);
+        var strategyModels = _mapper.Map<List<OptimizationStrategyModel>>(context.Strategies);
 
         // Publish strategies to customer
         var strategiesEvent = new MultipleStrategiesReadyEvent

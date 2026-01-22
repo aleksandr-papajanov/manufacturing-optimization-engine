@@ -1,9 +1,9 @@
 using AutoMapper;
-using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.ProviderRegistry.Data;
 using ManufacturingOptimization.Common.Models.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;
 
@@ -103,5 +103,5 @@ public class DatabaseManagementService : IHostedService
 /// </summary>
 internal class ProvidersConfig
 {
-    public Provider[] Providers { get; set; } = Array.Empty<Provider>();
+    public ProviderModel[] Providers { get; set; } = Array.Empty<ProviderModel>();
 }

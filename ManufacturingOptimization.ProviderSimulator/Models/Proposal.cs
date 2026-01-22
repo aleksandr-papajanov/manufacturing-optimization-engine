@@ -1,4 +1,5 @@
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.ProviderSimulator.Models;
 
@@ -37,7 +38,7 @@ public class Proposal
     /// <summary>
     /// Estimate provided when accepting the proposal.
     /// </summary>
-    public ProcessEstimate? Estimate { get; set; }
+    public ProcessEstimateModel? Estimate { get; set; }
 }
 
 /// <summary>

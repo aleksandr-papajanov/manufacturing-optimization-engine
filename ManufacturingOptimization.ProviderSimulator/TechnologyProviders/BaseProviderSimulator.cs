@@ -1,8 +1,9 @@
-using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
 using ManufacturingOptimization.ProviderSimulator.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.ProviderSimulator.TechnologyProviders;
 
@@ -16,7 +17,7 @@ public abstract class BaseProviderSimulator : IProviderSimulator
     protected readonly Dictionary<ProcessType, double> _standardDurations;
     private readonly IProposalRepository _proposalRepository;
 
-    public Provider Provider { get; protected set; } = new();
+    public ProviderModel Provider { get; protected set; } = new();
 
     protected BaseProviderSimulator(
         ILogger logger, 
@@ -123,7 +124,7 @@ public abstract class BaseProviderSimulator : IProviderSimulator
         };
     }
 
-    private ProcessEstimate GenerateEstimate(ProcessType process, ProviderProcessCapability capability)
+    private ProcessEstimateModel GenerateEstimate(ProcessType process, ProcessCapabilityModel capability)
     {
         // Normalize activity name using ProcessType
         double baseHours;
@@ -146,7 +147,7 @@ public abstract class BaseProviderSimulator : IProviderSimulator
             * actualHours 
             * capability.CarbonIntensityKgCO2PerKwh;
 
-        return new ProcessEstimate
+        return new ProcessEstimateModel
         {
             Cost = actualCost,
             Duration = TimeSpan.FromHours(actualHours),

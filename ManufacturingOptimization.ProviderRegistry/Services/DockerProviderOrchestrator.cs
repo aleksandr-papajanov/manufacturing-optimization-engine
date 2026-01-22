@@ -4,9 +4,10 @@ using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
-using ManufacturingOptimization.Common.Models;
-using ManufacturingOptimization.ProviderRegistry.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.ProviderRegistry.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;
@@ -103,7 +104,7 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         {
             try
             {
-                var mappedProvider = _mapper.Map<Provider>(provider);
+                var mappedProvider = _mapper.Map<ProviderModel>(provider);
                 var (isApproved, declinedReason) = await _validationService.ValidateAsync(mappedProvider, cancellationToken: cancellationToken);
 
                 if (!isApproved)

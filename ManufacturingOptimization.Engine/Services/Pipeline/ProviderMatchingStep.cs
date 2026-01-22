@@ -1,7 +1,8 @@
 using ManufacturingOptimization.Engine.Abstractions;
-using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Engine.Models;
 using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -47,7 +48,7 @@ public class ProviderMatchingStep : IWorkflowStep
         }
     }
 
-    private static bool MeetsTechnicalRequirements(ProviderEntity provider, OptimizationRequest request)
+    private static bool MeetsTechnicalRequirements(ProviderEntity provider, OptimizationRequestModel request)
     {
         // Provider must be able to handle the motor's power and size
         bool canHandlePower = provider.TechnicalCapabilities.Power == 0 || provider.TechnicalCapabilities.Power >= request.MotorSpecs.PowerKW;

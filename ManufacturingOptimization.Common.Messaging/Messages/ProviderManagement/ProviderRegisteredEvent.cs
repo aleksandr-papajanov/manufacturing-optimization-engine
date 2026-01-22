@@ -1,5 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 
@@ -12,5 +12,5 @@ public class ProviderRegisteredEvent : BaseEvent
     /// <summary>
     /// The registered provider with all capabilities and specifications.
     /// </summary>
-    public Provider Provider { get; set; } = new();
+    public ProviderModel Provider { get; set; } = new();
 }

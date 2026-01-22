@@ -1,8 +1,9 @@
 using Spectre.Console;
 using System.Net.Http.Json;
 using System.Text.Json;
-using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Common.Models.DTOs;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 
 // Configuration
 var apiUrl = Environment.GetEnvironmentVariable("GATEWAY_API_URL") ?? "http://localhost:5000";
@@ -80,6 +81,8 @@ async Task RunProviderMode()
     
     AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
     Console.ReadKey(true);
+
+    await Task.CompletedTask;
 }
 
 async Task SubmitOptimizationRequest()
@@ -91,11 +94,11 @@ async Task SubmitOptimizationRequest()
     var random = new Random();
     var efficiencyClasses = new[] { MotorEfficiencyClass.IE1, MotorEfficiencyClass.IE2, MotorEfficiencyClass.IE3, MotorEfficiencyClass.IE4 };
 
-    var motorRequest = new OptimizationRequest
+    var motorRequest = new OptimizationRequestModel
     {
         RequestId = Guid.NewGuid(),
         CustomerId = Guid.NewGuid().ToString(),
-        MotorSpecs = new MotorSpecifications
+        MotorSpecs = new MotorSpecificationsModel
         {
             PowerKW = random.Next(50, 200),
             AxisHeightMM = random.Next(63, 315), // Standard IEC motor sizes
@@ -103,7 +106,7 @@ async Task SubmitOptimizationRequest()
             TargetEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
             MalfunctionDescription = random.Next(0, 2) == 0 ? "Normal operation" : "Reduced efficiency, overheating"
         },
-        Constraints = new OptimizationRequestConstraints
+        Constraints = new OptimizationRequestConstraintsModel
         {
             MaxBudget = random.Next(0, 3) == 0 ? null : random.Next(5000, 20000), // 33% chance of no budget limit
             RequiredDeadline = random.Next(0, 3) == 0 ? null : DateTime.Now.AddDays(random.Next(30, 90)) // 33% chance of no deadline
@@ -140,7 +143,7 @@ async Task SubmitOptimizationRequest()
 
     // Submit request to Gateway
     Guid requestId = motorRequest.RequestId;
-    List<OptimizationStrategy>? strategies = null;
+    List<OptimizationStrategyModel>? strategies = null;
 
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -175,7 +178,7 @@ async Task SubmitOptimizationRequest()
                             
                             if (statusResponse.IsSuccessStatusCode)
                             {
-                                var statusResult = await statusResponse.Content.ReadFromJsonAsync<StrategiesResponse>();
+                                var statusResult = await statusResponse.Content.ReadFromJsonAsync<StrategiesResponseDto>();
                                 
                                 if (statusResult?.IsReady == true && statusResult.Strategies?.Any() == true)
                                 {
@@ -264,7 +267,7 @@ async Task SubmitOptimizationRequest()
     var selectedStrategy = strategies[selectedIndex - 1];
 
     // Send selection to Gateway and retrieve plan
-    OptimizationPlan? plan = null;
+    OptimizationPlanDto? plan = null;
     
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -272,11 +275,10 @@ async Task SubmitOptimizationRequest()
         {
             try
             {
-                var selectionDto = new
+                var selectionDto = new SelectOptimizationStrategyRequestDto
                 {
                     RequestId = requestId,
-                    SelectedStrategyId = selectedStrategy.Id,
-                    SelectedStrategyName = selectedStrategy.StrategyName
+                    SelectedStrategyId = selectedStrategy.Id
                 };
 
                 var response = await httpClient.PostAsJsonAsync("/api/optimization/select", selectionDto);
@@ -302,7 +304,7 @@ async Task SubmitOptimizationRequest()
                             
                             if (planResponse.IsSuccessStatusCode)
                             {
-                                plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlan>();
+                                plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlanDto>();
                                 ctx.Status("[green]✓ Optimization plan retrieved![/]");
                                 break;
                             }
@@ -338,7 +340,7 @@ async Task SubmitOptimizationRequest()
     }
 }
 
-void DisplayOptimizationPlan(OptimizationPlan plan)
+void DisplayOptimizationPlan(OptimizationPlanDto plan)
 {
     if (plan.SelectedStrategy == null)
     {
@@ -448,13 +450,13 @@ void DisplayOptimizationPlan(OptimizationPlan plan)
         .Expand());
 }
 
-string GetStatusColor(OptimizationPlanStatus status)
+string GetStatusColor(string status)
 {
     return status switch
     {
-        OptimizationPlanStatus.InProgress => "blue",
-        OptimizationPlanStatus.Completed => "green",
-        OptimizationPlanStatus.Failed => "red",
+        "InProgress" => "blue",
+        "Completed" => "green",
+        "Failed" => "red",
         _ => "white"
     };
 }
@@ -470,7 +472,7 @@ async Task GetProviders()
                 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<ProvidersResponse>();
+                    var result = await response.Content.ReadFromJsonAsync<ProvidersResponseDto>();
                     
                     if (result?.Providers?.Any() == true)
                     {

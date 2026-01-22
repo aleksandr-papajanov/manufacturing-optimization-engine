@@ -1,7 +1,7 @@
-using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Engine.Abstractions;
-using ManufacturingOptimization.Engine.Data.Repositories;
 using AutoMapper;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Engine.Abstractions;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 

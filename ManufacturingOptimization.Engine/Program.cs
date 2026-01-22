@@ -1,9 +1,11 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Mappings;
+using ManufacturingOptimization.Common.Models.Data.Repositories;
 using ManufacturingOptimization.Engine;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Data;
-using ManufacturingOptimization.Engine.Data.Repositories;
 using ManufacturingOptimization.Engine.Services;
 using ManufacturingOptimization.Engine.Services.Pipeline;
 using ManufacturingOptimization.Engine.Settings;
@@ -17,6 +19,8 @@ Directory.CreateDirectory(dataDir); // Ensure directory exists
 var dbPath = Path.Combine(dataDir, "EngineDatabase.db");
 
 builder.Services.AddDbContext<EngineDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+builder.Services.AddScoped<IProviderDbContext, EngineDbContext>();
+builder.Services.AddScoped<IOptimizationDbContext, EngineDbContext>();
 
 // Register repositories directly
 builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
@@ -24,7 +28,11 @@ builder.Services.AddScoped<IOptimizationPlanRepository, OptimizationPlanReposito
 builder.Services.AddScoped<IOptimizationStrategyRepository, OptimizationStrategyRepository>();
 
 // Add AutoMapper
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddAutoMapper(c =>
+{
+    c.AddProfile<ProviderMappingProfile>();
+    c.AddProfile<OptimizationMappingProfile>();
+});
 
 // Configure RabbitMQ
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));

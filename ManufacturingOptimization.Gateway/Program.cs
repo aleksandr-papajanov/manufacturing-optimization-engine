@@ -1,8 +1,9 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Mappings;
+using ManufacturingOptimization.Common.Models.Data.Repositories;
 using ManufacturingOptimization.Gateway.Data;
-using ManufacturingOptimization.Gateway.Data.Repositories;
 using ManufacturingOptimization.Gateway.Middleware;
 using ManufacturingOptimization.Gateway.Services;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,8 @@ Directory.CreateDirectory(dataDir);
 var dbPath = Path.Combine(dataDir, "GatewayDatabase.db");
 
 builder.Services.AddDbContext<GatewayDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+builder.Services.AddScoped<IProviderDbContext, GatewayDbContext>();
+builder.Services.AddScoped<IOptimizationDbContext, GatewayDbContext>();
 
 // Register repositories directly
 builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
@@ -28,7 +31,13 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient(); // Required for Legacy "Get Providers"
 
 // Add AutoMapper
-builder.Services.AddAutoMapper(typeof(Program));
+// Add AutoMapper
+builder.Services.AddAutoMapper(c =>
+{
+    c.AddProfile<ProviderMappingProfile>();
+    c.AddProfile<OptimizationMappingProfile>();
+    c.AddProfile<GatewayMappingProfile>();
+});
 
 // Configure RabbitMQ Settings from appsettings.json
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));

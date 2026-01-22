@@ -1,9 +1,11 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Mappings;
+using ManufacturingOptimization.Common.Models.Data.Repositories;
 using ManufacturingOptimization.ProviderRegistry;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 using ManufacturingOptimization.ProviderRegistry.Data;
-using ManufacturingOptimization.ProviderRegistry.Data.Repositories;
 using ManufacturingOptimization.ProviderRegistry.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,13 +17,17 @@ Directory.CreateDirectory(dataDir); // Ensure directory exists
 var dbPath = Path.Combine(dataDir, "providers.db");
 
 builder.Services.AddDbContext<ProviderRegistryDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+builder.Services.AddScoped<IProviderDbContext, ProviderRegistryDbContext>();
 
 builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
 
 builder.Services.AddHostedService<DatabaseManagementService>();
 
 // Add AutoMapper
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddAutoMapper(c =>
+{
+    c.AddProfile<ProviderMappingProfile>();
+});
 
 // Configure OrchestrationSettings
 builder.Services.Configure<OrchestrationSettings>(builder.Configuration.GetSection(OrchestrationSettings.SectionName));

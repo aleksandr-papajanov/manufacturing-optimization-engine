@@ -1,4 +1,4 @@
-using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Engine.Models;
 
@@ -17,5 +17,5 @@ public class MatchedProvider
     /// <summary>
     /// Provider's estimate for this process (cost, time, quality, emissions).
     /// </summary>
-    public ProcessEstimate Estimate { get; set; } = new();
+    public ProcessEstimateModel Estimate { get; set; } = new();
 }

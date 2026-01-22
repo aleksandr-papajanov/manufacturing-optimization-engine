@@ -1,11 +1,13 @@
-using ManufacturingOptimization.Common.Models;
+using AutoMapper;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
-using AutoMapper;
-using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -76,7 +78,7 @@ public class PlanPersistenceStep : IWorkflowStep
         context.SavedPlan = savedPlan;
 
         // Map entity to model for event publishing
-        var planModel = _mapper.Map<OptimizationPlan>(savedPlan);
+        var planModel = _mapper.Map<OptimizationPlanModel>(savedPlan);
         
         // Publish plan ready event
         var planReadyEvent = new OptimizationPlanReadyEvent
