@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
+using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.DTOs;
 using ManufacturingOptimization.Gateway.Abstractions;
-using ManufacturingOptimization.Gateway.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManufacturingOptimization.Gateway.Controllers;
@@ -24,23 +25,20 @@ public class ProviderController : ControllerBase
     }
 
     /// <summary>
-    /// Get list of all registered providers from in-memory registry
+    /// Get list of all registered providers
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(ProvidersResponse), StatusCodes.Status200OK)]
-    public ActionResult<ProvidersResponse> GetProviders()
+    public async Task<IActionResult> GetProviders()
     {
-        var providers = _providerRegistry.GetAll();
-        
-        // Map domain models to DTOs
-        var providerDtos = _mapper.Map<List<ProviderDto>>(providers);
-        
-        var response = new ProvidersResponse
-        {
-            TotalProviders = providerDtos.Count,
-            Providers = providerDtos
-        };
+        var providers = await _providerRegistry.GetAllAsync();
+        var providerList = providers.ToList();
+        var providerModels = _mapper.Map<List<Provider>>(providerList);
 
-        return Ok(response);
+        return Ok(new ProvidersResponse
+        {
+            TotalProviders = providerList.Count,
+            Providers = providerModels
+        });
     }
 }

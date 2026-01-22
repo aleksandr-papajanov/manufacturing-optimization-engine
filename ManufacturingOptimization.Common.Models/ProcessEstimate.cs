@@ -7,6 +7,11 @@ namespace ManufacturingOptimization.Common.Models;
 public class ProcessEstimate
 {
     /// <summary>
+    /// Unique identifier for this estimate.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
     /// Estimated cost in currency.
     /// </summary>
     public decimal Cost { get; set; }

@@ -5,6 +5,11 @@ namespace ManufacturingOptimization.Common.Models;
 /// </summary>
 public class OptimizationProcessStep
 {
+    /// <summary>
+    /// Unique identifier for this step.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
     public int StepNumber { get; set; }
     public ProcessType Process { get; set; }
     

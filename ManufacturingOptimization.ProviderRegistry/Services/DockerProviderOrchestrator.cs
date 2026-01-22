@@ -1,3 +1,4 @@
+using AutoMapper;
 using Docker.DotNet.Models;
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
@@ -5,6 +6,7 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 using Microsoft.Extensions.Options;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;
@@ -14,7 +16,8 @@ namespace ManufacturingOptimization.ProviderRegistry.Services;
 /// </summary>
 public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrchestrator
 {
-    private readonly IProviderRepository _repository;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IMapper _mapper;
     private readonly IProviderValidationService _validationService;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
@@ -27,7 +30,8 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
 
     public DockerProviderOrchestrator(
         ILogger<DockerProviderOrchestrator> logger,
-        IProviderRepository repository,
+        IServiceProvider serviceProvider,
+        IMapper mapper,
         IProviderValidationService validationService,
         IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
@@ -36,7 +40,8 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         IOptions<RabbitMqSettings> rabbitMqSettings)
         : base(logger)
     {
-        _repository = repository;
+        _serviceProvider = serviceProvider;
+        _mapper = mapper;
         _validationService = validationService;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
@@ -83,7 +88,10 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
 
     public async Task StartAllAsync(CancellationToken cancellationToken = default)
     {
-        var providers = await _repository.GetAllAsync(cancellationToken);
+        using var scope = _serviceProvider.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IProviderRepository>();
+        
+        var providers = await repository.GetAllAsync(cancellationToken);
         var enabledProviders = providers.Where(p => p.Enabled).ToList();
 
         if (enabledProviders.Count == 0)
@@ -95,7 +103,8 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         {
             try
             {
-                var (isApproved, declinedReason) = await _validationService.ValidateAsync(provider, cancellationToken: cancellationToken);
+                var mappedProvider = _mapper.Map<Provider>(provider);
+                var (isApproved, declinedReason) = await _validationService.ValidateAsync(mappedProvider, cancellationToken: cancellationToken);
 
                 if (!isApproved)
                 {
@@ -116,7 +125,7 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.RequestRegistrationAll, new RequestProvidersRegistrationCommand());
     }
 
-    public async Task StartAsync(Provider provider, CancellationToken cancellationToken = default)
+    public async Task StartAsync(ProviderEntity provider, CancellationToken cancellationToken = default)
     {
         if (_runningProviders.ContainsKey(provider.Id))
         {
@@ -141,7 +150,7 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         // Add process capabilities
         for (int i = 0; i < provider.ProcessCapabilities.Count; i++)
         {
-            var capability = provider.ProcessCapabilities[i];
+            var capability = provider.ProcessCapabilities.ElementAt(i);
             envVars.Add($"Provider__ProcessCapabilities__{i}__Process={capability.Process}");
             envVars.Add($"Provider__ProcessCapabilities__{i}__CostPerHour={capability.CostPerHour}");
             envVars.Add($"Provider__ProcessCapabilities__{i}__SpeedMultiplier={capability.SpeedMultiplier}");

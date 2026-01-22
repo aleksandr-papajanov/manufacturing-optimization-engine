@@ -341,7 +341,22 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
 
     public void Dispose()
     {
-        _channel?.Close();
-        _connection?.Close();
+        try
+        {
+            _channel?.Close();
+        }
+        catch (Exception)
+        {
+            // Ignore exceptions during channel close
+        }
+
+        try
+        {
+            _connection?.Close();
+        }
+        catch (Exception)
+        {
+            // Ignore exceptions during connection close
+        }
     }
 }

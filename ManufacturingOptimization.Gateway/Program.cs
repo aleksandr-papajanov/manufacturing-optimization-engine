@@ -1,10 +1,25 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Gateway.Data;
+using ManufacturingOptimization.Gateway.Data.Repositories;
 using ManufacturingOptimization.Gateway.Middleware;
 using ManufacturingOptimization.Gateway.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure SQLite database
+var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
+Directory.CreateDirectory(dataDir);
+var dbPath = Path.Combine(dataDir, "GatewayDatabase.db");
+
+builder.Services.AddDbContext<GatewayDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+
+// Register repositories directly
+builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
+builder.Services.AddScoped<IOptimizationPlanRepository, OptimizationPlanRepository>();
+builder.Services.AddScoped<IOptimizationStrategyRepository, OptimizationStrategyRepository>();
 
 // Add Services
 builder.Services.AddControllers();
@@ -16,8 +31,7 @@ builder.Services.AddHttpClient(); // Required for Legacy "Get Providers"
 builder.Services.AddAutoMapper(typeof(Program));
 
 // Configure RabbitMQ Settings from appsettings.json
-builder.Services.Configure<RabbitMqSettings>(
-    builder.Configuration.GetSection(RabbitMqSettings.SectionName));
+builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
 
 // Register RabbitMQ Service
 builder.Services.AddSingleton<RabbitMqService>();
@@ -32,10 +46,8 @@ builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Gatewa
 builder.Services.AddSingleton<ISystemReadinessService, SystemReadinessService>();
 builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredService<ISystemReadinessService>());
 
-// Register Repositories (Singleton for in-memory implementations)
-builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
-builder.Services.AddSingleton<IOptimizationStrategyRepository, InMemoryOptimizationStrategyRepository>();
-builder.Services.AddSingleton<IOptimizationPlanRepository, InMemoryOptimizationPlanRepository>();
+// Database lifecycle management
+builder.Services.AddHostedService<DatabaseManagementService>();
 
 // Add Background Worker
 builder.Services.AddHostedService<GatewayWorker>();

@@ -10,7 +10,17 @@ public class OptimizationStrategy
     /// <summary>
     /// Unique identifier for this strategy.
     /// </summary>
-    public Guid StrategyId { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
+    /// Foreign key to associated plan (null if not selected yet).
+    /// </summary>
+    public Guid? PlanId { get; set; }
+    
+    /// <summary>
+    /// Original request ID for filtering (non-DB field, used during workflow).
+    /// </summary>
+    public Guid? RequestId { get; set; }
     
     /// <summary>
     /// Human-readable strategy name (e.g., "Budget Strategy", "Express Strategy").
@@ -39,14 +49,8 @@ public class OptimizationStrategy
     
     /// <summary>
     /// Warranty terms offered with this strategy.
-    /// Examples: "Standard 6 Months", "Platinum 3 Years", "Gold 12 Months"
     /// </summary>
-    public string WarrantyTerms { get; set; } = "Standard 6 Months";
-    
-    /// <summary>
-    /// Whether this strategy includes shipping insurance.
-    /// </summary>
-    public bool IncludesInsurance { get; set; } = false;
+    public WarrantyTerms Warranty { get; set; } = new();
     
     /// <summary>
     /// Description explaining why this strategy might be chosen.

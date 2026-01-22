@@ -1,5 +1,4 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Gateway.DTOs;
 using System.Text.Json;
 
 namespace ManufacturingOptimization.Gateway.Middleware
@@ -23,7 +22,7 @@ namespace ManufacturingOptimization.Gateway.Middleware
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 context.Response.ContentType = "application/json";
 
-                var errorResponse = new ErrorResponse
+                var errorResponse = new
                 {
                     Status = "Service Unavailable",
                     Message = "System is still initializing. Please try again in a few moments.",

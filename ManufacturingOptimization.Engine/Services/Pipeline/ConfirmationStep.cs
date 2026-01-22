@@ -3,12 +3,14 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
+using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
 /// <summary>
 /// Confirms accepted proposals with providers after strategy selection.
 /// Sends final confirmation to providers that their proposals have been selected.
+/// Works with ProcessStepEntity.
 /// </summary>
 public class ConfirmationStep : IWorkflowStep
 {

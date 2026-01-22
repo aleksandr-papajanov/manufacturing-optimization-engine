@@ -7,6 +7,11 @@ namespace ManufacturingOptimization.Common.Models;
 public class OptimizationMetrics
 {
     /// <summary>
+    /// Unique identifier for these metrics.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
     /// Total estimated cost for the entire workflow.
     /// </summary>
     public decimal TotalCost { get; set; }

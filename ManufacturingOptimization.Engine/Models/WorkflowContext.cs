@@ -1,9 +1,11 @@
 using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.Engine.Models;
 
 /// <summary>
 /// Context flowing through the workflow optimization pipeline.
+/// Works with Entity classes internally.
 /// </summary>
 public class WorkflowContext
 {
@@ -45,6 +47,6 @@ public class WorkflowContext
     /// <summary>
     /// Saved optimization plan (available after PlanPersistenceStep).
     /// </summary>
-    public OptimizationPlan? SavedPlan { get; set; }
+    public OptimizationPlanEntity? SavedPlan { get; set; }
 }
 

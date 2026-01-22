@@ -3,8 +3,8 @@ using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.DTOs;
 using ManufacturingOptimization.Gateway.Abstractions;
-using ManufacturingOptimization.Gateway.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManufacturingOptimization.Gateway.Controllers
@@ -38,27 +38,23 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// </summary>
         [HttpPost("request")]
         [ProducesResponseType(typeof(OptimizationRequestResponse), StatusCodes.Status202Accepted)]
-        public ActionResult<OptimizationRequestResponse> RequestOptimizationPlan([FromBody] OptimizationRequestDto requestDto)
+        public IActionResult RequestOptimizationPlan([FromBody] OptimizationRequest request)
         {
-            // Map DTO to domain model
-            var motorRequest = _mapper.Map<OptimizationRequest>(requestDto);
             
             var command = new RequestOptimizationPlanCommand
             {
-                Request = motorRequest
+                Request = request
             };
 
             _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanRequested, command);
 
-            var response = new OptimizationRequestResponse
+            return Accepted(new OptimizationRequestResponse
             {
                 Status = "Request accepted",
                 CommandId = command.CommandId,
-                RequestId = motorRequest.RequestId,
+                RequestId = request.RequestId,
                 Message = "Your optimization request is being processed. Multiple strategies will be generated."
-            };
-
-            return Accepted(response);
+            });
         }
 
         /// <summary>
@@ -66,26 +62,17 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// </summary>
         [HttpPost("select")]
         [ProducesResponseType(typeof(StrategySelectionResponse), StatusCodes.Status200OK)]
-        public ActionResult<StrategySelectionResponse> SelectStrategy([FromBody] SelectStrategyDto selection)
+        public IActionResult SelectStrategy([FromBody] SelectStrategyCommand command)
         {
-            var command = new SelectStrategyCommand
-            {
-                RequestId = selection.RequestId,
-                SelectedStrategyId = selection.StrategyId,
-                SelectedStrategyName = selection.StrategyName
-            };
-
-            var routingKey = $"{OptimizationRoutingKeys.StrategySelected}.{selection.RequestId}";
+            var routingKey = $"{OptimizationRoutingKeys.StrategySelected}.{command.RequestId}";
             _messagePublisher.Publish(Exchanges.Optimization, routingKey, command);
 
-            var response = new StrategySelectionResponse
+            return Ok(new StrategySelectionResponse
             {
                 Status = "Strategy selection received",
-                RequestId = selection.RequestId,
-                StrategyId = selection.StrategyId
-            };
-
-            return Ok(response);
+                RequestId = command.RequestId,
+                StrategyId = command.SelectedStrategyId
+            });
         }
 
         /// <summary>
@@ -93,19 +80,18 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// </summary>
         [HttpGet("strategies/{requestId}")]
         [ProducesResponseType(typeof(StrategiesResponse), StatusCodes.Status200OK)]
-        public ActionResult<StrategiesResponse> GetStrategies(Guid requestId)
+        public IActionResult GetStrategies(Guid requestId)
         {
             var strategies = _strategyRepository.GetStrategies(requestId);
             
             if (strategies != null && strategies.Any())
             {
-                // Map domain models to DTOs
-                var strategyDtos = _mapper.Map<List<OptimizationStrategyDto>>(strategies);
+                var strategyModels = _mapper.Map<List<OptimizationStrategy>>(strategies);
                 
                 return Ok(new StrategiesResponse
                 {
                     IsReady = true,
-                    Strategies = strategyDtos,
+                    Strategies = strategyModels,
                     Status = "Ready"
                 });
             }
@@ -113,7 +99,7 @@ namespace ManufacturingOptimization.Gateway.Controllers
             return Ok(new StrategiesResponse
             {
                 IsReady = false,
-                Strategies = null,
+                Strategies = new List<OptimizationStrategy>(),
                 Status = "Processing"
             });
         }
@@ -122,19 +108,19 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// Get optimization plan by request ID
         /// </summary>
         [HttpGet("plan/{requestId}")]
-        [ProducesResponseType(typeof(OptimizationPlanDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public ActionResult<OptimizationPlanDto> GetPlan(Guid requestId)
+        [ProducesResponseType(typeof(OptimizationPlan), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetPlan(Guid requestId)
         {
-            var plan = _planRepository.GetByRequestId(requestId);
+            var planEntity = await _planRepository.GetByRequestIdAsync(requestId);
 
-            if (plan == null)
+            if (planEntity == null)
             {
-                return NotFound(new { Message = $"No optimization plan found for request {requestId}" });
+                return NotFound(new ErrorResponse { Message = $"No optimization plan found for request {requestId}" });
             }
 
-            var planDto = _mapper.Map<OptimizationPlanDto>(plan);
-            return Ok(planDto);
+            var plan = _mapper.Map<OptimizationPlan>(planEntity);
+            return Ok(plan);
         }
     }
 }

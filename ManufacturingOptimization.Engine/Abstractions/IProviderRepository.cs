@@ -1,24 +1,14 @@
 using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.Engine.Abstractions;
 
-public interface IProviderRepository
+public interface IProviderRepository : IRepository<ProviderEntity>
 {
-    int Count { get; }
-    
-    /// <summary>
-    /// Create a new provider in the repository.
-    /// </summary>
-    void Create(Provider provider);
-    
-    /// <summary>
-    /// Get all registered providers.
-    /// </summary>
-    List<Provider> GetAll();
-    
     /// <summary>
     /// Find all providers that can perform the specified process.
     /// Returns providers with their ProcessCapability for that process.
     /// </summary>
-    List<(Provider Provider, ProviderProcessCapability Capability)> FindByProcess(ProcessType process);
+    Task<List<(ProviderEntity ProviderEntity, ProcessCapabilityEntity Capability)>> FindByProcess(ProcessType process);
 }

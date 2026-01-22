@@ -4,12 +4,14 @@ using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
+using AutoMapper;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
 /// <summary>
 /// Publishes generated strategies and waits for customer selection.
 /// This step blocks until customer selects a strategy via SelectStrategyCommand.
+/// Uses AutoMapper to convert Entity to Model for RabbitMQ messaging.
 /// </summary>
 public class StrategySelectionStep : IWorkflowStep
 {
@@ -17,17 +19,20 @@ public class StrategySelectionStep : IWorkflowStep
     private readonly IMessagePublisher _messagePublisher;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
+    private readonly IMapper _mapper;
 
     public string Name => "Strategy Selection";
 
     public StrategySelectionStep(
         IMessagePublisher messagePublisher,
         IMessagingInfrastructure messagingInfrastructure,
-        IMessageSubscriber messageSubscriber)
+        IMessageSubscriber messageSubscriber,
+        IMapper mapper)
     {
         _messagePublisher = messagePublisher;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
+        _mapper = mapper;
     }
 
     public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
@@ -63,13 +68,16 @@ public class StrategySelectionStep : IWorkflowStep
                 selectionTcs.TrySetResult(command);
             });
 
+        // Map Entity strategies to Models for RabbitMQ
+        var strategyModels = _mapper.Map<List<Common.Models.OptimizationStrategy>>(context.Strategies);
+
         // Publish strategies to customer
         var strategiesEvent = new MultipleStrategiesReadyEvent
         {
             CorrelationId = context.Request.RequestId,
             RequestId = requestId,
             WorkflowType = context.WorkflowType,
-            Strategies = context.Strategies,
+            Strategies = strategyModels,
             IsSuccess = true
         };
 
@@ -84,7 +92,7 @@ public class StrategySelectionStep : IWorkflowStep
             var selectionCommand = await selectionTcs.Task.WaitAsync(cts.Token);
             
             // Find the selected strategy
-            var selectedStrategy = context.Strategies.FirstOrDefault(s => s.StrategyId == selectionCommand.SelectedStrategyId);
+            var selectedStrategy = context.Strategies.FirstOrDefault(s => s.Id == selectionCommand.SelectedStrategyId);
 
             if (selectedStrategy == null)
             {

@@ -6,6 +6,11 @@ namespace ManufacturingOptimization.Common.Models;
 public class WarrantyTerms
 {
     /// <summary>
+    /// Unique identifier for warranty terms.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
     /// Warranty level (e.g., "Basic", "Silver", "Gold", "Platinum")
     /// </summary>
     public string Level { get; set; } = string.Empty;

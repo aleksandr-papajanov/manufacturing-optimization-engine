@@ -9,6 +9,11 @@ namespace ManufacturingOptimization.Common.Models;
 public class ProviderProcessCapability
 {
     /// <summary>
+    /// Unique identifier for this capability.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
     /// Process name (e.g., "Turning", "Grinding", "Cleaning").
     /// Maps from JSON "processName" field to ProcessType enum.
     /// </summary>

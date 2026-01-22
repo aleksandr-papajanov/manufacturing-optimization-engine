@@ -2,6 +2,7 @@
 using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -333,12 +334,17 @@ public sealed class OptimizationStep : IWorkflowStep
                     Process = step.Process,
                     SelectedProviderId = provider.ProviderId,
                     SelectedProviderName = provider.ProviderName,
-                    Estimate = provider.Estimate
+                    Estimate = new ProcessEstimate
+                    {
+                        Cost = provider.Estimate.Cost,
+                        Duration = provider.Estimate.Duration,
+                        QualityScore = provider.Estimate.QualityScore,
+                        EmissionsKgCO2 = provider.Estimate.EmissionsKgCO2
+                    }
                 };
             }).ToList(),
             Metrics = result.Metrics,
-            WarrantyTerms = warrantyTerms.Description,
-            IncludesInsurance = warrantyTerms.IncludesInsurance,
+            Warranty = warrantyTerms,
             Description = description
         };
     }

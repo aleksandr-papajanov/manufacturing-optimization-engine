@@ -38,8 +38,10 @@ services:
     volumes:
       # Mount Docker socket for container management
       - /var/run/docker.sock:/var/run/docker.sock
-      # Mount providers.json for dynamic reading of providers
+      # Mount providers.json for seeding database
       - ./ManufacturingOptimization.ProviderRegistry/providers.json:/app/providers.json:ro
+      # Persistent database storage
+      - provider_registry_data:/app/Data
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -63,6 +65,9 @@ services:
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=admin
       - RabbitMQ__Password=admin123
+    volumes:
+      # Persistent database storage
+      - engine_data:/app/Data
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -88,6 +93,9 @@ services:
       - RabbitMQ__Username=admin
       - RabbitMQ__Password=admin123
       - ProviderRegistry__Url=http://provider-registry:8080
+    volumes:
+      # Persistent database storage
+      - gateway_data:/app/Data
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -104,6 +112,12 @@ services:
 
 volumes:
   rabbitmq_data:
+    driver: local
+  provider_registry_data:
+    driver: local
+  engine_data:
+    driver: local
+  gateway_data:
     driver: local
 
 networks:

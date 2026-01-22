@@ -6,6 +6,11 @@ namespace ManufacturingOptimization.Common.Models;
 public class ProviderTechnicalCapabilities
 {
     /// <summary>
+    /// Unique identifier for these capabilities.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+    
+    /// <summary>
     /// Maximum axis height the provider can handle (mm).
     /// </summary>
     public double AxisHeight { get; set; }

@@ -419,3 +419,8 @@ FodyWeavers.xsd
 
 # Docker local overrides
 docker-compose.override.yml
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal

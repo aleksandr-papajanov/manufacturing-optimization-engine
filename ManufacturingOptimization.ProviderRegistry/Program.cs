@@ -2,10 +2,26 @@ using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.ProviderRegistry;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
+using ManufacturingOptimization.ProviderRegistry.Data;
+using ManufacturingOptimization.ProviderRegistry.Data.Repositories;
 using ManufacturingOptimization.ProviderRegistry.Services;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Configure SQLite database
+var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
+Directory.CreateDirectory(dataDir); // Ensure directory exists
+var dbPath = Path.Combine(dataDir, "providers.db");
+
+builder.Services.AddDbContext<ProviderRegistryDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+
+builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
+
+builder.Services.AddHostedService<DatabaseManagementService>();
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(Program));
 
 // Configure OrchestrationSettings
 builder.Services.Configure<OrchestrationSettings>(builder.Configuration.GetSection(OrchestrationSettings.SectionName));
@@ -27,7 +43,8 @@ builder.Services.AddSingleton<ISystemReadinessService, SystemReadinessService>()
 builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredService<ISystemReadinessService>());
 
 // Provider orchestration services
-builder.Services.AddSingleton<IProviderRepository, JsonProviderRepository>();
+// Note: IProviderRepository is now scoped (EF), but orchestrators need singleton access
+// We'll inject IServiceProvider and create scopes as needed
 builder.Services.AddSingleton<IProviderValidationService, ProviderValidationService>();
 
 // Provider validation coordination (US-11)

@@ -2,6 +2,7 @@ using Spectre.Console;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.DTOs;
 
 // Configuration
 var apiUrl = Environment.GetEnvironmentVariable("GATEWAY_API_URL") ?? "http://localhost:5000";
@@ -139,7 +140,7 @@ async Task SubmitOptimizationRequest()
 
     // Submit request to Gateway
     Guid requestId = motorRequest.RequestId;
-    List<OptimizationStrategyDto>? strategies = null;
+    List<OptimizationStrategy>? strategies = null;
 
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -244,8 +245,8 @@ async Task SubmitOptimizationRequest()
             $"{strategy.Metrics.TotalDuration.TotalDays:N1} days",
             strategy.Metrics.AverageQuality.ToString("N2"),
             $"{strategy.Metrics.TotalEmissionsKgCO2:N1} kg",
-            strategy.WarrantyTerms ?? "-",
-            strategy.IncludesInsurance ? "[green]✓[/]" : "[dim]-[/]"
+            strategy.Warranty?.Description ?? "-",
+            strategy.Warranty?.IncludesInsurance == true ? "[green]✓[/]" : "[dim]-[/]"
         );
         index++;
     }
@@ -263,7 +264,7 @@ async Task SubmitOptimizationRequest()
     var selectedStrategy = strategies[selectedIndex - 1];
 
     // Send selection to Gateway and retrieve plan
-    OptimizationPlanDto? plan = null;
+    OptimizationPlan? plan = null;
     
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -274,8 +275,8 @@ async Task SubmitOptimizationRequest()
                 var selectionDto = new
                 {
                     RequestId = requestId,
-                    StrategyId = selectedStrategy.StrategyId,
-                    StrategyName = selectedStrategy.StrategyName
+                    SelectedStrategyId = selectedStrategy.Id,
+                    SelectedStrategyName = selectedStrategy.StrategyName
                 };
 
                 var response = await httpClient.PostAsJsonAsync("/api/optimization/select", selectionDto);
@@ -301,7 +302,7 @@ async Task SubmitOptimizationRequest()
                             
                             if (planResponse.IsSuccessStatusCode)
                             {
-                                plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlanDto>();
+                                plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlan>();
                                 ctx.Status("[green]✓ Optimization plan retrieved![/]");
                                 break;
                             }
@@ -337,7 +338,7 @@ async Task SubmitOptimizationRequest()
     }
 }
 
-void DisplayOptimizationPlan(OptimizationPlanDto plan)
+void DisplayOptimizationPlan(OptimizationPlan plan)
 {
     if (plan.SelectedStrategy == null)
     {
@@ -358,15 +359,15 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
     overviewTable.AddRow("Plan ID", $"[bold]{plan.PlanId}[/]");
     overviewTable.AddRow("Request ID", plan.RequestId.ToString());
     overviewTable.AddRow("Strategy", $"[bold]{plan.SelectedStrategy.StrategyName}[/]");
-    overviewTable.AddRow("Priority", plan.SelectedStrategy.Priority);
+    overviewTable.AddRow("Priority", plan.SelectedStrategy.Priority.ToString());
     overviewTable.AddRow("Workflow Type", plan.SelectedStrategy.WorkflowType);
-    overviewTable.AddRow("Status", $"[{GetStatusColor(plan.Status)}]{plan.Status}[/]");
+    overviewTable.AddRow("Status", $"[{GetStatusColor(plan.Status)}]{plan.Status.ToString()}[/]");
     overviewTable.AddRow("Total Cost", $"€{plan.SelectedStrategy.Metrics.TotalCost:N2}");
     overviewTable.AddRow("Total Duration", $"{plan.SelectedStrategy.Metrics.TotalDuration.TotalDays:N1} days ({plan.SelectedStrategy.Metrics.TotalDuration.TotalHours:N1} hours)");
     overviewTable.AddRow("Average Quality", $"{plan.SelectedStrategy.Metrics.AverageQuality:P0}");
     overviewTable.AddRow("Total Emissions", $"{plan.SelectedStrategy.Metrics.TotalEmissionsKgCO2:N2} kg CO₂");
-    overviewTable.AddRow("Warranty", plan.SelectedStrategy.WarrantyTerms ?? "-");
-    overviewTable.AddRow("Insurance", plan.SelectedStrategy.IncludesInsurance ? "[green]✓ Included[/]" : "[dim]Not included[/]");
+    overviewTable.AddRow("Warranty", plan.SelectedStrategy.Warranty?.Description ?? "-");
+    overviewTable.AddRow("Insurance", plan.SelectedStrategy.Warranty?.IncludesInsurance == true ? "[green]✓ Included[/]" : "[dim]Not included[/]");
     overviewTable.AddRow("Solver Status", plan.SelectedStrategy.Metrics.SolverStatus ?? "-");
     overviewTable.AddRow("Objective Value", plan.SelectedStrategy.Metrics.ObjectiveValue.ToString("N6"));
     overviewTable.AddRow("Created At", plan.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss UTC"));
@@ -396,7 +397,7 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
         {
             stepsTable.AddRow(
                 step.StepNumber.ToString(),
-                step.Activity,
+                step.Process.ToString(),
                 $"[bold]{step.SelectedProviderName}[/]",
                 step.SelectedProviderId.ToString()[..8] + "...",
                 $"€{step.Estimate.Cost:N2}",
@@ -447,13 +448,13 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
         .Expand());
 }
 
-string GetStatusColor(string status)
+string GetStatusColor(OptimizationPlanStatus status)
 {
     return status switch
     {
-        "InProgress" => "blue",
-        "Completed" => "green",
-        "Failed" => "red",
+        OptimizationPlanStatus.InProgress => "blue",
+        OptimizationPlanStatus.Completed => "green",
+        OptimizationPlanStatus.Failed => "red",
         _ => "white"
     };
 }
@@ -469,7 +470,7 @@ async Task GetProviders()
                 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<ProvidersListResponse>();
+                    var result = await response.Content.ReadFromJsonAsync<ProvidersResponse>();
                     
                     if (result?.Providers?.Any() == true)
                     {
@@ -510,80 +511,3 @@ async Task GetProviders()
             }
         });
 }
-
-// --- DTOs ---
-record ProvidersListResponse(int TotalProviders, List<ProviderDto> Providers);
-
-record ProviderDto(
-    Guid Id,
-    string Type,
-    string Name,
-    bool Enabled,
-    List<ProviderProcessCapabilityDto> ProcessCapabilities,
-    ProviderTechnicalCapabilitiesDto TechnicalCapabilities
-);
-
-record ProviderProcessCapabilityDto(
-    string ProcessName,
-    decimal CostPerHour,
-    double SpeedMultiplier,
-    double QualityScore,
-    double EnergyConsumptionKwhPerHour,
-    double CarbonIntensityKgCO2PerKwh,
-    bool UsesRenewableEnergy
-);
-
-record ProviderTechnicalCapabilitiesDto(
-    double AxisHeight,
-    double Power,
-    double Tolerance
-);
-
-record StrategiesResponse(bool IsReady, List<OptimizationStrategyDto>? Strategies, string? Status);
-
-record OptimizationStrategyDto(
-    Guid StrategyId,
-    string StrategyName,
-    string Priority,
-    string WorkflowType,
-    List<OptimizationProcessStepDto> Steps,
-    OptimizationMetricsDto Metrics,
-    string WarrantyTerms,
-    bool IncludesInsurance,
-    string Description,
-    DateTime GeneratedAt
-);
-
-record OptimizationProcessStepDto(
-    int StepNumber,
-    string Activity,
-    Guid SelectedProviderId,
-    string SelectedProviderName,
-    ProcessEstimateDto Estimate
-);
-
-record ProcessEstimateDto(
-    decimal Cost,
-    TimeSpan Duration,
-    double QualityScore,
-    double EmissionsKgCO2
-);
-
-record OptimizationMetricsDto(
-    decimal TotalCost,
-    TimeSpan TotalDuration,
-    double AverageQuality,
-    double TotalEmissionsKgCO2,
-    string SolverStatus,
-    double ObjectiveValue
-);
-
-record OptimizationPlanDto(
-    Guid PlanId,
-    Guid RequestId,
-    OptimizationStrategyDto? SelectedStrategy,
-    string Status,
-    DateTime CreatedAt,
-    DateTime? SelectedAt,
-    DateTime? ConfirmedAt
-);

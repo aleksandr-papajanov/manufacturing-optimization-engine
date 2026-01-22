@@ -4,6 +4,7 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 using System.Threading.Tasks;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.ProviderRegistry.Services;
 
@@ -65,7 +66,7 @@ public class ComposeManagedOrchestrator : ProviderOrchestratorBase, IProviderOrc
         return Task.CompletedTask;
     }
 
-    public Task StartAsync(Provider provider, CancellationToken cancellationToken = default)
+    public Task StartAsync(ProviderEntity provider, CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
     }
