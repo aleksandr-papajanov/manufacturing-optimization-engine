@@ -1,3 +1,5 @@
+using ManufacturingOptimization.Common.Models.Enums;
+
 namespace ManufacturingOptimization.Engine.Models;
 
 /// <summary>
@@ -6,9 +8,7 @@ namespace ManufacturingOptimization.Engine.Models;
 public class WorkflowProcessStep
 {
     public int StepNumber { get; set; }
-    public required string Activity { get; init; }
-    public required string RequiredCapability { get; init; }
-    public string? Description { get; set; }
+    public required ProcessType Process { get; init; }
     
     /// <summary>
     /// Providers that can perform this step.

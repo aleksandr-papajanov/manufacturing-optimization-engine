@@ -1,3 +1,5 @@
+using ManufacturingOptimization.Common.Models.Contracts;
+
 namespace ManufacturingOptimization.Engine.Models;
 
 /// <summary>
@@ -6,12 +8,14 @@ namespace ManufacturingOptimization.Engine.Models;
 public class MatchedProvider
 {
     public required Guid ProviderId { get; init; }
-    public required string ProviderName { get; init; }
-    public required string ProviderType { get; init; }
     
-    // Optimization metrics
-    public decimal CostEstimate { get; set; }
-    public TimeSpan TimeEstimate { get; set; }
-    public double QualityScore { get; set; } // 0.0 - 1.0
-    public double EmissionsKgCO2 { get; set; } // Carbon emissions
+    /// <summary>
+    /// Provider name for display.
+    /// </summary>
+    public string ProviderName { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Provider's estimate for this process (cost, time, quality, emissions).
+    /// </summary>
+    public ProcessEstimateModel Estimate { get; set; } = new();
 }

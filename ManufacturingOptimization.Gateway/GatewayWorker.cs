@@ -1,11 +1,11 @@
-using Common.Models;
+using AutoMapper;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
-using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.Gateway.Services;
 
@@ -15,26 +15,23 @@ public class GatewayWorker : BackgroundService
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagePublisher _messagePublisher;
-    private readonly IRequestResponseRepository _repository;
-    private readonly IProviderRepository _providerRepository;
-    private readonly StrategyCacheService _strategyCache;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ISystemReadinessService _readinessService;
 
     public GatewayWorker(
         ILogger<GatewayWorker> logger,
         IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
         IMessagePublisher messagePublisher,
-        IRequestResponseRepository repository,
-        IProviderRepository providerRegistry,
-        StrategyCacheService strategyCache)
+        IServiceProvider serviceProvider,
+        ISystemReadinessService readinessService)
     {
         _logger = logger;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
-        _repository = repository;
-        _providerRepository = providerRegistry;
-        _strategyCache = strategyCache;
+        _serviceProvider = serviceProvider;
+        _readinessService = readinessService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,13 +44,7 @@ public class GatewayWorker : BackgroundService
         // Publish service ready event
         var readyEvent = new ServiceReadyEvent
         {
-            ServiceName = "Gateway",
-            SubscribedQueues = new List<string> 
-            { 
-                "gateway.provider.events", 
-                "gateway.optimization.responses",
-                "gateway.strategies.ready"
-            }
+            ServiceName = "Gateway"
         };
 
         _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, readyEvent);
@@ -72,7 +63,7 @@ public class GatewayWorker : BackgroundService
         // Listen to optimization responses
         _messagingInfrastructure.DeclareExchange(Exchanges.Optimization);
         _messagingInfrastructure.DeclareQueue("gateway.optimization.responses");
-        _messagingInfrastructure.BindQueue("gateway.optimization.responses", Exchanges.Optimization, "optimization.response");
+        _messagingInfrastructure.BindQueue("gateway.optimization.responses", Exchanges.Optimization, OptimizationRoutingKeys.PlanReady);
         _messagingInfrastructure.PurgeQueue("gateway.optimization.responses");
 
         // Listen to strategies ready events (US-07)
@@ -81,42 +72,70 @@ public class GatewayWorker : BackgroundService
         _messagingInfrastructure.PurgeQueue("gateway.strategies.ready");
 
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("gateway.provider.events", HandleProviderRegistered);
-        _messageSubscriber.Subscribe<OptimizationPlanCreatedEvent>("gateway.optimization.responses", HandleOptimizationResponse);
+        _messageSubscriber.Subscribe<OptimizationPlanReadyEvent>("gateway.optimization.responses", HandleOptimizationResponse);
         _messageSubscriber.Subscribe<MultipleStrategiesReadyEvent>("gateway.strategies.ready", HandleStrategiesReady);
     }
 
-    private void HandleProviderRegistered(ProviderRegisteredEvent evt)
+    private async void HandleProviderRegistered(ProviderRegisteredEvent evt)
     {
-        var provider = new Provider
-        {
-            Id = evt.ProviderId,
-            Type = evt.ProviderType,
-            Name = evt.ProviderName,
-            Enabled = true,
-            ProcessCapabilities = evt.ProcessCapabilities,
-            TechnicalCapabilities = evt.TechnicalCapabilities
-        };
+        using var scope = _serviceProvider.CreateScope();
+        var providerRepo = scope.ServiceProvider.GetRequiredService<IProviderRepository>();
+        var mapper = scope.ServiceProvider.GetRequiredService<IMapper>();
         
-        _providerRepository.Create(provider);
+        var entity = mapper.Map<ProviderEntity>(evt.Provider);
+        await providerRepo.AddAsync(entity);
+        await providerRepo.SaveChangesAsync();
     }
 
-    private void HandleOptimizationResponse(OptimizationPlanCreatedEvent response)
+    private async void HandleOptimizationResponse(OptimizationPlanReadyEvent evt)
     {
-        _repository.AddResponse(response);
+        using var scope = _serviceProvider.CreateScope();
+        var planRepo = scope.ServiceProvider.GetRequiredService<IOptimizationPlanRepository>();
+        var strategyRepo = scope.ServiceProvider.GetRequiredService<IOptimizationStrategyRepository>();
+        var mapper = scope.ServiceProvider.GetRequiredService<IMapper>();
+        
+        // Map and save the plan
+        var planEntity = mapper.Map<OptimizationPlanEntity>(evt.Plan);
+        await planRepo.AddAsync(planEntity);
+        await planRepo.SaveChangesAsync();
+        
+        // Get strategies for this request (not yet assigned to a plan)
+        var unusedStrategies = await strategyRepo.GetForRequesttAsync(evt.Plan.RequestId);
+        
+        if (unusedStrategies != null)
+        {
+            foreach (var strategy in unusedStrategies)
+            {
+                // Update the selected strategy with PlanId
+                if (strategy.Id == evt.Plan.SelectedStrategy.Id)
+                {
+                    strategy.PlanId = planEntity.Id;
+                }
+            }
+            
+            // Save changes to assign PlanId
+            await strategyRepo.SaveChangesAsync();
+        }
+        
+        // Remove unused strategies for this request (those without PlanId)
+        await strategyRepo.RemoveForRequestAsync(evt.Plan.RequestId);
     }
 
     private void HandleStrategiesReady(MultipleStrategiesReadyEvent evt)
     {
-        _logger.LogInformation(
-            "Received {Count} strategies for Request {RequestId}. Caching for customer retrieval.",
-            evt.Strategies.Count,
-            evt.RequestId);
-
-        // Store strategies in cache for HTTP polling
-        _strategyCache.StoreStrategies(evt.RequestId, evt.Strategies);
-
-        _logger.LogInformation(
-            "Successfully cached strategies for Request {RequestId}. Customer can now retrieve via HTTP API.",
-            evt.RequestId);
+        using var scope = _serviceProvider.CreateScope();
+        var strategyRepo = scope.ServiceProvider.GetRequiredService<IOptimizationStrategyRepository>();
+        var mapper = scope.ServiceProvider.GetRequiredService<IMapper>();
+        
+        // Map strategies and set RequestId for filtering
+        var entities = mapper.Map<List<OptimizationStrategyEntity>>(evt.Strategies);
+        
+        foreach (var entity in entities)
+        {
+            entity.RequestId = evt.RequestId;
+            entity.PlanId = null; // No plan yet
+        }
+        
+        strategyRepo.AddForRequestAsync(evt.RequestId, entities);
     }
 }

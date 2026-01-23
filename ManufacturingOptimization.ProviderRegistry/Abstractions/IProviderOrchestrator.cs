@@ -1,4 +1,5 @@
-using Common.Models;
+using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 
 namespace ManufacturingOptimization.ProviderRegistry.Abstractions;
 
@@ -10,7 +11,7 @@ namespace ManufacturingOptimization.ProviderRegistry.Abstractions;
 public interface IProviderOrchestrator
 {
     Task StartAllAsync(CancellationToken cancellationToken = default);
-    Task StartAsync(Provider provider, CancellationToken cancellationToken = default);
+    Task StartAsync(ProviderEntity provider, CancellationToken cancellationToken = default);
     Task StopAsync(Guid providerId, CancellationToken cancellationToken = default);
     Task StopAllAsync(CancellationToken cancellationToken = default);
     Task CleanupOrphanedContainersAsync(CancellationToken cancellationToken = default);

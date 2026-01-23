@@ -1,0 +1,44 @@
+@startuml
+!theme plain
+autonumber
+
+participant "ProviderRegistry" as PR
+participant "Gateway" as GW
+participant "Engine\n(StartupCoordinator)" as ENG
+queue "RabbitMQ" as MQ
+
+== Service Initialization ==
+
+PR -> PR: SetupRabbitMq()
+GW -> GW: SetupRabbitMq()
+ENG -> ENG: SetupRabbitMq()
+
+== Service Ready Events ==
+
+PR -> MQ: Publish ServiceReadyEvent\n("ProviderRegistry")
+GW -> MQ: Publish ServiceReadyEvent\n("Gateway")
+ENG -> MQ: Publish ServiceReadyEvent\n("Engine")
+
+MQ -> ENG: Deliver all ServiceReadyEvents
+ENG -> ENG: Track ready services\n(Gateway, ProviderRegistry, Engine)
+
+== All Services Ready ==
+
+ENG -> ENG: All required services ready?\n✓ Gateway\n✓ ProviderRegistry\n✓ Engine
+ENG -> MQ: Publish SystemReadyEvent
+
+MQ -> PR: Deliver SystemReadyEvent
+MQ -> GW: Deliver SystemReadyEvent
+MQ -> ENG: Deliver SystemReadyEvent
+
+== Unblock Execution ==
+
+PR -> PR: TaskCompletionSource.SetResult(true)
+GW -> GW: TaskCompletionSource.SetResult(true)
+ENG -> ENG: TaskCompletionSource.SetResult(true)
+
+PR -> PR: Continue execution
+GW -> GW: Continue execution
+ENG -> ENG: Continue execution
+
+@enduml

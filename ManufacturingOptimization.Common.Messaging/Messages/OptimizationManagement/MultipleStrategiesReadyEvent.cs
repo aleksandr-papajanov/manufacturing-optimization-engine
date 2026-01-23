@@ -1,5 +1,5 @@
-using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 
@@ -7,13 +7,8 @@ namespace ManufacturingOptimization.Common.Messaging.Messages.OptimizationManage
 /// Published when multiple optimization strategies are ready for customer selection.
 /// Contains all generated strategies with different optimization priorities.
 /// </summary>
-public class MultipleStrategiesReadyEvent : IMessage, IEvent
+public class MultipleStrategiesReadyEvent : BaseEvent
 {
-    /// <summary>
-    /// Command that triggered this event (for correlation).
-    /// </summary>
-    public Guid CommandId { get; set; }
-    
     /// <summary>
     /// Request ID for tracking.
     /// </summary>
@@ -23,7 +18,7 @@ public class MultipleStrategiesReadyEvent : IMessage, IEvent
     /// List of optimization strategies for the customer to choose from.
     /// Typically includes: Budget, Express, Premium, and Eco strategies.
     /// </summary>
-    public List<OptimizationStrategy> Strategies { get; set; } = new();
+    public List<OptimizationStrategyModel> Strategies { get; set; } = [];
     
     /// <summary>
     /// Workflow type (Upgrade or Refurbish).
@@ -38,7 +33,7 @@ public class MultipleStrategiesReadyEvent : IMessage, IEvent
     /// <summary>
     /// Errors encountered during strategy generation (if any).
     /// </summary>
-    public List<string> Errors { get; set; } = new();
+    public List<string> Errors { get; set; } = [];
     
     /// <summary>
     /// Timestamp when strategies were generated.

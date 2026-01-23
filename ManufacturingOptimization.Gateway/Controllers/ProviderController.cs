@@ -1,4 +1,7 @@
-﻿using ManufacturingOptimization.Gateway.Abstractions;
+﻿using AutoMapper;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManufacturingOptimization.Gateway.Controllers;
@@ -9,41 +12,33 @@ public class ProviderController : ControllerBase
 {
     private readonly IProviderRepository _providerRegistry;
     private readonly ILogger<ProviderController> _logger;
+    private readonly IMapper _mapper;
 
     public ProviderController(
         IProviderRepository providerRegistry,
-        ILogger<ProviderController> logger)
+        ILogger<ProviderController> logger,
+        IMapper mapper)
     {
         _providerRegistry = providerRegistry;
         _logger = logger;
+        _mapper = mapper;
     }
 
     /// <summary>
-    /// Get list of all registered providers from in-memory registry
+    /// Get list of all registered providers
     /// </summary>
     [HttpGet]
-    public IActionResult GetProviders()
+    [ProducesResponseType(typeof(ProvidersResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetProviders()
     {
-        var providers = _providerRegistry.GetAll();
-        
-        return Ok(new
+        var providers = await _providerRegistry.GetAllAsync();
+        var providerList = providers.ToList();
+        var providerModels = _mapper.Map<List<ProviderModel>>(providerList);
+
+        return Ok(new ProvidersResponseDto
         {
-            totalProviders = providers.Count(),
-            providers = providers.Select(p => new
-            {
-                providerId = p.Id,
-                providerType = p.Type,
-                providerName = p.Name,
-                enabled = p.Enabled,
-                processCapabilities = p.ProcessCapabilities.Select(pc => new 
-                {
-                    processName = pc.ProcessName,
-                    costPerHour = pc.CostPerHour,
-                    qualityScore = pc.QualityScore,
-                    carbonIntensityKgCO2PerKwh = pc.CarbonIntensityKgCO2PerKwh,
-                    usesRenewableEnergy = pc.UsesRenewableEnergy
-                })
-            })
+            TotalProviders = providerList.Count,
+            Providers = providerModels
         });
     }
 }

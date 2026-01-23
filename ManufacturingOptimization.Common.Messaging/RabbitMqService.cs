@@ -86,22 +86,11 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
     {
         timeout ??= TimeSpan.FromSeconds(30);
         
-        // For ICommand messages, use CommandId as correlation ID
+        // Get correlation ID from ICommand interface
         string correlationId;
-        var requestType = request.GetType();
-        var commandIdProp = requestType.GetProperty("CommandId");
-        
-        if (commandIdProp != null && commandIdProp.CanRead)
+        if (request is ICommand command)
         {
-            var commandIdValue = commandIdProp.GetValue(request);
-            if (commandIdValue is Guid commandGuid)
-            {
-                correlationId = commandGuid.ToString();
-            }
-            else
-            {
-                correlationId = Guid.NewGuid().ToString();
-            }
+            correlationId = command.CommandId.ToString();
         }
         else
         {
@@ -113,12 +102,10 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
 
         try
         {
-            // Set ReplyTo on the message object itself using reflection
-            var replyToProp = requestType.GetProperty("ReplyTo");
-            
-            if (replyToProp != null && replyToProp.CanWrite)
+            // Set ReplyTo if this is a request-reply command
+            if (request is IRequestReplyCommand replyCommand)
             {
-                replyToProp.SetValue(request, _replyQueueName);
+                replyCommand.ReplyTo = _replyQueueName;
             }
             
             var json = JsonSerializer.Serialize(request, request.GetType());
@@ -187,7 +174,6 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                             var message = JsonSerializer.Deserialize(json, type) as IMessage;
                             if (message != null)
                             {
-                                _logger.LogDebug("Received RPC response {CorrelationId}", correlationId);
                                 tcs.SetResult(message);
                             }
                         }
@@ -209,21 +195,29 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
             consumer: consumer);
     }
 
-    public void PublishReply<T>(string replyToQueue, string correlationId, T message) where T : IMessage
+    public void PublishReply<TRequest, TResponse>(TRequest request, TResponse response) 
+        where TRequest : IRequestReplyCommand 
+        where TResponse : IMessage
     {
-        var json = JsonSerializer.Serialize(message);
+        // Automatically set CorrelationId if response is an event
+        if (response is IEvent evt)
+        {
+            evt.CorrelationId = request.CommandId;
+        }
+        
+        var json = JsonSerializer.Serialize(response);
         var body = Encoding.UTF8.GetBytes(json);
 
         var properties = _channel.CreateBasicProperties();
-        properties.CorrelationId = correlationId;
+        properties.CorrelationId = request.CommandId.ToString();
         properties.Headers = new Dictionary<string, object>
         {
-            ["MessageType"] = typeof(T).FullName ?? typeof(T).Name
+            ["MessageType"] = typeof(TResponse).FullName ?? typeof(TResponse).Name
         };
 
         _channel.BasicPublish(
             exchange: string.Empty, // Direct to queue
-            routingKey: replyToQueue,
+            routingKey: request.ReplyTo,
             basicProperties: properties,
             body: body);
     }
@@ -288,7 +282,7 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
 
                 if (!handled)
                 {
-                    _logger.LogWarning("No handler found for message type {MessageType} on queue {Queue}", 
+                    _logger.LogDebug("No handler found for message type {MessageType} on queue {Queue}", 
                         messageType, queueName);
                 }
 
@@ -347,7 +341,22 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
 
     public void Dispose()
     {
-        _channel?.Close();
-        _connection?.Close();
+        try
+        {
+            _channel?.Close();
+        }
+        catch (Exception)
+        {
+            // Ignore exceptions during channel close
+        }
+
+        try
+        {
+            _connection?.Close();
+        }
+        catch (Exception)
+        {
+            // Ignore exceptions during connection close
+        }
     }
 }

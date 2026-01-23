@@ -1,9 +1,8 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
-using ManufacturingOptimization.ProviderRegistry.Services;
 
 namespace ManufacturingOptimization.ProviderRegistry;
 
@@ -15,6 +14,7 @@ public class ProviderRegistryWorker : BackgroundService
     private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagePublisher _messagePublisher;
     private readonly IProviderOrchestrator _orchestrator;
+    private readonly ISystemReadinessService _readinessService;
 
     public ProviderRegistryWorker(
         ILogger<ProviderRegistryWorker> logger,
@@ -22,7 +22,8 @@ public class ProviderRegistryWorker : BackgroundService
         IMessageSubscriber messageSubscriber,
         IMessagePublisher messagePublisher,
         IProviderRepository providerRepository,
-        IProviderOrchestrator orchestrator)
+        IProviderOrchestrator orchestrator,
+        ISystemReadinessService readinessService)
     {
         _logger = logger;
         _providerRepository = providerRepository;
@@ -30,6 +31,7 @@ public class ProviderRegistryWorker : BackgroundService
         _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
         _orchestrator = orchestrator;
+        _readinessService = readinessService;
 
     }
 
@@ -57,11 +59,14 @@ public class ProviderRegistryWorker : BackgroundService
         // Publish service ready event
         var readyEvent = new ServiceReadyEvent
         {
-            ServiceName = "ProviderRegistry",
-            SubscribedQueues = new List<string> { "registry.provider.registered", "registry.validation.commands", "dev.tracker.provider.registered", "registry.system.ready" }
+            ServiceName = "ProviderRegistry"
         };
 
         _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, readyEvent);
+        
+        // Wait for system to be ready, then start providers
+        await _readinessService.WaitForSystemReadyAsync(cancellationToken);
+        await _orchestrator.StartAllAsync(cancellationToken);
         
         await Task.Delay(Timeout.Infinite, cancellationToken);
     }
@@ -70,17 +75,5 @@ public class ProviderRegistryWorker : BackgroundService
     {
         _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
         _messagingInfrastructure.DeclareExchange(Exchanges.System);
-        
-        // Subscribe to SystemReadyEvent to start providers
-        _messagingInfrastructure.DeclareQueue("registry.system.ready");
-        _messagingInfrastructure.BindQueue("registry.system.ready", Exchanges.System, SystemRoutingKeys.SystemReady);
-        _messagingInfrastructure.PurgeQueue("registry.system.ready");
-        
-        _messageSubscriber.Subscribe<SystemReadyEvent>("registry.system.ready", HandleSystemReady);
-    }
-    
-    private async void HandleSystemReady(SystemReadyEvent evt)
-    {
-        await _orchestrator.StartAllAsync();
     }
 }

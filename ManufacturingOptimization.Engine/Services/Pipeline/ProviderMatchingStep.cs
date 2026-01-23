@@ -1,44 +1,41 @@
 using ManufacturingOptimization.Engine.Abstractions;
-using Common.Models;
 using ManufacturingOptimization.Engine.Models;
+using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
 /// <summary>
 /// Step 2: Provider Matching
 /// For each process step, finds providers with the required capability.
+/// Works with ProviderEntity.
 /// </summary>
 public class ProviderMatchingStep : IWorkflowStep
 {
     private readonly IProviderRepository _providerRepository;
-    private readonly ILogger<ProviderMatchingStep> _logger;
 
     public string Name => "Provider Matching";
 
-    public ProviderMatchingStep(
-        IProviderRepository providerRepository,
-        ILogger<ProviderMatchingStep> logger)
+    public ProviderMatchingStep(IProviderRepository providerRepository)
     {
         _providerRepository = providerRepository;
-        _logger = logger;
     }
 
-    public Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
         foreach (var processStep in context.ProcessSteps)
         {
             // Find providers that can perform this process
-            var providersWithCapabilities = _providerRepository.FindByProcess(processStep.RequiredCapability);
+            var providersWithCapabilities = await _providerRepository.FindByProcess(processStep.Process);
             
             // Filter by technical requirements
             var matchedProviders = providersWithCapabilities
-                .Where(pc => MeetsTechnicalRequirements(pc.Provider, context.Request))
+                .Where(pc => MeetsTechnicalRequirements(pc.ProviderEntity, context.Request))
                 .Select(pc => new MatchedProvider
                 {
-                    ProviderId = pc.Provider.Id,
-                    ProviderName = pc.Provider.Name,
-                    ProviderType = pc.Provider.Type
-                    // Cost, time, quality, and emissions will be filled by EstimationStep
+                    ProviderId = pc.ProviderEntity.Id,
+                    ProviderName = pc.ProviderEntity.Name
                 })
                 .ToList();
 
@@ -46,18 +43,16 @@ public class ProviderMatchingStep : IWorkflowStep
 
             if (processStep.MatchedProviders.Count == 0)
             {
-                context.Errors.Add($"No providers found for step {processStep.StepNumber} ({processStep.Activity}) requiring '{processStep.RequiredCapability}' capability with sufficient technical capabilities");
+                throw new InvalidOperationException($"No providers found for step {processStep.StepNumber} ({processStep.Process}) requiring '{processStep.Process}' capability with sufficient technical capabilities");
             }
         }
-
-        return Task.CompletedTask;
     }
 
-    private bool MeetsTechnicalRequirements(Provider provider, MotorRequest request)
+    private static bool MeetsTechnicalRequirements(ProviderEntity provider, OptimizationRequestModel request)
     {
         // Provider must be able to handle the motor's power and size
-        bool canHandlePower = provider.TechnicalCapabilities.Power == 0 || provider.TechnicalCapabilities.Power >= request.Specs.PowerKW;
-        bool canHandleSize = provider.TechnicalCapabilities.AxisHeight == 0 || provider.TechnicalCapabilities.AxisHeight >= request.Specs.AxisHeightMM;
+        bool canHandlePower = provider.TechnicalCapabilities.Power == 0 || provider.TechnicalCapabilities.Power >= request.MotorSpecs.PowerKW;
+        bool canHandleSize = provider.TechnicalCapabilities.AxisHeight == 0 || provider.TechnicalCapabilities.AxisHeight >= request.MotorSpecs.AxisHeightMM;
         
         return canHandlePower && canHandleSize;
     }

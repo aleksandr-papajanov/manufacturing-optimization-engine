@@ -29,4 +29,8 @@ EXPOSE 8080
 
 COPY --from=publish /app/publish .
 
+# Create Data directory and set as volume for database persistence
+RUN mkdir -p /app/Data
+VOLUME ["/app/Data"]
+
 ENTRYPOINT ["dotnet", "ManufacturingOptimization.ProviderRegistry.dll"]

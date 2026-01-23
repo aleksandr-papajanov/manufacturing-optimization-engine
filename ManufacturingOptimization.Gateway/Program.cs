@@ -1,43 +1,69 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Gateway.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Mappings;
+using ManufacturingOptimization.Common.Models.Data.Repositories;
+using ManufacturingOptimization.Gateway.Data;
+using ManufacturingOptimization.Gateway.Middleware;
 using ManufacturingOptimization.Gateway.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add Services
+// Configure SQLite database
+builder.Services.AddDatabase();
+
+// Register repositories
+builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
+builder.Services.AddScoped<IOptimizationPlanRepository, OptimizationPlanRepository>();
+builder.Services.AddScoped<IOptimizationStrategyRepository, OptimizationStrategyRepository>();
+
+// Database lifecycle management
+builder.Services.AddHostedService<DatabaseManagementService>();
+
+// Add Services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient(); // Required for Legacy "Get Providers"
 
-// 2. Configure RabbitMQ Settings from appsettings.json
-builder.Services.Configure<RabbitMqSettings>(
-    builder.Configuration.GetSection(RabbitMqSettings.SectionName));
+// Add AutoMapper
+// Add AutoMapper
+builder.Services.AddAutoMapper(c =>
+{
+    c.AddProfile<ProviderMappingProfile>();
+    c.AddProfile<OptimizationMappingProfile>();
+    c.AddProfile<GatewayMappingProfile>();
+});
 
-// 3. Register RabbitMQ Service
+// Configure RabbitMQ Settings from appsettings.json
+builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
+
+// Register RabbitMQ Service
 builder.Services.AddSingleton<RabbitMqService>();
 
-// 4. Map Messaging Interfaces
+// Map Messaging Interfaces
 builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
 
-// 5. Register Repositories (Singleton for in-memory implementations)
-builder.Services.AddSingleton<IProviderRepository, InMemoryProviderRepository>();
-builder.Services.AddSingleton<IRequestResponseRepository, InMemoryRequestResponseRepository>();
+// System readiness coordination
+builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Gateway");
+builder.Services.AddSingleton<ISystemReadinessService, SystemReadinessService>();
+builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredService<ISystemReadinessService>());
 
-// NEW: Register Strategy Cache Service
-builder.Services.AddSingleton<StrategyCacheService>();
-
-// 6. Add Background Worker
+// Add Background Worker
 builder.Services.AddHostedService<GatewayWorker>();
 
 var app = builder.Build();
 
-// 7. Configure Pipeline
+// Configure Pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Add system readiness middleware (checks both system and provider readiness)
+app.UseSystemReadiness();
+
 app.UseAuthorization();
 app.MapControllers();
 

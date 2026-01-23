@@ -1,11 +1,12 @@
-using Common.Models;
-using Docker.DotNet;
+using AutoMapper;
 using Docker.DotNet.Models;
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -16,7 +17,8 @@ namespace ManufacturingOptimization.ProviderRegistry.Services;
 /// </summary>
 public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrchestrator
 {
-    private readonly IProviderRepository _repository;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IMapper _mapper;
     private readonly IProviderValidationService _validationService;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
@@ -24,13 +26,13 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
     private readonly DockerSettings _dockerSettings;
     private readonly RabbitMqSettings _rabbitMqSettings;
     private readonly Dictionary<Guid, string> _runningProviders = []; // providerId -> containerId
-    private readonly HashSet<Guid> _readyProviders = new(); // Track ServiceReadyEvent from containers
-    private readonly HashSet<Guid> _registeredProviders = new(); // Track ProviderRegisteredEvents
+    private readonly HashSet<Guid> _registeredProviders = []; // Track ProviderRegisteredEvents
     private string? _networkName;
 
     public DockerProviderOrchestrator(
         ILogger<DockerProviderOrchestrator> logger,
-        IProviderRepository repository,
+        IServiceProvider serviceProvider,
+        IMapper mapper,
         IProviderValidationService validationService,
         IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
@@ -39,71 +41,78 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         IOptions<RabbitMqSettings> rabbitMqSettings)
         : base(logger)
     {
-        _repository = repository;
+        _serviceProvider = serviceProvider;
+        _mapper = mapper;
         _validationService = validationService;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
         _dockerSettings = dockerSettings.Value;
         _rabbitMqSettings = rabbitMqSettings.Value;
-        
+
         SetupRabbitMq();
     }
-    
+
     private void SetupRabbitMq()
     {
         _messagingInfrastructure.DeclareQueue("orchestrator.provider.registered");
         _messagingInfrastructure.BindQueue("orchestrator.provider.registered", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.PurgeQueue("orchestrator.provider.registered");
-        
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("orchestrator.provider.registered", async evt => await HandleProviderRegistered(evt));
     }
-    
+
     private async Task HandleProviderRegistered(ProviderRegisteredEvent evt)
     {
-        var allStarted = false;
+        bool allRegistered;
+        int runningCount;
+        int registeredCount;
 
         lock (_registeredProviders)
         {
-            // Track this provider as registered
-            if (_registeredProviders.Add(evt.ProviderId))
+            _registeredProviders.Add(evt.Provider.Id);
+            registeredCount = _registeredProviders.Count;
+
+            lock (_runningProviders)
             {
-                // Check if all started containers have registered
-                if (_registeredProviders.Count == _runningProviders.Count && _runningProviders.Count > 0)
-                {
-                    allStarted = true;
-                }
+                runningCount = _runningProviders.Count;
+                allRegistered = _registeredProviders.IsSupersetOf(_runningProviders.Keys);
             }
         }
 
-        if (allStarted)
+        if (allRegistered)
         {
+            // Wait a moment to ensure all registrations are processed
             await Task.Delay(2000);
-            _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.AllReady, new AllProvidersReadyEvent());
+            _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.AllRegistered, new AllProvidersRegisteredEvent());
         }
     }
 
     public async Task StartAllAsync(CancellationToken cancellationToken = default)
     {
-        var providers = await _repository.GetAllAsync(cancellationToken);
-        var enabledProviders = providers.Where(p => p.Enabled).ToList();
+        using var scope = _serviceProvider.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IProviderRepository>();
         
-        if (!enabledProviders.Any())
+        var providers = await repository.GetAllAsync(cancellationToken);
+        var enabledProviders = providers.Where(p => p.Enabled).ToList();
+
+        if (enabledProviders.Count == 0)
         {
             return;
         }
-        
+
         foreach (var provider in enabledProviders)
         {
             try
             {
-                var (isApproved, declinedReason) = await _validationService.ValidateAsync(provider, cancellationToken: cancellationToken);
-                
+                var mappedProvider = _mapper.Map<ProviderModel>(provider);
+                var (isApproved, declinedReason) = await _validationService.ValidateAsync(mappedProvider, cancellationToken: cancellationToken);
+
                 if (!isApproved)
                 {
+                    _logger.LogWarning("Provider {Type} ({Id}) declined during validation: {Reason}", provider.Type, provider.Id, declinedReason);
                     continue;
                 }
-                
+
                 await StartAsync(provider, cancellationToken);
             }
             catch (Exception ex)
@@ -112,10 +121,12 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
             }
         }
 
-        _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.StartAll, new StartAllProvidersCommand());
+        // Important: wait a moment before requesting registrations to ensure all containers are ready
+        await Task.Delay(3000, cancellationToken);
+        _messagePublisher.Publish(Exchanges.Provider, ProviderRoutingKeys.RequestRegistrationAll, new RequestProvidersRegistrationCommand());
     }
 
-    public async Task StartAsync(Provider provider, CancellationToken cancellationToken = default)
+    public async Task StartAsync(ProviderEntity provider, CancellationToken cancellationToken = default)
     {
         if (_runningProviders.ContainsKey(provider.Id))
         {
@@ -129,8 +140,8 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         var envVars = new List<string>
         {
             $"PROVIDER_TYPE={provider.Type}",
-            $"{provider.Type}__ProviderId={provider.Id}",
-            $"{provider.Type}__ProviderName={provider.Name}",
+            $"Provider__ProviderId={provider.Id}",
+            $"Provider__ProviderName={provider.Name}",
             $"RabbitMQ__Host={_rabbitMqSettings.Host}",
             $"RabbitMQ__Port={_rabbitMqSettings.Port}",
             $"RabbitMQ__Username={_rabbitMqSettings.Username}",
@@ -140,17 +151,20 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
         // Add process capabilities
         for (int i = 0; i < provider.ProcessCapabilities.Count; i++)
         {
-            var capability = provider.ProcessCapabilities[i];
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__ProcessName={capability.ProcessName}");
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__CostPerHour={capability.CostPerHour}");
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__QualityScore={capability.QualityScore}");
-            envVars.Add($"{provider.Type}__ProcessCapabilities__{i}__CarbonIntensityKgCO2PerKwh={capability.CarbonIntensityKgCO2PerKwh}");
+            var capability = provider.ProcessCapabilities.ElementAt(i);
+            envVars.Add($"Provider__ProcessCapabilities__{i}__Process={capability.Process}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__CostPerHour={capability.CostPerHour}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__SpeedMultiplier={capability.SpeedMultiplier}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__QualityScore={capability.QualityScore}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__EnergyConsumptionKwhPerHour={capability.EnergyConsumptionKwhPerHour}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__CarbonIntensityKgCO2PerKwh={capability.CarbonIntensityKgCO2PerKwh}");
+            envVars.Add($"Provider__ProcessCapabilities__{i}__UsesRenewableEnergy={capability.UsesRenewableEnergy}");
         }
 
         // Add technical capabilities
-        envVars.Add($"{provider.Type}__AxisHeight={provider.TechnicalCapabilities.AxisHeight}");
-        envVars.Add($"{provider.Type}__Power={provider.TechnicalCapabilities.Power}");
-        envVars.Add($"{provider.Type}__Tolerance={provider.TechnicalCapabilities.Tolerance}");
+        envVars.Add($"Provider__TechnicalCapabilities__AxisHeight={provider.TechnicalCapabilities.AxisHeight}");
+        envVars.Add($"Provider__TechnicalCapabilities__Power={provider.TechnicalCapabilities.Power}");
+        envVars.Add($"Provider__TechnicalCapabilities__Tolerance={provider.TechnicalCapabilities.Tolerance}");
 
         var createParams = new CreateContainerParameters
         {
@@ -173,7 +187,10 @@ public class DockerProviderOrchestrator : ProviderOrchestratorBase, IProviderOrc
             var response = await _dockerClient.Containers.CreateContainerAsync(createParams, cancellationToken);
             await _dockerClient.Containers.StartContainerAsync(response.ID, new ContainerStartParameters(), cancellationToken);
 
-            _runningProviders[provider.Id] = response.ID;
+            lock (_runningProviders)
+            {
+                _runningProviders[provider.Id] = response.ID;
+            }
         }
         catch (Exception ex)
         {

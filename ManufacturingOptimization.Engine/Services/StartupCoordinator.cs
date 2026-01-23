@@ -1,14 +1,19 @@
+using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ManufacturingOptimization.Engine.Services;
 
 /// <summary>
-/// Coordinates system startup by waiting for all services to report readiness
-/// before allowing the Engine to start processing requests.
+/// Extends SystemReadinessService with startup coordination logic:
+/// Waits for all services to report readiness (Gateway, ProviderRegistry, Engine)
+/// Publishes SystemReadyEvent when all are ready
+/// Listens for SystemReadyEvent and marks itself ready (inherited behavior)
 /// </summary>
-public class StartupCoordinator : BackgroundService
+public class StartupCoordinator : SystemReadinessService
 {
     private readonly List<string> REQUIRED_SERVICES = new() 
     { 
@@ -16,9 +21,6 @@ public class StartupCoordinator : BackgroundService
         "ProviderRegistry", 
         "Engine"
     };
-    private readonly ILogger<StartupCoordinator> _logger;
-    private readonly IMessagingInfrastructure _messagingInfrastructure;
-    private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagePublisher _messagePublisher;
     
     private readonly HashSet<string> _readyServices = new();
@@ -28,29 +30,23 @@ public class StartupCoordinator : BackgroundService
         ILogger<StartupCoordinator> logger,
         IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
-        IMessagePublisher messagePublisher)
+        IMessagePublisher messagePublisher,
+        IOptions<SystemReadinessSettings> options)
+        : base(logger, messagingInfrastructure, messageSubscriber, options)
     {
-        _logger = logger;
-        _messagingInfrastructure = messagingInfrastructure;
-        _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
-
-        SetupRabbitMq();
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override void SetupRabbitMq()
     {
-        await Task.Delay(Timeout.Infinite, stoppingToken);
-    }
-
-    private void SetupRabbitMq()
-    {
-        _messagingInfrastructure.DeclareExchange(Exchanges.System);
+        // Call base to setup SystemReadyEvent listener
+        base.SetupRabbitMq();
         
+        // Additionally, listen for service ready events to coordinate startup
+        _messagingInfrastructure.DeclareExchange(Exchanges.System);
         _messagingInfrastructure.DeclareQueue("coordinator.service.ready");
         _messagingInfrastructure.BindQueue("coordinator.service.ready", Exchanges.System, SystemRoutingKeys.ServiceReady);
         _messagingInfrastructure.PurgeQueue("coordinator.service.ready");
-        
         _messageSubscriber.Subscribe<ServiceReadyEvent>("coordinator.service.ready", HandleServiceReady);
     }
 
@@ -58,10 +54,8 @@ public class StartupCoordinator : BackgroundService
     {
         lock (_readyServices)
         {
-            if (_readyServices.Add(evt.ServiceName))
-            {
-                CheckAndPublishSystemReady();
-            }
+            _readyServices.Add(evt.ServiceName);
+            CheckAndPublishSystemReady();
         }
     }
 
@@ -81,10 +75,6 @@ public class StartupCoordinator : BackgroundService
             
             _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.SystemReady, evt);
             _systemReadyPublished = true;
-        }
-        else
-        {
-            var missing = REQUIRED_SERVICES.Except(_readyServices).ToList();
         }
     }
 }

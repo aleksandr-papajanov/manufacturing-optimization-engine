@@ -10,6 +10,12 @@ public class WorkflowPipeline : IWorkflowPipeline
 {
     private readonly IEnumerable<IWorkflowStep> _steps;
     private readonly ILogger<WorkflowPipeline> _logger;
+    private DateTime _startTime = default;
+    private DateTime _endTime = default;
+
+    public TimeSpan Duration => _startTime == default || _endTime == default
+        ? TimeSpan.Zero
+        : _endTime - _startTime;
 
     public WorkflowPipeline(IEnumerable<IWorkflowStep> steps, ILogger<WorkflowPipeline> logger)
     {
@@ -19,22 +25,24 @@ public class WorkflowPipeline : IWorkflowPipeline
 
     public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
-        foreach (var step in _steps)
-        {
-            if (!context.IsSuccess)
-            {
-                return;
-            }
+        _startTime = DateTime.UtcNow;
+        _logger.LogInformation($"Pipeline started. Request {context.Request.RequestId}");
 
-            try
+        try
+        {
+            foreach (var step in _steps)
             {
                 await step.ExecuteAsync(context, cancellationToken);
             }
-            catch (Exception ex)
-            {
-                context.Errors.Add($"{step.Name}: {ex.Message}");
-                return;
-            }
+
+            _endTime = DateTime.UtcNow;
+            _logger.LogInformation($"Pipeline finished in {Duration.TotalMilliseconds}ms. Request {context.Request.RequestId}");
+        }
+        catch (Exception ex)
+        {
+            _endTime = DateTime.UtcNow;
+
+            _logger.LogError(ex, $"Pipeline failed in {Duration.TotalMilliseconds}ms. Request {context.Request.RequestId}, Error: {ex.Message}");
         }
     }
 }

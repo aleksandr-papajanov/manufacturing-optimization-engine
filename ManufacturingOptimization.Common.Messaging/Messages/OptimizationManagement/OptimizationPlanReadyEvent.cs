@@ -1,5 +1,5 @@
-using Common.Models;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 
@@ -7,15 +7,10 @@ namespace ManufacturingOptimization.Common.Messaging.Messages.OptimizationManage
 /// Published when optimization plan is ready with provider assignments.
 /// Contains complete workflow with selected providers and cost/time/quality metrics.
 /// </summary>
-public class OptimizationPlanReadyEvent : IMessage, IEvent
+public class OptimizationPlanReadyEvent : BaseEvent
 {
-    /// <summary>
-    /// Command that triggered this event (for correlation).
-    /// </summary>
-    public Guid CommandId { get; set; }
-    
     /// <summary>
     /// Optimized plan with all details.
     /// </summary>
-    public OptimizationPlan Plan { get; set; } = new();
+    public OptimizationPlanModel Plan { get; set; } = new();
 }

@@ -1,7 +1,11 @@
-using Common.Models;
+using AutoMapper;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 
@@ -13,19 +17,22 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 /// </summary>
 public class PlanPersistenceStep : IWorkflowStep
 {
-    private readonly ILogger<PlanPersistenceStep> _logger;
+    private readonly IMapper _mapper;
     private readonly IOptimizationPlanRepository _planRepository;
+    private readonly IOptimizationStrategyRepository _strategyRepository;
     private readonly IMessagePublisher _messagePublisher;
 
     public string Name => "Plan Persistence";
 
     public PlanPersistenceStep(
-        ILogger<PlanPersistenceStep> logger,
+        IMapper mapper,
         IOptimizationPlanRepository planRepository,
+        IOptimizationStrategyRepository strategyRepository,
         IMessagePublisher messagePublisher)
     {
-        _logger = logger;
+        _mapper = mapper;
         _planRepository = planRepository;
+        _strategyRepository = strategyRepository;
         _messagePublisher = messagePublisher;
     }
 
@@ -33,40 +40,54 @@ public class PlanPersistenceStep : IWorkflowStep
     {
         if (context.SelectedStrategy == null)
         {
-            context.Errors.Add("Cannot persist plan: no strategy selected");
-            return;
+            throw new InvalidOperationException("Cannot persist plan: no strategy selected");
         }
 
-        try
+        if (!context.PlanId.HasValue)
         {
-            // Create optimization plan from context
-            var plan = new OptimizationPlan
-            {
-                RequestId = context.Request.RequestId,
-                SelectedStrategy = context.SelectedStrategy,
-                Status = OptimizationPlanStatus.Selected,
-                CreatedAt = DateTime.UtcNow,
-                SelectedAt = DateTime.UtcNow,
-                IsSuccess = context.IsSuccess,
-                Errors = context.Errors.ToList()
-            };
-
-            // Save to repository
-            var savedPlan = _planRepository.Create(plan);
-
-            // Publish plan ready event
-            var planReadyEvent = new OptimizationPlanReadyEvent
-            {
-                CommandId = Guid.NewGuid(),
-                Plan = savedPlan
-            };
-
-            _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanReady, planReadyEvent);
+            throw new InvalidOperationException("Cannot persist plan: Plan ID is missing in context");
         }
-        catch (Exception ex)
+
+        // First, create and save the plan (without strategy reference yet)
+        var planEntity = new OptimizationPlanEntity
         {
-            context.Errors.Add($"Failed to persist plan: {ex.Message}");
-        }
+            Id = context.PlanId.Value,
+            RequestId = context.Request.RequestId,
+            Status = OptimizationPlanStatus.Confirmed.ToString(),
+            CreatedAt = DateTime.UtcNow,
+            SelectedAt = DateTime.UtcNow
+        };
+
+        await _planRepository.AddAsync(planEntity);
+        await _planRepository.SaveChangesAsync(cancellationToken);
+
+        // Now that Plan exists in DB, set PlanId on strategy and save it
+        context.SelectedStrategy.PlanId = context.PlanId.Value;
+        
+        // Map strategy model to entity for saving
+        var strategyEntity = _mapper.Map<OptimizationStrategyEntity>(context.SelectedStrategy);
+        strategyEntity.PlanId = context.PlanId.Value;
+        
+        await _strategyRepository.AddAsync(strategyEntity);
+        await _strategyRepository.SaveChangesAsync(cancellationToken);
+        
+        // Load plan with full strategy graph for context and event
+        var savedPlan = await _planRepository.GetByIdAsync(planEntity.Id, cancellationToken);
+        
+        // Store in context for subsequent steps
+        context.SavedPlan = savedPlan;
+
+        // Map entity to model for event publishing
+        var planModel = _mapper.Map<OptimizationPlanModel>(savedPlan);
+        
+        // Publish plan ready event
+        var planReadyEvent = new OptimizationPlanReadyEvent
+        {
+            CorrelationId = context.Request.RequestId,
+            Plan = planModel
+        };
+
+        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanReady, planReadyEvent);
 
         await Task.CompletedTask;
     }

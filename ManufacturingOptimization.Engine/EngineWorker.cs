@@ -1,42 +1,45 @@
-using Common.Models;
+using AutoMapper;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
+using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
-using ManufacturingOptimization.Engine.Services.Pipeline;
 
 namespace ManufacturingOptimization.Engine;
 
 public class EngineWorker : BackgroundService
 {
     private readonly ILogger<EngineWorker> _logger;
+    private readonly IMapper _mapper;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
     private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagePublisher _messagePublisher;
-    private readonly IProviderRepository _providerRepository;
-    private readonly IRecommendationEngine _recommendationEngine;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IWorkflowPipelineFactory _pipelineFactory;
+    private readonly ISystemReadinessService _readinessService;
 
     public EngineWorker(
         ILogger<EngineWorker> logger,
+        IMapper mapper,
         IMessagingInfrastructure messagingInfrastructure,
         IMessageSubscriber messageSubscriber,
         IMessagePublisher messagePublisher,
-        IProviderRepository providerRepository,
-        IRecommendationEngine recommendationEngine,
-        IWorkflowPipelineFactory pipelineFactory)
+        IServiceProvider serviceProvider,
+        IWorkflowPipelineFactory pipelineFactory,
+        ISystemReadinessService readinessService)
     {
         _logger = logger;
+        _mapper = mapper;
         _messagingInfrastructure = messagingInfrastructure;
         _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
-        _providerRepository = providerRepository;
-        _recommendationEngine = recommendationEngine;
+        _serviceProvider = serviceProvider;
         _pipelineFactory = pipelineFactory;
+        _readinessService = readinessService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -49,12 +52,7 @@ public class EngineWorker : BackgroundService
         // Engine is ready
         var evt = new ServiceReadyEvent
         {
-            ServiceName = "Engine",
-            SubscribedQueues = new List<string> {
-                "engine.provider.events",
-                "engine.optimization.requests",
-                "engine.provider.validation"
-            }
+            ServiceName = "Engine"
         };
 
         _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, evt);
@@ -64,18 +62,11 @@ public class EngineWorker : BackgroundService
 
     private void SetupRabbitMq()
     {
-        // System coordination
-        _messagingInfrastructure.DeclareExchange(Exchanges.System);
-        _messagingInfrastructure.DeclareQueue("engine.system.ready");
-        _messagingInfrastructure.BindQueue("engine.system.ready", Exchanges.System, SystemRoutingKeys.SystemReady);
-        _messagingInfrastructure.PurgeQueue("engine.system.ready");
-        _messageSubscriber.Subscribe<SystemReadyEvent>("engine.system.ready", HandleSystemReady);
-        
         // Provider events
         _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
         _messagingInfrastructure.DeclareQueue("engine.provider.events");
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
-        _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllReady);
+        _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllRegistered);
         _messagingInfrastructure.PurgeQueue("engine.provider.events");
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("engine.provider.events", HandleProviderRegistered);
 
@@ -86,36 +77,25 @@ public class EngineWorker : BackgroundService
         _messageSubscriber.Subscribe<RequestOptimizationPlanCommand>("engine.optimization.requests", async evt => await HandleOptimizationRequestAsync(evt));
     }
     
-    private void HandleSystemReady(SystemReadyEvent evt)
+    private async void HandleProviderRegistered(ProviderRegisteredEvent evt)
     {
-        
-    }
+        using var scope = _serviceProvider.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IProviderRepository>();
 
-    private void HandleProviderRegistered(ProviderRegisteredEvent evt)
-    {
-        var provider = new Provider
-        {
-            Id = evt.ProviderId,
-            Type = evt.ProviderType,
-            Name = evt.ProviderName,
-            Enabled = true,
-            ProcessCapabilities = evt.ProcessCapabilities,
-            TechnicalCapabilities = evt.TechnicalCapabilities
-        };
-        
-        _providerRepository.Create(provider);
+        var providerEntity = _mapper.Map<ProviderEntity>(evt.Provider);
+        await repository.AddAsync(providerEntity);
+        await repository.SaveChangesAsync();
     }
 
     private async Task HandleOptimizationRequestAsync(RequestOptimizationPlanCommand command)
     {
+        // Wait for system to be ready before processing
+        await _readinessService.WaitForSystemReadyAsync();
+        await _readinessService.WaitForProvidersReadyAsync();
+
         var pipeline = _pipelineFactory.CreateWorkflowPipeline();
         var context = new WorkflowContext { Request = command.Request };
 
         await pipeline.ExecuteAsync(context);
-
-        if (!context.IsSuccess)
-        {
-            _logger.LogWarning("Optimization workflow failed for request {RequestId} with errors: {Errors}", context.Request.RequestId, string.Join("; ", context.Errors));
-        }
     }
 }

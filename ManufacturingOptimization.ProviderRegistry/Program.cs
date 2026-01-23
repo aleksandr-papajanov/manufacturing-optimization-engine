@@ -1,11 +1,29 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Mappings;
+using ManufacturingOptimization.Common.Models.Data.Repositories;
 using ManufacturingOptimization.ProviderRegistry;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
+using ManufacturingOptimization.ProviderRegistry.Data;
 using ManufacturingOptimization.ProviderRegistry.Services;
-using Microsoft.Extensions.Options;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Configure SQLite database
+builder.Services.AddDatabase();
+
+// Register repositories
+builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
+
+// Database lifecycle management
+builder.Services.AddHostedService<DatabaseManagementService>();
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(c =>
+{
+    c.AddProfile<ProviderMappingProfile>();
+});
 
 // Configure OrchestrationSettings
 builder.Services.Configure<OrchestrationSettings>(builder.Configuration.GetSection(OrchestrationSettings.SectionName));
@@ -21,8 +39,14 @@ builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<Rab
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 
+// System readiness coordination
+builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "ProviderRegistry");
+builder.Services.AddSingleton<ISystemReadinessService, SystemReadinessService>();
+builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredService<ISystemReadinessService>());
+
 // Provider orchestration services
-builder.Services.AddSingleton<IProviderRepository, JsonProviderRepository>();
+// Note: IProviderRepository is now scoped (EF), but orchestrators need singleton access
+// We'll inject IServiceProvider and create scopes as needed
 builder.Services.AddSingleton<IProviderValidationService, ProviderValidationService>();
 
 // Provider validation coordination (US-11)

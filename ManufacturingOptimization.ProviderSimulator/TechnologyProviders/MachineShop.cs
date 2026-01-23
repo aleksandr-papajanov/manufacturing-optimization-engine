@@ -1,7 +1,7 @@
-using Common.Models;
-using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagment;
+using ManufacturingOptimization.Common.Models;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
 using ManufacturingOptimization.ProviderSimulator.Settings;
+using ManufacturingOptimization.ProviderSimulator.TechnologyProviders;
 using Microsoft.Extensions.Options;
 
 namespace TechnologyProvider.Simulator.TechnologyProviders;
@@ -10,15 +10,21 @@ public class MachineShop : BaseProviderSimulator
 {
     public MachineShop(
         ILogger<MachineShop> logger,
-        IOptions<MachineShopSettings> settings,
-        IOptions<ProcessStandardsSettings> processStandards)
-        : base(logger, processStandards.Value.StandardDurationHours)
+        IOptions<ProviderSettings> settings,
+        IOptions<ProcessStandardsSettings> processStandards,
+        IProposalRepository proposalRepository)
+        : base(logger, processStandards.Value.StandardDurationHours, proposalRepository)
     {
         var config = settings.Value;
         
-        ProviderId = Guid.Parse(config.ProviderId);
-        ProviderName = config.ProviderName;
-        ProcessCapabilities = config.ProcessCapabilities;
-        TechnicalCapabilities = config.TechnicalCapabilities;
+        Provider = new Provider
+        {
+            Id = Guid.Parse(config.ProviderId),
+            Type = "PrecisionMachineShop",
+            Name = config.ProviderName,
+            Enabled = true,
+            ProcessCapabilities = config.ProcessCapabilities,
+            TechnicalCapabilities = config.TechnicalCapabilities
+        };
     }
 }
