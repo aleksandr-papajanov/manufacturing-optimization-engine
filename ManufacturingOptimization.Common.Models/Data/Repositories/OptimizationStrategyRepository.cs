@@ -20,7 +20,7 @@ public class OptimizationStrategyRepository : Repository<OptimizationStrategyEnt
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<OptimizationStrategyEntity>?> GetForRequesttAsync(Guid requestId)
+    public async Task<List<OptimizationStrategyEntity>?> GetForRequestAsync(Guid requestId)
     {
         return await _dbSet
             .Include(s => s.Steps)

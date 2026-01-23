@@ -36,7 +36,7 @@ public class OptimizationPlanReadyHandler : IMessageHandler<OptimizationPlanRead
         await _planRepository.SaveChangesAsync();
         
         // Get strategies for this request (not yet assigned to a plan)
-        var unusedStrategies = await _strategyRepository.GetForRequesttAsync(evt.Plan.RequestId);
+        var unusedStrategies = await _strategyRepository.GetForRequestAsync(evt.Plan.RequestId);
         
         if (unusedStrategies != null)
         {

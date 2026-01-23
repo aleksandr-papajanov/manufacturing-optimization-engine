@@ -13,6 +13,7 @@ namespace ManufacturingOptimization.Gateway.Data
                 .ForMember(dest => dest.MotorSpecs, opt => opt.MapFrom(src => src.MotorSpecs))
                 .ForMember(dest => dest.Constraints, opt => opt.MapFrom(src => src.Constraints));
             CreateMap<OptimizationRequestDto, OptimizationRequestModel>()
+                .ForMember(dest => dest.RequestId, opt => Guid.NewGuid())
                 .ForMember(dest => dest.MotorSpecs, opt => opt.MapFrom(src => src.MotorSpecs))
                 .ForMember(dest => dest.Constraints, opt => opt.MapFrom(src => src.Constraints));
 

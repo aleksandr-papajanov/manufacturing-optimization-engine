@@ -1,5 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
-using System.Text.Json;
+using ManufacturingOptimization.Gateway.Exceptions;
 
 namespace ManufacturingOptimization.Gateway.Middleware
 {
@@ -19,23 +19,8 @@ namespace ManufacturingOptimization.Gateway.Middleware
             // Check if system is ready
             if (!readinessService.IsSystemReady || !readinessService.IsProvidersReady)
             {
-                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-                context.Response.ContentType = "application/json";
-
-                var errorResponse = new
-                {
-                    Status = "Service Unavailable",
-                    Message = "System is still initializing. Please try again in a few moments.",
-                    Timestamp = DateTime.UtcNow
-                };
-
-                await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                }));
-                return;
+                throw new ServiceNotReadyException();
             }
-
 
             await _next(context);
         }

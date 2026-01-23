@@ -5,6 +5,7 @@ using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Mappings;
 using ManufacturingOptimization.Common.Models.Data.Repositories;
+using ManufacturingOptimization.Gateway.Abstractions;
 using ManufacturingOptimization.Gateway.Data;
 using ManufacturingOptimization.Gateway.Handlers;
 using ManufacturingOptimization.Gateway.Middleware;
@@ -62,6 +63,8 @@ builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredSe
 
 // Add Background Worker
 builder.Services.AddHostedService<GatewayWorker>();
+builder.Services.AddScoped<IOptimizationService, OptimizationService>();
+builder.Services.AddScoped<IProviderService, ProviderService>();
 
 var app = builder.Build();
 
@@ -69,7 +72,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Add system readiness middleware (checks both system and provider readiness)
+// Add middleware
+app.UseExceptionHandling();
 app.UseSystemReadiness();
 
 app.UseAuthorization();

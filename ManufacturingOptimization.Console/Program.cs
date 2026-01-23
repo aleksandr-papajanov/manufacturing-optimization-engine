@@ -1,36 +1,12 @@
+using ManufacturingOptimization.Common.Models.DTOs;
+using ManufacturingOptimization.Common.Models.Enums;
 using Spectre.Console;
 using System.Net.Http.Json;
 using System.Text.Json;
-using ManufacturingOptimization.Common.Models.DTOs;
-using ManufacturingOptimization.Common.Models.Contracts;
-using ManufacturingOptimization.Common.Models.Enums;
-using AutoMapper;
 
 // Configuration
 var apiUrl = Environment.GetEnvironmentVariable("GATEWAY_API_URL") ?? "http://localhost:5000";
 var httpClient = new HttpClient { BaseAddress = new Uri(apiUrl) };
-
-var mapperConfig = new MapperConfiguration(cfg =>
-{
-    cfg.CreateMap<OptimizationRequestModel, OptimizationRequestDto>()
-        .ForMember(dest => dest.MotorSpecs, opt => opt.MapFrom(src => new MotorSpecificationsDto
-        {
-            PowerKW = src.MotorSpecs.PowerKW,
-            AxisHeightMM = src.MotorSpecs.AxisHeightMM,
-            CurrentEfficiency = src.MotorSpecs.CurrentEfficiency.ToString(),
-            TargetEfficiency = src.MotorSpecs.TargetEfficiency.ToString(),
-            MalfunctionDescription = src.MotorSpecs.MalfunctionDescription
-        }))
-        .ForMember(dest => dest.Constraints, opt => opt.MapFrom(src => new OptimizationRequestConstraintsDto
-        {
-            MaxBudget = src.Constraints.MaxBudget,
-            RequiredDeadline = src.Constraints.RequiredDeadline
-        }))
-        .ForMember(dest => dest.RequestId, opt => opt.MapFrom(src => src.RequestId))
-        .ForMember(dest => dest.CustomerId, opt => opt.MapFrom(src => src.CustomerId))
-        .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
-});
-var mapper = mapperConfig.CreateMapper();
 
 // Welcome screen
 AnsiConsole.Clear();
@@ -117,26 +93,23 @@ async Task SubmitOptimizationRequest()
     var random = new Random();
     var efficiencyClasses = new[] { MotorEfficiencyClass.IE1, MotorEfficiencyClass.IE2, MotorEfficiencyClass.IE3, MotorEfficiencyClass.IE4 };
 
-    var motorRequest = new OptimizationRequestModel
+    var motorRequestDto = new OptimizationRequestDto
     {
-        RequestId = Guid.NewGuid(),
         CustomerId = Guid.NewGuid().ToString(),
-        MotorSpecs = new MotorSpecificationsModel
+        MotorSpecs = new MotorSpecificationsDto
         {
             PowerKW = random.Next(50, 200),
             AxisHeightMM = random.Next(63, 315),
-            CurrentEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
-            TargetEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)],
+            CurrentEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)].ToString(),
+            TargetEfficiency = efficiencyClasses[random.Next(efficiencyClasses.Length)].ToString(),
             MalfunctionDescription = random.Next(0, 2) == 0 ? "Normal operation" : "Reduced efficiency, overheating"
         },
-        Constraints = new OptimizationRequestConstraintsModel
+        Constraints = new OptimizationRequestConstraintsDto
         {
             MaxBudget = random.Next(0, 3) == 0 ? null : random.Next(5000, 20000),
             RequiredDeadline = random.Next(0, 3) == 0 ? null : DateTime.Now.AddDays(random.Next(30, 90))
         }
     };
-
-    var motorRequestDto = mapper.Map<OptimizationRequestDto>(motorRequest);
 
     // Display generated request
     var table = new Table()
@@ -145,15 +118,14 @@ async Task SubmitOptimizationRequest()
         .AddColumn("[yellow]Property[/]")
         .AddColumn("[yellow]Value[/]");
 
-    table.AddRow("Request ID", motorRequest.RequestId.ToString());
-    table.AddRow("Customer ID", motorRequest.CustomerId);
-    table.AddRow("Power", $"{motorRequest.MotorSpecs.PowerKW} kW");
-    table.AddRow("Axis Height", $"{motorRequest.MotorSpecs.AxisHeightMM} mm");
-    table.AddRow("Current Efficiency", motorRequest.MotorSpecs.CurrentEfficiency.ToString());
-    table.AddRow("Target Efficiency", motorRequest.MotorSpecs.TargetEfficiency.ToString());
-    table.AddRow("Malfunction", motorRequest.MotorSpecs.MalfunctionDescription ?? "-");
-    table.AddRow("Max Budget", motorRequest.Constraints.MaxBudget.HasValue ? $"€{motorRequest.Constraints.MaxBudget.Value:N2}" : "No limit");
-    table.AddRow("Required Deadline", motorRequest.Constraints.RequiredDeadline?.ToString("yyyy-MM-dd") ?? "No deadline");
+    table.AddRow("Customer ID", motorRequestDto.CustomerId);
+    table.AddRow("Power", $"{motorRequestDto.MotorSpecs.PowerKW} kW");
+    table.AddRow("Axis Height", $"{motorRequestDto.MotorSpecs.AxisHeightMM} mm");
+    table.AddRow("Current Efficiency", motorRequestDto.MotorSpecs.CurrentEfficiency.ToString());
+    table.AddRow("Target Efficiency", motorRequestDto.MotorSpecs.TargetEfficiency.ToString());
+    table.AddRow("Malfunction", motorRequestDto.MotorSpecs.MalfunctionDescription ?? "-");
+    table.AddRow("Max Budget", motorRequestDto.Constraints.MaxBudget.HasValue ? $"€{motorRequestDto.Constraints.MaxBudget.Value:N2}" : "No limit");
+    table.AddRow("Required Deadline", motorRequestDto.Constraints.RequiredDeadline?.ToString("yyyy-MM-dd") ?? "No deadline");
 
     AnsiConsole.Write(table);
     AnsiConsole.WriteLine();
@@ -167,8 +139,8 @@ async Task SubmitOptimizationRequest()
     AnsiConsole.WriteLine();
 
     // Submit request to Gateway
-    Guid requestId = motorRequest.RequestId;
-    List<OptimizationStrategyModel>? strategies = null;
+    Guid requestId = Guid.Empty;
+    List<OptimizationStrategyDto>? strategies = null;
 
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -180,7 +152,7 @@ async Task SubmitOptimizationRequest()
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    requestId = await response.Content.ReadFromJsonAsync<Guid>();
                     
                     ctx.Status("[green]✓ Request submitted successfully![/]");
                     AnsiConsole.MarkupLine($"[dim]Request ID: {requestId}[/]");
@@ -200,19 +172,19 @@ async Task SubmitOptimizationRequest()
                         try
                         {
                             var statusResponse = await httpClient.GetAsync($"/api/optimization/strategies/{requestId}");
-                            
                             if (statusResponse.IsSuccessStatusCode)
                             {
-                                var statusResult = await statusResponse.Content.ReadFromJsonAsync<StrategiesResponseDto>();
-                                
-                                if (statusResult?.IsReady == true && statusResult.Strategies?.Any() == true)
+                                strategies = await statusResponse.Content.ReadFromJsonAsync<List<OptimizationStrategyDto>>();
+                                if (strategies != null && strategies.Any())
                                 {
-                                    strategies = statusResult.Strategies;
                                     ctx.Status("[green]✓ Strategies ready![/]");
                                     break;
                                 }
-                                
-                                ctx.Status($"[yellow]Generating strategies... ({(int)(DateTime.UtcNow - startTime).TotalSeconds}s)[/]");
+                            }
+                            if (statusResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                            {
+                                // Strategies not ready yet, continue polling
+                                continue;
                             }
                         }
                         catch
@@ -298,15 +270,10 @@ async Task SubmitOptimizationRequest()
         .Spinner(Spinner.Known.Dots)
         .StartAsync("[yellow]Submitting strategy selection...[/]", async ctx =>
         {
+
             try
             {
-                var selectionDto = new SelectOptimizationStrategyRequestDto
-                {
-                    RequestId = requestId,
-                    SelectedStrategyId = selectedStrategy.Id
-                };
-
-                var response = await httpClient.PostAsJsonAsync("/api/optimization/select", selectionDto);
+                var response = await httpClient.PostAsync($"/api/optimization/strategies/{requestId}/select/{selectedStrategy.Id}", null);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -326,12 +293,16 @@ async Task SubmitOptimizationRequest()
                         try
                         {
                             var planResponse = await httpClient.GetAsync($"/api/optimization/plan/{requestId}");
-                            
                             if (planResponse.IsSuccessStatusCode)
                             {
                                 plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlanDto>();
                                 ctx.Status("[green]✓ Optimization plan retrieved![/]");
                                 break;
+                            }
+                            if (planResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                            {
+                                // Plan not ready yet, continue polling
+                                continue;
                             }
                         }
                         catch
@@ -497,9 +468,9 @@ async Task GetProviders()
                 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<ProvidersResponseDto>();
+                    var result = await response.Content.ReadFromJsonAsync<List<ProviderDto>>();
                     
-                    if (result?.Providers?.Any() == true)
+                    if (result != null)
                     {
                         var table = new Table()
                             .Border(TableBorder.Rounded)
@@ -509,7 +480,7 @@ async Task GetProviders()
                             .AddColumn("[yellow]Name[/]")
                             .AddColumn("[yellow]Status[/]");
                         
-                        foreach (var provider in result.Providers)
+                        foreach (var provider in result)
                         {
                             table.AddRow(
                                 provider.Id.ToString(),
@@ -520,7 +491,7 @@ async Task GetProviders()
                         }
                         
                         AnsiConsole.Write(table);
-                        AnsiConsole.MarkupLine($"\n[green]Total Providers:[/] {result.TotalProviders}");
+                        AnsiConsole.MarkupLine($"\n[green]Total Providers:[/] {result.Count}");
                     }
                     else
                     {
