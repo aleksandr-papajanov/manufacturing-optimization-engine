@@ -1,12 +1,14 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Mappings;
 using ManufacturingOptimization.Common.Models.Data.Repositories;
 using ManufacturingOptimization.Gateway.Data;
+using ManufacturingOptimization.Gateway.Handlers;
 using ManufacturingOptimization.Gateway.Middleware;
 using ManufacturingOptimization.Gateway.Services;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +48,12 @@ builder.Services.AddSingleton<RabbitMqService>();
 builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessagePublisher>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<RabbitMqService>());
+
+// Message dispatching
+builder.Services.AddSingleton<IMessageDispatcher, MessageDispatcher>();
+builder.Services.AddScoped<IMessageHandler<ProviderRegisteredEvent>, ProviderRegisteredHandler>();
+builder.Services.AddScoped<IMessageHandler<OptimizationPlanReadyEvent>, OptimizationPlanReadyHandler>();
+builder.Services.AddScoped<IMessageHandler<MultipleStrategiesReadyEvent>, StrategiesReadyHandler>();
 
 // System readiness coordination
 builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Gateway");

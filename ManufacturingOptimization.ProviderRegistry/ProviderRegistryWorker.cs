@@ -1,7 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
-using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
 
 namespace ManufacturingOptimization.ProviderRegistry;
@@ -9,9 +8,7 @@ namespace ManufacturingOptimization.ProviderRegistry;
 public class ProviderRegistryWorker : BackgroundService
 {
     private readonly ILogger<ProviderRegistryWorker> _logger;
-    private readonly IProviderRepository _providerRepository;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
-    private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagePublisher _messagePublisher;
     private readonly IProviderOrchestrator _orchestrator;
     private readonly ISystemReadinessService _readinessService;
@@ -19,20 +16,15 @@ public class ProviderRegistryWorker : BackgroundService
     public ProviderRegistryWorker(
         ILogger<ProviderRegistryWorker> logger,
         IMessagingInfrastructure messagingInfrastructure,
-        IMessageSubscriber messageSubscriber,
         IMessagePublisher messagePublisher,
-        IProviderRepository providerRepository,
         IProviderOrchestrator orchestrator,
         ISystemReadinessService readinessService)
     {
         _logger = logger;
-        _providerRepository = providerRepository;
         _messagingInfrastructure = messagingInfrastructure;
-        _messageSubscriber = messageSubscriber;
         _messagePublisher = messagePublisher;
         _orchestrator = orchestrator;
         _readinessService = readinessService;
-
     }
 
     // Ovwerride StartAsync to perform cleanup before starting
