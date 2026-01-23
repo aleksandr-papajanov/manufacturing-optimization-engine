@@ -1,5 +1,6 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Mappings;
 using ManufacturingOptimization.Common.Models.Data.Repositories;
@@ -45,12 +46,7 @@ builder.Services.AddSingleton<ISystemReadinessService, SystemReadinessService>()
 builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredService<ISystemReadinessService>());
 
 // Provider orchestration services
-// Note: IProviderRepository is now scoped (EF), but orchestrators need singleton access
-// We'll inject IServiceProvider and create scopes as needed
 builder.Services.AddSingleton<IProviderValidationService, ProviderValidationService>();
-
-// Provider validation coordination (US-11)
-
 
 // Register appropriate orchestrator based on mode
 var orchestrationMode = builder.Configuration["Orchestration:Mode"] ?? "Production";
@@ -67,6 +63,9 @@ else
 
 // Worker
 builder.Services.AddHostedService<ProviderRegistryWorker>();
+
+// Message dispatching
+builder.Services.AddSingleton<IMessageDispatcher, MessageDispatcher>();
 
 var host = builder.Build();
 host.Run();

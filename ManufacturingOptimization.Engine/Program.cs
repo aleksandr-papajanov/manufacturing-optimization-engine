@@ -1,11 +1,14 @@
 using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
 using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Mappings;
 using ManufacturingOptimization.Common.Models.Data.Repositories;
 using ManufacturingOptimization.Engine;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Data;
+using ManufacturingOptimization.Engine.Handlers;
 using ManufacturingOptimization.Engine.Services;
 using ManufacturingOptimization.Engine.Services.Pipeline;
 using ManufacturingOptimization.Engine.Settings;
@@ -43,6 +46,11 @@ builder.Services.AddSingleton<IMessagingInfrastructure>(sp => sp.GetRequiredServ
 builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Engine");
 builder.Services.AddSingleton<ISystemReadinessService, StartupCoordinator>();
 builder.Services.AddHostedService(sp => (StartupCoordinator)sp.GetRequiredService<ISystemReadinessService>());
+
+// Message dispatching
+builder.Services.AddSingleton<IMessageDispatcher, MessageDispatcher>();
+builder.Services.AddScoped<IMessageHandler<ProviderRegisteredEvent>, ProviderRegisteredHandler>();
+builder.Services.AddScoped<IMessageHandler<RequestOptimizationPlanCommand>, OptimizationRequestHandler>();
 
 // Pipeline factory
 builder.Services.AddSingleton<IWorkflowPipelineFactory, PipelineFactory>();
