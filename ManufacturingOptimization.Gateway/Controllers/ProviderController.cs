@@ -1,7 +1,5 @@
-﻿using AutoMapper;
-using ManufacturingOptimization.Common.Models.Contracts;
-using ManufacturingOptimization.Common.Models.Data.Abstractions;
-using ManufacturingOptimization.Common.Models.DTOs;
+﻿using ManufacturingOptimization.Common.Models.DTOs;
+using ManufacturingOptimization.Gateway.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManufacturingOptimization.Gateway.Controllers;
@@ -10,35 +8,22 @@ namespace ManufacturingOptimization.Gateway.Controllers;
 [Route("api/providers")]
 public class ProviderController : ControllerBase
 {
-    private readonly IProviderRepository _providerRegistry;
-    private readonly ILogger<ProviderController> _logger;
-    private readonly IMapper _mapper;
+    private readonly IProviderService _providerService;
 
-    public ProviderController(
-        IProviderRepository providerRegistry,
-        ILogger<ProviderController> logger,
-        IMapper mapper)
+    public ProviderController(IProviderService providerService)
     {
-        _providerRegistry = providerRegistry;
-        _logger = logger;
-        _mapper = mapper;
+        _providerService = providerService;
     }
 
     /// <summary>
     /// Get list of all registered providers
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(ProvidersResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<ProviderDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> GetProviders()
     {
-        var providers = await _providerRegistry.GetAllAsync();
-        var providerList = providers.ToList();
-        var providerModels = _mapper.Map<List<ProviderModel>>(providerList);
-
-        return Ok(new ProvidersResponseDto
-        {
-            TotalProviders = providerList.Count,
-            Providers = providerModels
-        });
+        var response = await _providerService.GetProvidersAsync();
+        return Ok(response);
     }
 }

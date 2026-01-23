@@ -8,6 +8,6 @@ namespace ManufacturingOptimization.Common.Models.Data.Abstractions;
 public interface IOptimizationStrategyRepository : IRepository<OptimizationStrategyEntity>
 {
     Task AddForRequestAsync(Guid requestId, List<OptimizationStrategyEntity> strategies);
-    Task<List<OptimizationStrategyEntity>?> GetForRequesttAsync(Guid requestId);
+    Task<List<OptimizationStrategyEntity>?> GetForRequestAsync(Guid requestId);
     Task RemoveForRequestAsync(Guid requestId);
 }
