@@ -43,7 +43,7 @@ public class StartupCoordinator : SystemReadinessService
         base.SetupRabbitMq();
         
         // Additionally, listen for service ready events to coordinate startup
-        _messagingInfrastructure.DeclareExchange(Exchanges.System);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.System);
         _messagingInfrastructure.DeclareQueue("coordinator.service.ready");
         _messagingInfrastructure.BindQueue("coordinator.service.ready", Exchanges.System, SystemRoutingKeys.ServiceReady);
         _messagingInfrastructure.PurgeQueue("coordinator.service.ready");

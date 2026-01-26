@@ -65,7 +65,7 @@ public class ProviderRegistryWorker : BackgroundService
 
     private void SetupRabbitMq()
     {
-        _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
-        _messagingInfrastructure.DeclareExchange(Exchanges.System);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.Provider);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.System);
     }
 }

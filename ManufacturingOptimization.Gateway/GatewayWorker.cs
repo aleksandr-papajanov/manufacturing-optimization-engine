@@ -49,13 +49,13 @@ public class GatewayWorker : BackgroundService
     private void SetupRabbitMq()
     {
         // Listen to provider registrations
-        _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.Provider);
         _messagingInfrastructure.DeclareQueue("gateway.provider.events");
         _messagingInfrastructure.BindQueue("gateway.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.PurgeQueue("gateway.provider.events");
 
         // Listen to optimization responses
-        _messagingInfrastructure.DeclareExchange(Exchanges.Optimization);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.Optimization);
         _messagingInfrastructure.DeclareQueue("gateway.optimization.responses");
         _messagingInfrastructure.BindQueue("gateway.optimization.responses", Exchanges.Optimization, OptimizationRoutingKeys.PlanReady);
         _messagingInfrastructure.PurgeQueue("gateway.optimization.responses");
