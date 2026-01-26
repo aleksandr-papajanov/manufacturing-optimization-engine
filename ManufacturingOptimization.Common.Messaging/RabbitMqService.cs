@@ -52,7 +52,22 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                 exchange: Exchanges.Optimization,
                 type: ExchangeType.Topic,
                 durable: true);
-            
+
+            _channel.ExchangeDeclare(
+                exchange: Exchanges.System,
+                type: ExchangeType.Topic,
+                durable: true);
+
+            _channel.ExchangeDeclare(
+                exchange: Exchanges.Provider,
+                type: ExchangeType.Topic,
+                durable: true);
+
+            _channel.ExchangeDeclare(
+                exchange: Exchanges.Process,
+                type: ExchangeType.Topic,
+                durable: true);
+
             // Setup reply queue for RPC pattern
             _replyQueueName = _channel.QueueDeclare().QueueName;
             SetupReplyQueueConsumer();

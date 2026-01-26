@@ -38,7 +38,7 @@ public class ProviderSimulatorWorker : BackgroundService
     private void SetupRabbitMq()
     {
         // Listen to proposals from Engine
-        _messagingInfrastructure.DeclareExchange(Exchanges.Process);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.Process);
         
         // Listen to process proposals for this specific provider
         var proposalQueueName = $"process.proposal.{_providerLogic.Provider.Id}";
@@ -62,6 +62,6 @@ public class ProviderSimulatorWorker : BackgroundService
         _messageSubscriber.Subscribe<RequestProvidersRegistrationCommand>(providerCoordinationQueue, e => _dispatcher.DispatchAsync(e));
 
         // Setup for provider registration
-        _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.Provider);
     }
 }
