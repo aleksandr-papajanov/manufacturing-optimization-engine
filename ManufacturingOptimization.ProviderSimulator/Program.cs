@@ -2,14 +2,35 @@ using ManufacturingOptimization.Common.Messaging;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
+using ManufacturingOptimization.ProviderRegistry.Data;
 using ManufacturingOptimization.ProviderSimulator;
 using ManufacturingOptimization.ProviderSimulator.Abstractions;
+using ManufacturingOptimization.ProviderSimulator.Data.Mappings;
+using ManufacturingOptimization.ProviderSimulator.Data.Repositories;
 using ManufacturingOptimization.ProviderSimulator.Handlers;
 using ManufacturingOptimization.ProviderSimulator.Services;
 using ManufacturingOptimization.ProviderSimulator.Settings;
 using TechnologyProvider.Simulator.TechnologyProviders;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Configure SQLite database
+builder.Services.AddDatabase();
+
+// Register repositories
+builder.Services.AddScoped<IPlannedProcessRepository, PlanedProcessRepository>();
+builder.Services.AddScoped<IProposalRepository, ProposalRepository>();
+
+// Database lifecycle management
+builder.Services.AddHostedService<DatabaseManagementService>();
+
+// Database lifecycle management
+builder.Services.AddAutoMapper(c =>
+{
+    c.AddProfile<MotorSpecificationsMappingProfile>();
+    c.AddProfile<ProposalMappingProfile>();
+    c.AddProfile<ProcessEstimateMappingProfile>();
+});
 
 // Configure RabbitMQ
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
@@ -27,9 +48,6 @@ builder.Services.AddSingleton<IMessageDispatcher, MessageDispatcher>();
 builder.Services.AddScoped<IMessageHandler<ProposeProcessToProviderCommand>, ProcessProposalHandler>();
 builder.Services.AddScoped<IMessageHandler<ConfirmProcessProposalCommand>, ProcessConfirmationHandler>();
 builder.Services.AddScoped<IMessageHandler<RequestProvidersRegistrationCommand>, ProviderRegistrationRequestHandler>();
-
-// Register repository
-builder.Services.AddSingleton<IProposalRepository, InMemoryProposalRepository>();
 
 // Determine which technology provider to use based on environment variable
 var providerType = Environment.GetEnvironmentVariable("PROVIDER_TYPE");

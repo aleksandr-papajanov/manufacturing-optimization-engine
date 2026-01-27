@@ -39,23 +39,20 @@ public class ConfirmationStep : IWorkflowStep
         {
             var confirmation = new ConfirmProcessProposalCommand
             {
-                RequestId = context.Request.RequestId,
-                ProviderId = step.SelectedProviderId,
-                Process = step.Process,
-                PlanId = context.PlanId.Value
+                ProposalId = step.Estimate.ProposalId
             };
 
-            // Request-reply confirmation to provider
-            var response = await _messagePublisher.RequestReplyAsync<ProcessProposalConfirmedEvent>(
+            var response = await _messagePublisher.RequestReplyAsync<ProcessProposalReviewedEvent>(
                 Exchanges.Process,
                 $"process.confirm.{step.SelectedProviderId}",
                 confirmation,
                 TimeSpan.FromSeconds(10));
 
-            if (response == null || response.ProviderId != step.SelectedProviderId)
-            {
+            if (response == null)
                 throw new InvalidOperationException($"Provider {step.SelectedProviderId} failed to confirm {step.Process}: No response received");
-            }
+
+            if (!response.IsAccepted)
+                throw new InvalidOperationException($"Provider {step.SelectedProviderId} declined confirmation for {step.Process}: {response.DeclineReason}");
         });
 
         await Task.WhenAll(confirmationTasks);

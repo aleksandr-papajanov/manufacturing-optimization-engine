@@ -8,6 +8,7 @@ $Projects = @(
     @{ Name = "ManufacturingOptimization.Gateway"; Csproj = "ManufacturingOptimization.Gateway.csproj" }
     @{ Name = "ManufacturingOptimization.Engine"; Csproj = "ManufacturingOptimization.Engine.csproj" }
     @{ Name = "ManufacturingOptimization.ProviderRegistry"; Csproj = "ManufacturingOptimization.ProviderRegistry.csproj" }
+    @{ Name = "ManufacturingOptimization.ProviderSimulator"; Csproj = "ManufacturingOptimization.ProviderSimulator.csproj" }
 )
 
 # Helper function to remove all .db files in the specified project's bin folder
@@ -43,16 +44,22 @@ function Reset-Migrations {
     Push-Location $ProjectFolder
     
     try {
+        # Remove existing database
+        dotnet ef database drop --project $CsprojName --startup-project $CsprojName --force 2>$null
+        
         # Remove existing migrations
         if (Test-Path .\Migrations) { 
             Remove-Item -Recurse -Force .\Migrations 
         }
         
+        # Build project
+        dotnet build $CsprojName
+        
         # Create new Initial migration
-        dotnet ef migrations add Initial --project $CsprojName --startup-project $CsprojName --no-build
+        dotnet ef migrations add Initial --project $CsprojName --startup-project $CsprojName
         
         # Apply migration to database
-        dotnet ef database update --project $CsprojName --startup-project $CsprojName --no-build
+        dotnet ef database update --project $CsprojName --startup-project $CsprojName
         
         Write-Host "$ProjectFolder completed successfully"
     }

@@ -11,9 +11,8 @@ public class DesignFirm : BaseProviderSimulator
     public DesignFirm(
         ILogger<DesignFirm> logger,
         IOptions<ProviderSettings> settings,
-        IOptions<ProcessStandardsSettings> processStandards,
-        IProposalRepository proposalRepository)
-        : base(logger, processStandards.Value.StandardDurationHours, proposalRepository)
+        IOptions<ProcessStandardsSettings> processStandards)
+        : base(logger, processStandards.Value.StandardDurationHours)
     {
         var config = settings.Value;
         

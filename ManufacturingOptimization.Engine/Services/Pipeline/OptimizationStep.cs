@@ -340,7 +340,8 @@ public sealed class OptimizationStep : IWorkflowStep
                         Cost = provider.Estimate.Cost,
                         Duration = provider.Estimate.Duration,
                         QualityScore = provider.Estimate.QualityScore,
-                        EmissionsKgCO2 = provider.Estimate.EmissionsKgCO2
+                        EmissionsKgCO2 = provider.Estimate.EmissionsKgCO2,
+                        ProposalId = provider.Estimate.ProposalId
                     }
                 };
             }).ToList(),

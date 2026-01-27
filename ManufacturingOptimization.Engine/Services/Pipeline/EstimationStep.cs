@@ -2,6 +2,7 @@ using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 using ManufacturingOptimization.Common.Models;
+using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
 
@@ -43,18 +44,21 @@ public class EstimationStep : IWorkflowStep
                         Exchanges.Process,
                         $"process.proposal.{provider.ProviderId}",
                         proposal,
-                        TimeSpan.FromSeconds(10));
+                        TimeSpan.FromMinutes(10));
 
                     if (response != null)
                     {
-                        if (response.IsAccepted && response.Estimate != null)
+                        switch (response.Proposal.Status)
                         {
-                            provider.Estimate = response.Estimate;
-                        }
-                        else
-                        {
-                            // Provider declined - mark as unavailable
-                            var reason = response.DeclineReason ?? "No reason provided";
+                            case ProposalStatus.Accepted:
+                                provider.Estimate = response.Proposal.Estimate
+                                    ?? throw new InvalidOperationException("Accepted proposal must include an estimate");
+                                break;
+                            case ProposalStatus.Declined:
+                                // Nothing to do, move on
+                                break;
+                            default:
+                                throw new InvalidOperationException($"Unexpected proposal status: {response.Proposal.Status}");
                         }
                     }
                     else

@@ -1,9 +1,8 @@
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
-using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.ProviderSimulator.Abstractions;
-using ManufacturingOptimization.ProviderSimulator.Models;
 using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.Common.Models.Enums;
+using ManufacturingOptimization.ProviderSimulator.Abstractions;
+using ManufacturingOptimization.ProviderSimulator.Data.Entities;
 
 namespace ManufacturingOptimization.ProviderSimulator.TechnologyProviders;
 
@@ -15,113 +14,52 @@ public abstract class BaseProviderSimulator : IProviderSimulator
     protected readonly ILogger _logger;
     protected readonly Random _random = new();
     protected readonly Dictionary<ProcessType, double> _standardDurations;
-    private readonly IProposalRepository _proposalRepository;
 
     public ProviderModel Provider { get; protected set; } = new();
 
     protected BaseProviderSimulator(
         ILogger logger, 
-        Dictionary<ProcessType, double> standardDurations,
-        IProposalRepository proposalRepository)
+        Dictionary<ProcessType, double> standardDurations)
     {
         _logger = logger;
         _standardDurations = standardDurations;
-        _proposalRepository = proposalRepository;
     }
 
 
-    public ProcessProposalEstimatedEvent HandleProposal(ProposeProcessToProviderCommand proposal)
+    public ProposalModel HandleProposal(ProposeProcessToProviderCommand proposal)
     {
+        var proposalModel = new ProposalModel
+        {
+            RequestId = proposal.RequestId,
+            ProviderId = Provider.Id,
+            Process = proposal.Process,
+            ArrivedAt = DateTime.UtcNow,
+            MotorSpecs = proposal.MotorSpecs
+        };
+
         // Get process capability using normalized process name
         var processCapability = Provider.ProcessCapabilities.FirstOrDefault(pc => pc.Process == proposal.Process);
         
         if (processCapability == null)
         {
-            // Decline: Cannot perform this activity
-            return new ProcessProposalEstimatedEvent
-            {
-                RequestId = proposal.RequestId,
-                ProviderId = Provider.Id,
-                Process = proposal.Process,
-                IsAccepted = false,
-                DeclineReason = $"{Provider.Name} does not have capability for {proposal.Process}",
-                Notes = "Activity not in provider capabilities"
-            };
+            proposalModel.Status = ProposalStatus.Declined;
+            proposalModel.DeclineReason = $"{Provider.Name} does not have capability for {proposal.Process}";
+            proposalModel.ModifiedAt = DateTime.UtcNow;
+
+            return proposalModel;
         }
 
-        // Simple acceptance logic - could be extended with more complex business rules
-        // For now, accept all proposals where we have the capability
-        var estimate = GenerateEstimate(proposal.Process, processCapability);
+        // Accept proposal and generate estimate
+        proposalModel.Status = ProposalStatus.Accepted;
+        proposalModel.Estimate = GenerateEstimate(proposal.Process, processCapability);
+        proposalModel.ModifiedAt = DateTime.UtcNow;
 
-        // Save accepted proposal to repository
-        var acceptedProposal = new Proposal
-        {
-            ProviderId = Provider.Id,
-            RequestId = proposal.RequestId,
-            Process = proposal.Process,
-            AcceptedAt = DateTime.UtcNow,
-            Status = ProposalStatus.Accepted,
-            Estimate = estimate
-        };
-        _proposalRepository.Add(acceptedProposal);
-        
-        return new ProcessProposalEstimatedEvent
-        {
-            RequestId = proposal.RequestId,
-            ProviderId = Provider.Id,
-            Process = proposal.Process,
-            IsAccepted = true,
-            Estimate = estimate,
-            Notes = $"Proposal accepted by {Provider.Name}"
-        };
+        return proposalModel;
     }
 
-    public ProcessProposalConfirmedEvent HandleConfirmation(ConfirmProcessProposalCommand confirmation)
+    public void HandleConfirmation(ProposalEntity proposalEntity)
     {
-        var scheduledStartTime = DateTime.UtcNow.AddDays(1); // Mock: schedule for tomorrow
-        
-        // Find existing accepted proposal and update to confirmed
-        var proposals = _proposalRepository.GetByProviderId(Provider.Id);
-        var existingProposal = proposals.FirstOrDefault(p => 
-            p.RequestId == confirmation.RequestId && 
-            p.Process == confirmation.Process &&
-            p.Status == ProposalStatus.Accepted);
-
-        if (existingProposal != null)
-        {
-            // Update existing proposal to confirmed
-            _proposalRepository.ConfirmProposal(
-                existingProposal.ProposalId,
-                confirmation.PlanId,
-                DateTime.UtcNow,
-                scheduledStartTime);
-        }
-        else
-        {
-            // If not found (shouldn't happen), create new confirmed proposal
-            var newProposal = new Proposal
-            {
-                ProviderId = Provider.Id,
-                RequestId = confirmation.RequestId,
-                PlanId = confirmation.PlanId,
-                Process = confirmation.Process,
-                AcceptedAt = DateTime.UtcNow,
-                ConfirmedAt = DateTime.UtcNow,
-                ScheduledStartTime = scheduledStartTime,
-                Status = ProposalStatus.Confirmed
-            };
-            _proposalRepository.Add(newProposal);
-        }
-        
-        return new ProcessProposalConfirmedEvent
-        {
-            RequestId = confirmation.RequestId,
-            ProviderId = Provider.Id,
-            Process = confirmation.Process,
-            PlanId = confirmation.PlanId,
-            ScheduledStartTime = scheduledStartTime,
-            Notes = $"Process confirmed and scheduled by {Provider.Name}"
-        };
+        // In a real implementation, update internal state, schedule resources, etc.
     }
 
     private ProcessEstimateModel GenerateEstimate(ProcessType process, ProcessCapabilityModel capability)
