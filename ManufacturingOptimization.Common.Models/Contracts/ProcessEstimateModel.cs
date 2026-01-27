@@ -10,7 +10,9 @@ public class ProcessEstimateModel
     /// Unique identifier for this estimate.
     /// </summary>
     public Guid Id { get; set; } = Guid.NewGuid();
-    
+
+    public Guid ProposalId { get; set; }
+
     /// <summary>
     /// Estimated cost in currency.
     /// </summary>

@@ -1,6 +1,6 @@
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 using ManufacturingOptimization.Common.Models.Contracts;
-using ManufacturingOptimization.ProviderSimulator.Models;
+using ManufacturingOptimization.ProviderSimulator.Data.Entities;
 
 namespace ManufacturingOptimization.ProviderSimulator.Abstractions;
 
@@ -14,10 +14,10 @@ public interface IProviderSimulator
     /// <summary>
     /// Handle a process proposal - provider can accept with estimates or decline.
     /// </summary>
-    ProcessProposalEstimatedEvent HandleProposal(ProposeProcessToProviderCommand proposal);
-    
+    ProposalModel HandleProposal(ProposeProcessToProviderCommand proposal);
+
     /// <summary>
     /// Handle final confirmation of an accepted proposal.
     /// </summary>
-    ProcessProposalConfirmedEvent HandleConfirmation(ConfirmProcessProposalCommand confirmation);
+    void HandleConfirmation(ProposalEntity proposalEntity);
 }

@@ -4,9 +4,11 @@ using ManufacturingOptimization.Common.Models.Enums;
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 
 /// <summary>
-/// Final confirmation of accepted process proposal to provider after strategy selection.
+/// Confirmation from provider that the process has been accepted and scheduled.
 /// </summary>
-public class ConfirmProcessProposalCommand : BaseRequestReplyCommand
+public class ProcessProposalReviewedEvent : BaseEvent
 {
     public Guid ProposalId { get; set; }
+    public bool IsAccepted { get; set; }
+    public string? DeclineReason { get; set; }
 }
