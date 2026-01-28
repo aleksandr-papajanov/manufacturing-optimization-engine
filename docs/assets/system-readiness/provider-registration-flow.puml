@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+autonumber
+
+participant "ProviderRegistry\n(Orchestrator)" as REG
+participant "Engine\n(Validation Service)" as ENG
+queue "RabbitMQ" as MQ
+participant "Provider A\nSimulator" as PA
+participant "Provider B\nSimulator" as PB
+
+== After System Ready ==
+
+REG -> REG: StartAllAsync()
+
+loop For each provider in providers.json
+  REG -> MQ: Publish ValidateProviderCapabilityCommand\n(routing: provider.validation-requested)
+  MQ -> ENG: Deliver validation request
+  ENG -> ENG: Validate capabilities\n& technical requirements
+  ENG -> MQ: Publish ProviderCapabilityValidatedEvent
+  MQ -> REG: Deliver validation result
+  
+  alt Validation successful
+    REG -> REG: Docker API: Create & Start container
+  else Validation failed
+    REG -> REG: Log error, skip provider
+  end
+end
+
+== Provider Registration ==
+
+REG -> MQ: Publish RequestRegistrationAll
+MQ -> PA: Deliver RequestRegistrationAll
+MQ -> PB: Deliver RequestRegistrationAll
+
+PA -> PA: Prepare metadata,\ncapabilities, technical specs
+PA -> MQ: Publish ProviderRegisteredEvent\n(ID, Name, Type, Capabilities)
+MQ -> REG: Deliver registration
+MQ -> ENG: Deliver registration
+MQ -> ENG: Store provider data
+
+PB -> PB: Prepare metadata,\ncapabilities, technical specs
+PB -> MQ: Publish ProviderRegisteredEvent\n(ID, Name, Type, Capabilities)
+MQ -> REG: Deliver registration
+MQ -> ENG: Deliver registration
+MQ -> ENG: Store provider data
+
+== Registration Complete ==
+
+REG -> REG: All providers registered?
+REG -> MQ: Publish AllProvidersRegisteredEvent
+
+@enduml

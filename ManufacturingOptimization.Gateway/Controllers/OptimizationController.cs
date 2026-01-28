@@ -1,69 +1,70 @@
-using ManufacturingOptimization.Common.Messaging.Abstractions;
-using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.PlanManagment;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.DTOs;
 using ManufacturingOptimization.Gateway.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ManufacturingOptimization.Gateway.Controllers;
-
-[ApiController]
-[Route("api/optimization")]
-public class OptimizationController : ControllerBase
+namespace ManufacturingOptimization.Gateway.Controllers
 {
-    private readonly IMessagePublisher _publisher;
-    private readonly IRequestResponseRepository _repository;
-    private readonly ILogger<OptimizationController> _logger;
-
-    public OptimizationController(
-        IMessagePublisher publisher,
-        IRequestResponseRepository repository,
-        ILogger<OptimizationController> logger)
+    [ApiController]
+    [Route("api/optimization")]
+    public class OptimizationController : ControllerBase
     {
-        _publisher = publisher;
-        _repository = repository;
-        _logger = logger;
-    }
+        private readonly IOptimizationService _optimizationService;
 
-    /// <summary>
-    /// Request optimization from Engine
-    /// </summary>
-    [HttpPost("request")]
-    public IActionResult RequestOptimization()
-    {
-        var command = new RequestOptimizationPlanCommand();
-        
-        _repository.AddRequest(command);
-        _publisher.Publish(Exchanges.Optimization, "optimization.request", command);
-        
-        return Accepted(new { commandId = command.CommandId });
-    }
-
-    /// <summary>
-    /// Check status of optimization request by CommandId
-    /// </summary>
-    [HttpGet("status/{commandId}")]
-    public IActionResult CheckStatus(Guid commandId)
-    {
-        var response = _repository.GetByCommandId(commandId);
-
-        if (response == null)
+        public OptimizationController(IOptimizationService optimizationService)
         {
-            return NotFound(new { status = "not_found" });
+            _optimizationService = optimizationService;
         }
 
-        if (response is OptimizationPlanCreatedEvent planEvent)
+        /// <summary>
+        /// Submit optimization request
+        /// </summary>
+        [HttpPost("request")]
+        [ProducesResponseType(typeof(Guid), StatusCodes.Status202Accepted)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+        public async Task<IActionResult> RequestOptimizationPlan([FromBody] OptimizationRequestDto request)
         {
-            return Ok(new
-            {
-                status = "completed",
-                data = new
-                {
-                    providerId = planEvent.ProviderId,
-                    response = planEvent.Response
-                }
-            });
+            var requestId = await _optimizationService.RequestOptimizationPlanAsync(request);
+            return Accepted(requestId);
         }
 
-        return Ok(new { status = "processing" });
+        /// <summary>
+        /// Select preferred optimization strategy
+        /// </summary>
+        [HttpPost("strategies/{requestId}/select/{strategyId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+        public async Task<IActionResult> SelectStrategy(Guid requestId, Guid strategyId)
+        {
+            await _optimizationService.SelectStrategyAsync(requestId, strategyId);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Get available optimization strategies for a request
+        /// </summary>
+        [HttpGet("strategies/{requestId}")]
+        [ProducesResponseType(typeof(List<OptimizationStrategyDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetStrategies(Guid requestId)
+        {
+            var response = await _optimizationService.GetStrategiesAsync(requestId);
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// Get optimization plan by request ID
+        /// </summary>
+        [HttpGet("plan/{requestId}")]
+        [ProducesResponseType(typeof(OptimizationPlanDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetPlan(Guid requestId)
+        {
+            var planDto = await _optimizationService.GetPlanAsync(requestId);
+            return Ok(planDto);
+        }
     }
 }

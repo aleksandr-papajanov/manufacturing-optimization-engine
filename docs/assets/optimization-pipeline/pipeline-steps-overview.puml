@@ -1,0 +1,67 @@
+@startuml
+!theme plain
+skinparam componentStyle rectangle
+
+rectangle "Workflow Pipeline" {
+  rectangle "1. Workflow\nMatching" as S1 #LightBlue
+  rectangle "2. Provider\nMatching" as S2 #LightBlue
+  rectangle "3. Estimation\n(RPC)" as S3 #LightGreen
+  rectangle "4. Optimization\n(OR-Tools)" as S4 #LightYellow
+  rectangle "5. Strategy\nSelection" as S5 #LightCoral
+  rectangle "6. Confirmation\n(RPC)" as S6 #LightGreen
+  rectangle "7. Plan\nPersistence" as S7 #LightBlue
+  
+  S1 -right-> S2
+  S2 -right-> S3
+  S3 -right-> S4
+  S4 -right-> S5
+  S5 -right-> S6
+  S6 -right-> S7
+}
+
+note top of S1
+  Determines the workflow type:
+  • IE4 → Upgrade (8 steps)
+  • IE2 → Refurbish (5 steps)
+end note
+
+note top of S2
+  Selects providers
+  based on capabilities
+  and technical requirements
+end note
+
+note top of S3
+  RPC calls to providers
+  to retrieve estimates
+  (cost, time, quality)
+end note
+
+note top of S4
+  Generates 4 strategies:
+  • LowestCost
+  • FastestDelivery
+  • HighestQuality
+  • LowestEmissions
+end note
+
+note bottom of S5
+  Publishes strategies,
+  blocks on
+  TaskCompletionSource,
+  waits for customer selection
+end note
+
+note bottom of S6
+  RPC calls to providers
+  to confirm
+  the selected strategy
+end note
+
+note bottom of S7
+  Creates the OptimizationPlan,
+  publishes PlanReadyEvent,
+  persists it via the Gateway
+end note
+
+@enduml

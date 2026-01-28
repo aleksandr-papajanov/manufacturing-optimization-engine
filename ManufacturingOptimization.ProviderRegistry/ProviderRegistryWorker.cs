@@ -1,37 +1,30 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagment;
-using ManufacturingOptimization.Common.Messaging.Messages.ProviderManagement;
+using ManufacturingOptimization.Common.Messaging.Messages.SystemManagement;
 using ManufacturingOptimization.ProviderRegistry.Abstractions;
-using ManufacturingOptimization.ProviderRegistry.Services;
 
 namespace ManufacturingOptimization.ProviderRegistry;
 
 public class ProviderRegistryWorker : BackgroundService
 {
     private readonly ILogger<ProviderRegistryWorker> _logger;
-    private readonly IProviderRepository _providerRepository;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
-    private readonly IMessageSubscriber _messageSubscriber;
+    private readonly IMessagePublisher _messagePublisher;
     private readonly IProviderOrchestrator _orchestrator;
-    private readonly ProviderСapabilityValidationService _validationCoordinator;
+    private readonly ISystemReadinessService _readinessService;
 
     public ProviderRegistryWorker(
         ILogger<ProviderRegistryWorker> logger,
         IMessagingInfrastructure messagingInfrastructure,
-        IMessageSubscriber messageSubscriber,
-        IProviderRepository providerRepository,
+        IMessagePublisher messagePublisher,
         IProviderOrchestrator orchestrator,
-        ProviderСapabilityValidationService validationCoordinator)
+        ISystemReadinessService readinessService)
     {
         _logger = logger;
-        _providerRepository = providerRepository;
         _messagingInfrastructure = messagingInfrastructure;
-        _messageSubscriber = messageSubscriber;
+        _messagePublisher = messagePublisher;
         _orchestrator = orchestrator;
-        _validationCoordinator = validationCoordinator;
-
-        SetupRabbitMq();
+        _readinessService = readinessService;
     }
 
     // Ovwerride StartAsync to perform cleanup before starting
@@ -48,23 +41,31 @@ public class ProviderRegistryWorker : BackgroundService
         await base.StopAsync(cancellationToken);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        await Task.Delay(Timeout.Infinite, stoppingToken);
+        SetupRabbitMq();
+
+        // Give subscriptions time to register
+        await Task.Delay(1000, cancellationToken);
+        
+        // Publish service ready event
+        var readyEvent = new ServiceReadyEvent
+        {
+            ServiceName = "ProviderRegistry"
+        };
+
+        _messagePublisher.Publish(Exchanges.System, SystemRoutingKeys.ServiceReady, readyEvent);
+        
+        // Wait for system to be ready, then start providers
+        await _readinessService.WaitForSystemReadyAsync(cancellationToken);
+        await _orchestrator.StartAllAsync(cancellationToken);
+        
+        await Task.Delay(Timeout.Infinite, cancellationToken);
     }
 
     private void SetupRabbitMq()
     {
-        _messagingInfrastructure.DeclareExchange(Exchanges.Provider);
-        
-        // Commands queue
-        _messagingInfrastructure.DeclareQueue("provider.commands");
-        _messagingInfrastructure.BindQueue("provider.commands", Exchanges.Provider, ProviderRoutingKeys.StartAll);
-        _messageSubscriber.Subscribe<StartAllProvidersCommand>("provider.commands", HandleStartAllProviders);
-    }
-
-    private async void HandleStartAllProviders(StartAllProvidersCommand command)
-    {
-        await _validationCoordinator.StartValidationForAllProvidersAsync();
+        //_messagingInfrastructure.DeclareExchange(Exchanges.Provider);
+        //_messagingInfrastructure.DeclareExchange(Exchanges.System);
     }
 }

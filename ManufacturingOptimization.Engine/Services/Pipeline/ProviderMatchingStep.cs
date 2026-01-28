@@ -1,0 +1,59 @@
+using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Engine.Models;
+using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
+
+namespace ManufacturingOptimization.Engine.Services.Pipeline;
+
+/// <summary>
+/// Step 2: Provider Matching
+/// For each process step, finds providers with the required capability.
+/// Works with ProviderEntity.
+/// </summary>
+public class ProviderMatchingStep : IWorkflowStep
+{
+    private readonly IProviderRepository _providerRepository;
+
+    public string Name => "Provider Matching";
+
+    public ProviderMatchingStep(IProviderRepository providerRepository)
+    {
+        _providerRepository = providerRepository;
+    }
+
+    public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
+    {
+        foreach (var processStep in context.ProcessSteps)
+        {
+            // Find providers that can perform this process
+            var providersWithCapabilities = await _providerRepository.FindByProcess(processStep.Process);
+            
+            // Filter by technical requirements
+            var matchedProviders = providersWithCapabilities
+                .Where(pc => MeetsTechnicalRequirements(pc.ProviderEntity, context.Request))
+                .Select(pc => new MatchedProvider
+                {
+                    ProviderId = pc.ProviderEntity.Id,
+                    ProviderName = pc.ProviderEntity.Name
+                })
+                .ToList();
+
+            processStep.MatchedProviders = matchedProviders;
+
+            if (processStep.MatchedProviders.Count == 0)
+            {
+                throw new InvalidOperationException($"No providers found for step {processStep.StepNumber} ({processStep.Process}) requiring '{processStep.Process}' capability with sufficient technical capabilities");
+            }
+        }
+    }
+
+    private static bool MeetsTechnicalRequirements(ProviderEntity provider, OptimizationRequestModel request)
+    {
+        // Provider must be able to handle the motor's power and size
+        bool canHandlePower = provider.TechnicalCapabilities.Power == 0 || provider.TechnicalCapabilities.Power >= request.MotorSpecs.PowerKW;
+        bool canHandleSize = provider.TechnicalCapabilities.AxisHeight == 0 || provider.TechnicalCapabilities.AxisHeight >= request.MotorSpecs.AxisHeightMM;
+        
+        return canHandlePower && canHandleSize;
+    }
+}
