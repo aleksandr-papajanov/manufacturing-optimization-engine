@@ -15,8 +15,8 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
     private readonly ILogger<RabbitMqService> _logger;
     private readonly RabbitMqSettings _settings;
 
-    private readonly Dictionary<string, EventingBasicConsumer> _consumers = new();
-    private readonly Dictionary<string, List<MessageHandler>> _handlers = new(); // Multiple handlers per queue
+    private readonly Dictionary<string, AsyncEventingBasicConsumer> _consumers = new();
+    private readonly Dictionary<string, List<MessageHandler>> _handlers = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<IMessage>> _pendingRequests = new();
 
     private IConnection _connection = null!;
@@ -42,33 +42,18 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                 HostName = _settings.Host,
                 Port = _settings.Port,
                 UserName = _settings.Username,
-                Password = _settings.Password
+                Password = _settings.Password,
+                DispatchConsumersAsync = true
             };
 
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
 
-            _channel.ExchangeDeclare(
-                exchange: Exchanges.Optimization,
-                type: ExchangeType.Topic,
-                durable: true);
+            _channel.ExchangeDeclare(Exchanges.Optimization, ExchangeType.Topic, durable: true);
+            _channel.ExchangeDeclare(Exchanges.System, ExchangeType.Topic, durable: true);
+            _channel.ExchangeDeclare(Exchanges.Provider, ExchangeType.Topic, durable: true);
+            _channel.ExchangeDeclare(Exchanges.Process, ExchangeType.Topic, durable: true);
 
-            _channel.ExchangeDeclare(
-                exchange: Exchanges.System,
-                type: ExchangeType.Topic,
-                durable: true);
-
-            _channel.ExchangeDeclare(
-                exchange: Exchanges.Provider,
-                type: ExchangeType.Topic,
-                durable: true);
-
-            _channel.ExchangeDeclare(
-                exchange: Exchanges.Process,
-                type: ExchangeType.Topic,
-                durable: true);
-
-            // Setup reply queue for RPC pattern
             _replyQueueName = _channel.QueueDeclare().QueueName;
             SetupReplyQueueConsumer();
         }
@@ -97,11 +82,16 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
             body: body);
     }
 
+    public Task PublishAsync<T>(string exchangeName, string routingKey, T message) where T : class, IMessage
+    {
+        Publish(exchangeName, routingKey, message);
+        return Task.CompletedTask;
+    }
+
     public async Task<TResponse?> RequestReplyAsync<TResponse>(string exchangeName, string routingKey, IMessage request, TimeSpan? timeout = null) where TResponse : class, IMessage
     {
         timeout ??= TimeSpan.FromSeconds(30);
-        
-        // Get correlation ID from ICommand interface
+
         string correlationId;
         if (request is ICommand command)
         {
@@ -111,18 +101,17 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
         {
             correlationId = Guid.NewGuid().ToString();
         }
-        
+
         var tcs = new TaskCompletionSource<IMessage>();
         _pendingRequests[correlationId] = tcs;
 
         try
         {
-            // Set ReplyTo if this is a request-reply command
             if (request is IRequestReplyCommand replyCommand)
             {
                 replyCommand.ReplyTo = _replyQueueName;
             }
-            
+
             var json = JsonSerializer.Serialize(request, request.GetType());
             var body = Encoding.UTF8.GetBytes(json);
 
@@ -140,10 +129,9 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                 basicProperties: properties,
                 body: body);
 
-            // Wait for response with timeout
             using var cts = new CancellationTokenSource(timeout.Value);
             var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(timeout.Value, cts.Token));
-            
+
             if (completedTask == tcs.Task)
             {
                 var response = await tcs.Task;
@@ -160,21 +148,153 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
         }
     }
 
+    public void PublishReply<TRequest, TResponse>(TRequest request, TResponse response)
+        where TRequest : IRequestReplyCommand
+        where TResponse : IMessage
+    {
+        if (response is IEvent evt)
+        {
+            evt.CorrelationId = request.CommandId;
+        }
+
+        var json = JsonSerializer.Serialize(response);
+        var body = Encoding.UTF8.GetBytes(json);
+
+        var properties = _channel.CreateBasicProperties();
+        properties.CorrelationId = request.CommandId.ToString();
+        properties.Headers = new Dictionary<string, object>
+        {
+            ["MessageType"] = typeof(TResponse).FullName ?? typeof(TResponse).Name
+        };
+
+        _channel.BasicPublish(
+            exchange: string.Empty,
+            routingKey: request.ReplyTo,
+            basicProperties: properties,
+            body: body);
+    }
+
+    public void Subscribe<T>(string queueName, Action<T> handler) where T : IMessage
+    {
+        RegisterHandler(queueName, typeof(T), handler);
+        EnsureConsumer(queueName);
+    }
+
+    public Task SubscribeAsync<T>(string exchange, string routingKey, Func<T, Task> handler, string queueName = "")
+        where T : class, IMessage
+    {
+        if (string.IsNullOrEmpty(queueName))
+        {
+            queueName = _channel.QueueDeclare().QueueName;
+        }
+        else
+        {
+            DeclareQueue(queueName);
+        }
+
+        BindQueue(queueName, exchange, routingKey);
+        RegisterHandler(queueName, typeof(T), handler);
+        EnsureConsumer(queueName);
+
+        return Task.CompletedTask;
+    }
+
+    private void RegisterHandler(string queueName, Type messageType, Delegate handler)
+    {
+        if (!_handlers.ContainsKey(queueName))
+        {
+            _handlers[queueName] = new List<MessageHandler>();
+        }
+
+        _handlers[queueName].Add(new MessageHandler
+        {
+            MessageType = messageType,
+            Handler = handler
+        });
+    }
+
+    private void EnsureConsumer(string queueName)
+    {
+        if (_consumers.ContainsKey(queueName)) return;
+
+        var consumer = new AsyncEventingBasicConsumer(_channel);
+        _consumers[queueName] = consumer;
+
+        consumer.Received += async (sender, e) =>
+        {
+            try
+            {
+                var body = e.Body.ToArray();
+                var json = Encoding.UTF8.GetString(body);
+
+                string? messageType = null;
+                if (e.BasicProperties?.Headers?.TryGetValue("MessageType", out var typeObj) == true)
+                {
+                    messageType = Encoding.UTF8.GetString((byte[])typeObj);
+                }
+
+                bool handled = false;
+                if (_handlers.TryGetValue(queueName, out var handlers))
+                {
+                    foreach (var handlerInfo in handlers)
+                    {
+                        var expectedTypeName = handlerInfo.MessageType.FullName ?? handlerInfo.MessageType.Name;
+
+                        if (messageType == null || messageType == expectedTypeName)
+                        {
+                            try
+                            {
+                                var message = JsonSerializer.Deserialize(json, handlerInfo.MessageType);
+                                if (message != null)
+                                {
+                                    var result = handlerInfo.Handler.DynamicInvoke(message);
+                                    if (result is Task task)
+                                    {
+                                        await task;
+                                    }
+                                    handled = true;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Error invoking handler for {MessageType}", expectedTypeName);
+                            }
+                        }
+                    }
+                }
+
+                if (!handled)
+                {
+                    _logger.LogDebug("No handler for {MessageType} on {Queue}", messageType, queueName);
+                }
+
+                _channel.BasicAck(e.DeliveryTag, multiple: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing message from {Queue}", queueName);
+                _channel.BasicNack(e.DeliveryTag, multiple: false, requeue: false);
+            }
+        };
+
+        _channel.BasicConsume(queue: queueName, autoAck: false, consumer: consumer);
+    }
+
     private void SetupReplyQueueConsumer()
     {
-        var consumer = new EventingBasicConsumer(_channel);
-        
-        consumer.Received += (sender, e) =>
+        var consumer = new AsyncEventingBasicConsumer(_channel);
+
+        consumer.Received += async (sender, e) =>
         {
             try
             {
                 var correlationId = e.BasicProperties.CorrelationId;
-                
+
                 if (_pendingRequests.TryGetValue(correlationId, out var tcs))
                 {
                     var body = e.Body.ToArray();
                     var json = Encoding.UTF8.GetString(body);
-                    
+
                     string? messageType = null;
                     if (e.BasicProperties?.Headers?.TryGetValue("MessageType", out var typeObj) == true)
                     {
@@ -194,8 +314,9 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
                         }
                     }
                 }
-                
+
                 _channel.BasicAck(e.DeliveryTag, multiple: false);
+                await Task.CompletedTask;
             }
             catch (Exception ex)
             {
@@ -204,123 +325,7 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
             }
         };
 
-        _channel.BasicConsume(
-            queue: _replyQueueName,
-            autoAck: false,
-            consumer: consumer);
-    }
-
-    public void PublishReply<TRequest, TResponse>(TRequest request, TResponse response) 
-        where TRequest : IRequestReplyCommand 
-        where TResponse : IMessage
-    {
-        // Automatically set CorrelationId if response is an event
-        if (response is IEvent evt)
-        {
-            evt.CorrelationId = request.CommandId;
-        }
-        
-        var json = JsonSerializer.Serialize(response);
-        var body = Encoding.UTF8.GetBytes(json);
-
-        var properties = _channel.CreateBasicProperties();
-        properties.CorrelationId = request.CommandId.ToString();
-        properties.Headers = new Dictionary<string, object>
-        {
-            ["MessageType"] = typeof(TResponse).FullName ?? typeof(TResponse).Name
-        };
-
-        _channel.BasicPublish(
-            exchange: string.Empty, // Direct to queue
-            routingKey: request.ReplyTo,
-            basicProperties: properties,
-            body: body);
-    }
-
-    public void Subscribe<T>(string queueName, Action<T> handler) where T : IMessage
-    {
-        // Store handler for this message type
-        if (!_handlers.ContainsKey(queueName))
-        {
-            _handlers[queueName] = new List<MessageHandler>();
-        }
-        
-        _handlers[queueName].Add(new MessageHandler 
-        { 
-            MessageType = typeof(T),
-            Handler = handler 
-        });
-
-        // Create consumer only once per queue
-        if (_consumers.ContainsKey(queueName))
-            return;
-
-        var consumer = new EventingBasicConsumer(_channel);
-        _consumers[queueName] = consumer;
-
-        consumer.Received += (sender, e) =>
-        {
-            try
-            {
-                var body = e.Body.ToArray();
-                var json = Encoding.UTF8.GetString(body);
-
-                string? messageType = null;
-                if (e.BasicProperties?.Headers?.TryGetValue("MessageType", out var typeObj) == true)
-                {
-                    messageType = Encoding.UTF8.GetString((byte[])typeObj);
-                }
-
-                // Try to invoke all matching handlers
-                bool handled = false;
-                foreach (var handlerInfo in _handlers[queueName])
-                {
-                    var expectedTypeName = handlerInfo.MessageType.FullName ?? handlerInfo.MessageType.Name;
-                    
-                    if (messageType == null || messageType == expectedTypeName)
-                    {
-                        try
-                        {
-                            var message = JsonSerializer.Deserialize(json, handlerInfo.MessageType);
-                            if (message != null)
-                            {
-                                handlerInfo.Handler.DynamicInvoke(message);
-                                handled = true;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error invoking handler for {MessageType}", expectedTypeName);
-                        }
-                    }
-                }
-
-                if (!handled)
-                {
-                    _logger.LogDebug("No handler found for message type {MessageType} on queue {Queue}", 
-                        messageType, queueName);
-                }
-
-                _channel.BasicAck(e.DeliveryTag, multiple: false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Error processing message from queue {Queue}",
-                    queueName);
-
-                _channel.BasicNack(
-                    deliveryTag: e.DeliveryTag,
-                    multiple: false,
-                    requeue: false);
-            }
-        };
-
-        _channel.BasicConsume(
-            queue: queueName,
-            autoAck: false,
-            consumer: consumer);
+        _channel.BasicConsume(queue: _replyQueueName, autoAck: false, consumer: consumer);
     }
 
     public void DeclareExchange(string exchangeName, string type)
@@ -360,18 +365,12 @@ public class RabbitMqService : IMessagePublisher, IMessageSubscriber, IMessaging
         {
             _channel?.Close();
         }
-        catch (Exception)
-        {
-            // Ignore exceptions during channel close
-        }
+        catch (Exception) { }
 
         try
         {
             _connection?.Close();
         }
-        catch (Exception)
-        {
-            // Ignore exceptions during connection close
-        }
+        catch (Exception) { }
     }
 }

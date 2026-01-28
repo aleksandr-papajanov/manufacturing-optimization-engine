@@ -1,3 +1,5 @@
+using System.Threading.Tasks;
+
 namespace ManufacturingOptimization.Common.Messaging.Abstractions;
 
 public interface IMessagePublisher
@@ -13,6 +15,8 @@ public interface IMessagePublisher
     /// <param name="routingKey">The routing key used to route the message to the appropriate queue. Cannot be <see langword="null"/> or empty.</param>
     /// <param name="message">The message to be published. Cannot be <see langword="null"/>.</param>
     void Publish<T>(string exchangeName, string routingKey, T message) where T : IMessage;
+    
+    Task PublishAsync<T>(string exchangeName, string routingKey, T message) where T : class, IMessage;
     
     /// <summary>
     /// Sends a request and waits for a response using RPC pattern.
