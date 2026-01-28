@@ -66,6 +66,18 @@ builder.Services.AddHostedService<GatewayWorker>();
 builder.Services.AddScoped<IOptimizationService, OptimizationService>();
 builder.Services.AddScoped<IProviderService, ProviderService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevCors", p =>
+    {
+        p
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
 
 // Configure Pipeline
@@ -73,6 +85,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 // Add middleware
+app.UseCors("DevCors");
 app.UseExceptionHandling();
 app.UseSystemReadiness();
 
