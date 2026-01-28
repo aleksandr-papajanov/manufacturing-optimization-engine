@@ -13,6 +13,20 @@ using ManufacturingOptimization.Gateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy
+                .WithOrigins("http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
+
+
+// 1. Add Services
 // Configure SQLite database
 builder.Services.AddDatabase();
 
@@ -72,6 +86,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.UseRouting();
+app.UseCors("AllowFrontend");
 // Add middleware
 app.UseExceptionHandling();
 app.UseSystemReadiness();
