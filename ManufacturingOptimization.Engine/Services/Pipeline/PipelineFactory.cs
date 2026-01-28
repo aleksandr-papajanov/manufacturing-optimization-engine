@@ -12,8 +12,6 @@ public class PipelineFactory : IWorkflowPipelineFactory
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly IProviderRepository _providerRepository;
-    private readonly IOptimizationPlanRepository _planRepository;
-    private readonly IOptimizationStrategyRepository _strategyRepository;
     private readonly IMessagePublisher _messagePublisher;
     private readonly IMessageSubscriber _messageSubscriber;
     private readonly IMessagingInfrastructure _messagingInfrastructure;
@@ -22,8 +20,6 @@ public class PipelineFactory : IWorkflowPipelineFactory
     public PipelineFactory(
         ILoggerFactory loggerFactory,
         IProviderRepository providerRepository,
-        IOptimizationPlanRepository planRepository,
-        IOptimizationStrategyRepository strategyRepository,
         IMessagePublisher messagePublisher,
         IMessageSubscriber messageSubscriber,
         IMessagingInfrastructure messagingInfrastructure,
@@ -31,8 +27,6 @@ public class PipelineFactory : IWorkflowPipelineFactory
     {
         _loggerFactory = loggerFactory;
         _providerRepository = providerRepository;
-        _planRepository = planRepository;
-        _strategyRepository = strategyRepository;
         _messagePublisher = messagePublisher;
         _messageSubscriber = messageSubscriber;
         _messagingInfrastructure = messagingInfrastructure;
@@ -43,13 +37,12 @@ public class PipelineFactory : IWorkflowPipelineFactory
     {
         var steps = new IWorkflowStep[]
         {
-            new WorkflowMatchingStep(),
-            new ProviderMatchingStep(_providerRepository),
+            new WorkflowMatchingStep(_messagePublisher),
+            new ProviderMatchingStep(_providerRepository, _messagePublisher),
             new EstimationStep(_messagePublisher),
-            new OptimizationStep(),
+            new OptimizationStep(_messagePublisher),
             new StrategySelectionStep(_messagePublisher, _messagingInfrastructure, _messageSubscriber, _mapper),
-            new ConfirmationStep(_messagePublisher),
-            new PlanPersistenceStep(_mapper, _planRepository, _strategyRepository, _messagePublisher)
+            new ConfirmationStep(_messagePublisher)
         };
 
         return new WorkflowPipeline(steps, _loggerFactory.CreateLogger<WorkflowPipeline>());

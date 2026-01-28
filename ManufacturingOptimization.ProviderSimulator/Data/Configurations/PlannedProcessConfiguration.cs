@@ -9,9 +9,14 @@ public class PlannedProcessConfiguration : IEntityTypeConfiguration<PlannedProce
     public void Configure(EntityTypeBuilder<PlannedProcessEntity> entity)
     {
         entity.ToTable("PlannedProcesses");
-        entity.HasKey(x => x.Id);
 
-        entity.Property(x => x.ProposalId)
-            .IsRequired();
+        entity.HasKey(x => x.Id);
+        entity.Property(x => x.ProposalId).IsRequired();
+        entity.Property(x => x.AllocatedSlotId).IsRequired();
+
+        entity.HasOne(x => x.AllocatedSlot)
+            .WithOne()
+            .HasForeignKey<PlannedProcessEntity>(x => x.AllocatedSlotId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -1,4 +1,3 @@
-using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.Common.Models.DTOs;
 using ManufacturingOptimization.Gateway.Abstractions;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ManufacturingOptimization.Gateway.Controllers
 {
     [ApiController]
-    [Route("api/optimization")]
+    [Route("api/optimization-requests")]
     public class OptimizationController : ControllerBase
     {
         private readonly IOptimizationService _optimizationService;
@@ -19,7 +18,7 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// <summary>
         /// Submit optimization request
         /// </summary>
-        [HttpPost("request")]
+        [HttpPost]
         [ProducesResponseType(typeof(Guid), StatusCodes.Status202Accepted)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
         public async Task<IActionResult> RequestOptimizationPlan([FromBody] OptimizationRequestDto request)
@@ -31,33 +30,20 @@ namespace ManufacturingOptimization.Gateway.Controllers
         /// <summary>
         /// Select preferred optimization strategy
         /// </summary>
-        [HttpPost("strategies/{requestId}/select/{strategyId}")]
+        [HttpPut("{requestId}/strategy")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
-        public async Task<IActionResult> SelectStrategy(Guid requestId, Guid strategyId)
+        public async Task<IActionResult> SelectStrategy(Guid requestId, [FromBody] Guid strategyId)
         {
             await _optimizationService.SelectStrategyAsync(requestId, strategyId);
             return Ok();
         }
 
         /// <summary>
-        /// Get available optimization strategies for a request
-        /// </summary>
-        [HttpGet("strategies/{requestId}")]
-        [ProducesResponseType(typeof(List<OptimizationStrategyDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetStrategies(Guid requestId)
-        {
-            var response = await _optimizationService.GetStrategiesAsync(requestId);
-            return Ok(response);
-        }
-
-        /// <summary>
         /// Get optimization plan by request ID
         /// </summary>
-        [HttpGet("plan/{requestId}")]
+        [HttpGet("{requestId}/plan")]
         [ProducesResponseType(typeof(OptimizationPlanDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

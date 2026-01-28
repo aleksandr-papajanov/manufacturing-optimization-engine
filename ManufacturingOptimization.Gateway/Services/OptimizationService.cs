@@ -4,6 +4,7 @@ using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 using ManufacturingOptimization.Common.Models.DTOs;
 using ManufacturingOptimization.Gateway.Abstractions;
 using ManufacturingOptimization.Gateway.Exceptions;
@@ -16,27 +17,48 @@ namespace ManufacturingOptimization.Gateway.Services
         private readonly IOptimizationStrategyRepository _strategyRepository;
         private readonly IOptimizationPlanRepository _planRepository;
         private readonly IMapper _mapper;
+        private readonly ILogger<OptimizationService> _logger;
 
         public OptimizationService(
             IMessagePublisher messagePublisher,
             IOptimizationStrategyRepository strategyRepository,
             IOptimizationPlanRepository planRepository,
-            IMapper mapper)
+            IMapper mapper,
+            ILogger<OptimizationService> logger)
         {
             _messagePublisher = messagePublisher;
             _strategyRepository = strategyRepository;
             _planRepository = planRepository;
             _mapper = mapper;
+            _logger = logger;
         }
 
-        public Task<Guid> RequestOptimizationPlanAsync(OptimizationRequestDto request)
+        public async Task<Guid> RequestOptimizationPlanAsync(OptimizationRequestDto request)
         {
             var requestModel = _mapper.Map<OptimizationRequestModel>(request);
-            var command = new RequestOptimizationPlanCommand { Request = requestModel };
+
+            var planModel = new OptimizationPlanModel
+            {
+                RequestId = requestModel.RequestId,
+                Status = Common.Models.Enums.OptimizationPlanStatus.Draft,
+                CreatedAt = DateTime.UtcNow
+            };
+            var planEntity = _mapper.Map<OptimizationPlanEntity>(planModel);
+
+            await _planRepository.AddAsync(planEntity);
+            await _planRepository.SaveChangesAsync();
+
+            planModel = _mapper.Map<OptimizationPlanModel>(planEntity);
+
+            var command = new RequestOptimizationPlanCommand
+            {
+                Request = requestModel,
+                Plan = planModel
+            };
 
             _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanRequested, command);
 
-            return Task.FromResult(requestModel.RequestId);
+            return planModel.RequestId;
         }
 
         public Task SelectStrategyAsync(Guid requestId, Guid strategyId)
@@ -49,17 +71,6 @@ namespace ManufacturingOptimization.Gateway.Services
             var routingKey = $"{OptimizationRoutingKeys.StrategySelected}.{command.RequestId}";
             _messagePublisher.Publish(Exchanges.Optimization, routingKey, command);
             return Task.CompletedTask;
-        }
-
-        public async Task<List<OptimizationStrategyDto>> GetStrategiesAsync(Guid requestId)
-        {
-            var strategies = await _strategyRepository.GetForRequestAsync(requestId);
-            if (strategies == null || !strategies.Any())
-                throw new NotFoundException($"No strategies found for request {requestId}");
-
-            var strategyModels = _mapper.Map<List<OptimizationStrategyModel>>(strategies);
-            var strategyDtos = _mapper.Map<List<OptimizationStrategyDto>>(strategyModels);
-            return strategyDtos;
         }
 
         public async Task<OptimizationPlanDto> GetPlanAsync(Guid requestId)

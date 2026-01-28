@@ -1,11 +1,12 @@
+using AutoMapper;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
 using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
+using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Engine.Exceptions;
 using ManufacturingOptimization.Engine.Models;
-using AutoMapper;
-using ManufacturingOptimization.Common.Models.Contracts;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -38,15 +39,8 @@ public class StrategySelectionStep : IWorkflowStep
 
     public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
-        if (context.Strategies.Count == 0)
-        {
-            throw new InvalidOperationException("No strategies available for selection");
-        }
-
-        if (context.WorkflowType == null)
-        {
-            throw new InvalidOperationException("Workflow type is not specified in context");
-        }
+        if (context.Plan.Strategies.Count == 0)
+            throw new OptimizationException("No strategies available for selection");
 
         var requestId = context.Request.RequestId;
 
@@ -69,20 +63,12 @@ public class StrategySelectionStep : IWorkflowStep
                 selectionTcs.TrySetResult(command);
             });
 
-        // Map Entity strategies to Models for RabbitMQ
-        var strategyModels = _mapper.Map<List<OptimizationStrategyModel>>(context.Strategies);
-
-        // Publish strategies to customer
-        var strategiesEvent = new MultipleStrategiesReadyEvent
+        // Update plan to AwaitingStrategySelection
+        context.Plan.Status = OptimizationPlanStatus.AwaitingStrategySelection;
+        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanUpdated, new OptimizationPlanUpdatedEvent
         {
-            CorrelationId = context.Request.RequestId,
-            RequestId = requestId,
-            WorkflowType = context.WorkflowType,
-            Strategies = strategyModels,
-            IsSuccess = true
-        };
-
-        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.StrategiesReady, strategiesEvent);
+            Plan = context.Plan
+        });
 
         // Wait for customer selection (with timeout)
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -92,18 +78,19 @@ public class StrategySelectionStep : IWorkflowStep
         {
             var selectionCommand = await selectionTcs.Task.WaitAsync(cts.Token);
             
-            // Find the selected strategy
-            var selectedStrategy = context.Strategies.FirstOrDefault(s => s.Id == selectionCommand.SelectedStrategyId);
+            // Find the selected strategy in plan
+            var selectedStrategy = context.Plan.Strategies.FirstOrDefault(s => s.Id == selectionCommand.SelectedStrategyId);
 
             if (selectedStrategy == null)
-            {
                 throw new InvalidOperationException($"Selected strategy not found: {selectionCommand.SelectedStrategyId}");
-            }
 
-            context.SelectedStrategy = selectedStrategy;
-            
-            // Generate PlanId immediately after selection
-            context.PlanId = Guid.NewGuid();
+            context.Plan.SelectedStrategy = selectedStrategy;
+            context.Plan.SelectedAt = DateTime.UtcNow;
+            context.Plan.Status = OptimizationPlanStatus.StrategySelected;
+            _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanUpdated, new OptimizationPlanUpdatedEvent
+            {
+                Plan = context.Plan
+            });
         }
         catch (OperationCanceledException) when (cts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {

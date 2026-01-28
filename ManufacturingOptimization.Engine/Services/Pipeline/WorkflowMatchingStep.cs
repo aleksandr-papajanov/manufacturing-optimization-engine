@@ -1,3 +1,6 @@
+using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages;
+using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
 using ManufacturingOptimization.Engine.Models;
@@ -10,10 +13,23 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 /// </summary>
 public class WorkflowMatchingStep : IWorkflowStep
 {
+    private readonly IMessagePublisher _messagePublisher;
+
     public string Name => "Workflow Matching";
+
+    public WorkflowMatchingStep(IMessagePublisher messagePublisher)
+    {
+        _messagePublisher = messagePublisher;   
+    }
 
     public Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
+        context.Plan.Status = OptimizationPlanStatus.MatchingWorkflow;
+        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanUpdated, new OptimizationPlanUpdatedEvent
+        {
+            Plan = context.Plan
+        });
+
         var currentEfficiency = context.Request.MotorSpecs.CurrentEfficiency;
         var targetEfficiency = context.Request.MotorSpecs.TargetEfficiency;
         

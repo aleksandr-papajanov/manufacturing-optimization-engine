@@ -17,6 +17,23 @@ namespace ManufacturingOptimization.Gateway.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.12");
 
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AllocatedSlots");
+                });
+
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationMetricsEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -67,10 +84,16 @@ namespace ManufacturingOptimization.Gateway.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("RequestId")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("SelectedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SelectedStrategyId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
@@ -79,6 +102,9 @@ namespace ManufacturingOptimization.Gateway.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SelectedStrategyId")
+                        .IsUnique();
 
                     b.ToTable("OptimizationPlans");
                 });
@@ -105,9 +131,6 @@ namespace ManufacturingOptimization.Gateway.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("RequestId")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("StrategyName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -120,8 +143,7 @@ namespace ManufacturingOptimization.Gateway.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PlanId")
-                        .IsUnique();
+                    b.HasIndex("PlanId");
 
                     b.ToTable("OptimizationStrategies");
                 });
@@ -172,6 +194,9 @@ namespace ManufacturingOptimization.Gateway.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AvailableTimeSlotsJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("Cost")
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
@@ -202,6 +227,9 @@ namespace ManufacturingOptimization.Gateway.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("AllocatedSlotId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Process")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -222,6 +250,9 @@ namespace ManufacturingOptimization.Gateway.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AllocatedSlotId")
+                        .IsUnique();
 
                     b.HasIndex("StrategyId");
 
@@ -278,6 +309,37 @@ namespace ManufacturingOptimization.Gateway.Migrations
                     b.ToTable("TechnicalCapabilities");
                 });
 
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.TimeSegmentEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AllocatedSlotId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SegmentOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SegmentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AllocatedSlotId", "SegmentOrder")
+                        .IsUnique();
+
+                    b.ToTable("TimeSegments");
+                });
+
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.WarrantyTermsEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -322,11 +384,21 @@ namespace ManufacturingOptimization.Gateway.Migrations
                     b.Navigation("Strategy");
                 });
 
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationPlanEntity", b =>
+                {
+                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "SelectedStrategy")
+                        .WithOne()
+                        .HasForeignKey("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationPlanEntity", "SelectedStrategyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("SelectedStrategy");
+                });
+
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", b =>
                 {
                     b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationPlanEntity", "Plan")
-                        .WithOne("SelectedStrategy")
-                        .HasForeignKey("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "PlanId")
+                        .WithMany("Strategies")
+                        .HasForeignKey("PlanId")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Plan");
@@ -356,11 +428,18 @@ namespace ManufacturingOptimization.Gateway.Migrations
 
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessStepEntity", b =>
                 {
+                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", "AllocatedSlot")
+                        .WithOne()
+                        .HasForeignKey("ManufacturingOptimization.Common.Models.Data.Entities.ProcessStepEntity", "AllocatedSlotId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "Strategy")
                         .WithMany("Steps")
                         .HasForeignKey("StrategyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AllocatedSlot");
 
                     b.Navigation("Strategy");
                 });
@@ -376,6 +455,17 @@ namespace ManufacturingOptimization.Gateway.Migrations
                     b.Navigation("Provider");
                 });
 
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.TimeSegmentEntity", b =>
+                {
+                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", "AllocatedSlot")
+                        .WithMany("Segments")
+                        .HasForeignKey("AllocatedSlotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AllocatedSlot");
+                });
+
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.WarrantyTermsEntity", b =>
                 {
                     b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "Strategy")
@@ -387,9 +477,14 @@ namespace ManufacturingOptimization.Gateway.Migrations
                     b.Navigation("Strategy");
                 });
 
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", b =>
+                {
+                    b.Navigation("Segments");
+                });
+
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationPlanEntity", b =>
                 {
-                    b.Navigation("SelectedStrategy");
+                    b.Navigation("Strategies");
                 });
 
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", b =>

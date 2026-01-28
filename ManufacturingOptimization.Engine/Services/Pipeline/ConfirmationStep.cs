@@ -1,9 +1,12 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
+using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Engine.Exceptions;
 using ManufacturingOptimization.Engine.Models;
-using ManufacturingOptimization.Common.Models;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -25,21 +28,39 @@ public class ConfirmationStep : IWorkflowStep
 
     public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
-        if (context.SelectedStrategy == null)
-        {
-            throw new InvalidOperationException("No strategy selected for confirmation");
-        }
-        
-        if (!context.PlanId.HasValue)
-        {
-            throw new InvalidOperationException("Plan ID is required for confirmation step");
-        }
+        if (context.Plan.SelectedStrategy == null)
+            throw new OptimizationException("No strategy selected for confirmation. Please select a strategy before proceeding.");
 
-        var confirmationTasks = context.SelectedStrategy.Steps.Select(async step =>
+        var errors = new List<string>();
+        var confirmationTasks = context.Plan.SelectedStrategy.Steps.Select(step => ConfirmWithProviderAsync(step, errors));
+        await Task.WhenAll(confirmationTasks);
+
+        if (errors.Any())
+            throw new OptimizationException($"Confirmation failed: {string.Join("; ", errors)}");
+
+        context.Plan.ConfirmedAt = DateTime.UtcNow;
+        context.Plan.Status = OptimizationPlanStatus.Confirmed;
+
+        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanUpdated, new OptimizationPlanUpdatedEvent
+        {
+            Plan = context.Plan
+        });
+    }
+
+    private async Task ConfirmWithProviderAsync(ProcessStepModel step, List<string> errors)
+    {
+        try
         {
             var confirmation = new ConfirmProcessProposalCommand
             {
-                ProposalId = step.Estimate.ProposalId
+                ProposalId = step.Estimate.ProposalId,
+                AllocatedSlot = step.AllocatedSlot != null
+                    ? new TimeWindowModel
+                    {
+                        StartTime = step.AllocatedSlot.StartTime,
+                        EndTime = step.AllocatedSlot.EndTime
+                    }
+                    : null
             };
 
             var response = await _messagePublisher.RequestReplyAsync<ProcessProposalReviewedEvent>(
@@ -49,12 +70,22 @@ public class ConfirmationStep : IWorkflowStep
                 TimeSpan.FromSeconds(10));
 
             if (response == null)
-                throw new InvalidOperationException($"Provider {step.SelectedProviderId} failed to confirm {step.Process}: No response received");
+                throw new OptimizationException($"Provider {step.SelectedProviderName} did not respond to confirmation request within timeout. Process: {step.Process}");
 
             if (!response.IsAccepted)
-                throw new InvalidOperationException($"Provider {step.SelectedProviderId} declined confirmation for {step.Process}: {response.DeclineReason}");
-        });
+                throw new OptimizationException($"Provider {step.SelectedProviderName} declined confirmation for {step.Process}. Reason: {response.DeclineReason}");
 
-        await Task.WhenAll(confirmationTasks);
+            // Update step with allocated slot including segments from provider
+            if (response.AllocatedSlot != null)
+                step.AllocatedSlot = response.AllocatedSlot;
+        }
+        catch (OptimizationException ex)
+        {
+            errors.Add(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"Provider {step.SelectedProviderName} confirmation failed for {step.Process}: {ex.Message}");
+        }
     }
 }

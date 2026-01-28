@@ -11,8 +11,10 @@ public class ProcessStepEntity
     public string Process { get; set; } = string.Empty;
     public Guid SelectedProviderId { get; set; }
     public string SelectedProviderName { get; set; } = string.Empty;
+    public Guid? AllocatedSlotId { get; set; }
 
     // Navigation properties
     public OptimizationStrategyEntity Strategy { get; set; } = null!;
     public ProcessEstimateEntity? Estimate { get; set; }
+    public AllocatedSlotEntity? AllocatedSlot { get; set; }
 }

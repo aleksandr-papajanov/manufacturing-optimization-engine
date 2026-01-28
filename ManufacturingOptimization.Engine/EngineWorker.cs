@@ -49,7 +49,6 @@ public class EngineWorker : BackgroundService
     private void SetupRabbitMq()
     {
         // Provider events
-        //_messagingInfrastructure.DeclareExchange(Exchanges.Provider);
         _messagingInfrastructure.DeclareQueue("engine.provider.events");
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.BindQueue("engine.provider.events", Exchanges.Provider, ProviderRoutingKeys.AllRegistered);

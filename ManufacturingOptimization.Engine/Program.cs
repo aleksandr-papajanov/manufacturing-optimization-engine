@@ -20,8 +20,6 @@ builder.Services.AddDatabase();
 
 // Register repositories
 builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
-builder.Services.AddScoped<IOptimizationPlanRepository, OptimizationPlanRepository>();
-builder.Services.AddScoped<IOptimizationStrategyRepository, OptimizationStrategyRepository>();
 
 // Database lifecycle management
 builder.Services.AddHostedService<DatabaseManagementService>();

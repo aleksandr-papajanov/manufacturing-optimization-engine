@@ -29,4 +29,9 @@ public class ProcessStepModel
     /// Process estimate from selected provider.
     /// </summary>
     public ProcessEstimateModel Estimate { get; set; } = new();
+    
+    /// <summary>
+    /// The allocated time slot for this step with detailed segment breakdown (working time and breaks).
+    /// </summary>
+    public AllocatedSlotModel? AllocatedSlot { get; set; }
 }

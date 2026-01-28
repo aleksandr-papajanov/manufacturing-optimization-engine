@@ -20,11 +20,6 @@ public class OptimizationStrategyModel
     public Guid? PlanId { get; set; }
     
     /// <summary>
-    /// Original request ID for filtering (non-DB field, used during workflow).
-    /// </summary>
-    public Guid? RequestId { get; set; }
-    
-    /// <summary>
     /// Human-readable strategy name (e.g., "Budget Strategy", "Express Strategy").
     /// </summary>
     public string StrategyName { get; set; } = string.Empty;
@@ -58,10 +53,5 @@ public class OptimizationStrategyModel
     /// Description explaining why this strategy might be chosen.
     /// </summary>
     public string Description { get; set; } = string.Empty;
-    
-    /// <summary>
-    /// Timestamp when this strategy was generated.
-    /// </summary>
-    public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
 }
 

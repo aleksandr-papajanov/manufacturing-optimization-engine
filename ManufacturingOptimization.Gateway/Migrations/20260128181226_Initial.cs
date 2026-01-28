@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace ManufacturingOptimization.Engine.Migrations
+namespace ManufacturingOptimization.Gateway.Migrations
 {
     /// <inheritdoc />
     public partial class Initial : Migration
@@ -12,19 +12,16 @@ namespace ManufacturingOptimization.Engine.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "OptimizationPlans",
+                name: "AllocatedSlots",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    RequestId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    SelectedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ConfirmedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    StartTime = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EndTime = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_OptimizationPlans", x => x.Id);
+                    table.PrimaryKey("PK_AllocatedSlots", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -42,25 +39,23 @@ namespace ManufacturingOptimization.Engine.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "OptimizationStrategies",
+                name: "TimeSegments",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    RequestId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    PlanId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    StrategyName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    WorkflowType = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Priority = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    GeneratedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    AllocatedSlotId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StartTime = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EndTime = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    SegmentOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                    SegmentType = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_OptimizationStrategies", x => x.Id);
+                    table.PrimaryKey("PK_TimeSegments", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_OptimizationStrategies_OptimizationPlans_PlanId",
-                        column: x => x.PlanId,
-                        principalTable: "OptimizationPlans",
+                        name: "FK_TimeSegments_AllocatedSlots_AllocatedSlotId",
+                        column: x => x.AllocatedSlotId,
+                        principalTable: "AllocatedSlots",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -127,10 +122,45 @@ namespace ManufacturingOptimization.Engine.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_OptimizationMetrics", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OptimizationPlans",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    RequestId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SelectedStrategyId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    SelectedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ConfirmedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ErrorMessage = table.Column<string>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OptimizationPlans", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OptimizationStrategies",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    PlanId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    StrategyName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    WorkflowType = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Priority = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
+                    GeneratedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OptimizationStrategies", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_OptimizationMetrics_OptimizationStrategies_StrategyId",
-                        column: x => x.StrategyId,
-                        principalTable: "OptimizationStrategies",
+                        name: "FK_OptimizationStrategies_OptimizationPlans_PlanId",
+                        column: x => x.PlanId,
+                        principalTable: "OptimizationPlans",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -144,11 +174,18 @@ namespace ManufacturingOptimization.Engine.Migrations
                     StepNumber = table.Column<int>(type: "INTEGER", nullable: false),
                     Process = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
                     SelectedProviderId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    SelectedProviderName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false)
+                    SelectedProviderName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    AllocatedSlotId = table.Column<Guid>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ProcessSteps", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProcessSteps_AllocatedSlots_AllocatedSlotId",
+                        column: x => x.AllocatedSlotId,
+                        principalTable: "AllocatedSlots",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_ProcessSteps_OptimizationStrategies_StrategyId",
                         column: x => x.StrategyId,
@@ -188,7 +225,8 @@ namespace ManufacturingOptimization.Engine.Migrations
                     Cost = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
                     Duration = table.Column<long>(type: "INTEGER", nullable: false),
                     QualityScore = table.Column<double>(type: "REAL", nullable: false),
-                    EmissionsKgCO2 = table.Column<double>(type: "REAL", nullable: false)
+                    EmissionsKgCO2 = table.Column<double>(type: "REAL", nullable: false),
+                    AvailableTimeSlotsJson = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -208,10 +246,15 @@ namespace ManufacturingOptimization.Engine.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_OptimizationPlans_SelectedStrategyId",
+                table: "OptimizationPlans",
+                column: "SelectedStrategyId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OptimizationStrategies_PlanId",
                 table: "OptimizationStrategies",
-                column: "PlanId",
-                unique: true);
+                column: "PlanId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ProcessCapabilities_ProviderId",
@@ -222,6 +265,12 @@ namespace ManufacturingOptimization.Engine.Migrations
                 name: "IX_ProcessEstimates_ProcessStepId",
                 table: "ProcessEstimates",
                 column: "ProcessStepId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessSteps_AllocatedSlotId",
+                table: "ProcessSteps",
+                column: "AllocatedSlotId",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -236,15 +285,41 @@ namespace ManufacturingOptimization.Engine.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_TimeSegments_AllocatedSlotId_SegmentOrder",
+                table: "TimeSegments",
+                columns: new[] { "AllocatedSlotId", "SegmentOrder" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_WarrantyTerms_StrategyId",
                 table: "WarrantyTerms",
                 column: "StrategyId",
                 unique: true);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_OptimizationMetrics_OptimizationStrategies_StrategyId",
+                table: "OptimizationMetrics",
+                column: "StrategyId",
+                principalTable: "OptimizationStrategies",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_OptimizationPlans_OptimizationStrategies_SelectedStrategyId",
+                table: "OptimizationPlans",
+                column: "SelectedStrategyId",
+                principalTable: "OptimizationStrategies",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_OptimizationPlans_OptimizationStrategies_SelectedStrategyId",
+                table: "OptimizationPlans");
+
             migrationBuilder.DropTable(
                 name: "OptimizationMetrics");
 
@@ -258,6 +333,9 @@ namespace ManufacturingOptimization.Engine.Migrations
                 name: "TechnicalCapabilities");
 
             migrationBuilder.DropTable(
+                name: "TimeSegments");
+
+            migrationBuilder.DropTable(
                 name: "WarrantyTerms");
 
             migrationBuilder.DropTable(
@@ -265,6 +343,9 @@ namespace ManufacturingOptimization.Engine.Migrations
 
             migrationBuilder.DropTable(
                 name: "Providers");
+
+            migrationBuilder.DropTable(
+                name: "AllocatedSlots");
 
             migrationBuilder.DropTable(
                 name: "OptimizationStrategies");

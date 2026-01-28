@@ -8,7 +8,6 @@ public class OptimizationStrategyConfiguration : IEntityTypeConfiguration<Optimi
     public void Configure(EntityTypeBuilder<OptimizationStrategyEntity> entity)
     {
         entity.HasKey(e => e.Id);
-        entity.Property(e => e.RequestId).IsRequired();
         entity.Property(e => e.StrategyName).IsRequired().HasMaxLength(200);
         entity.Property(e => e.WorkflowType).IsRequired().HasMaxLength(50);
         entity.Property(e => e.Priority).IsRequired().HasMaxLength(50);

@@ -15,7 +15,6 @@ public static class DatabaseExtensions
         services.AddDbContext<EngineDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
         
         services.AddScoped<IProviderDbContext, EngineDbContext>();
-        services.AddScoped<IOptimizationDbContext, EngineDbContext>();
 
         return services;
     }

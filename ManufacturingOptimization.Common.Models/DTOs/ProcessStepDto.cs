@@ -10,4 +10,5 @@ public class ProcessStepDto
     public Guid SelectedProviderId { get; set; }
     public string SelectedProviderName { get; set; } = string.Empty;
     public ProcessEstimateDto Estimate { get; set; } = new();
+    public AllocatedSlotDto? AllocatedSlot { get; set; }
 }

@@ -1,8 +1,14 @@
-using ManufacturingOptimization.Engine.Abstractions;
-using ManufacturingOptimization.Engine.Models;
-using ManufacturingOptimization.Common.Models.Data.Entities;
-using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Messaging.Messages;
+using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Enums;
+using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Engine.Exceptions;
+using ManufacturingOptimization.Engine.Models;
+using ManufacturingOptimization.Engine.Models.OptimizationStep;
 
 namespace ManufacturingOptimization.Engine.Services.Pipeline;
 
@@ -14,16 +20,25 @@ namespace ManufacturingOptimization.Engine.Services.Pipeline;
 public class ProviderMatchingStep : IWorkflowStep
 {
     private readonly IProviderRepository _providerRepository;
+    private readonly IMessagePublisher _messagePublisher;
 
     public string Name => "Provider Matching";
 
-    public ProviderMatchingStep(IProviderRepository providerRepository)
+    public ProviderMatchingStep(IProviderRepository providerRepository, IMessagePublisher messagePublisher)
     {
         _providerRepository = providerRepository;
+        _messagePublisher = messagePublisher;
     }
 
     public async Task ExecuteAsync(WorkflowContext context, CancellationToken cancellationToken = default)
     {
+        context.Plan.Status = OptimizationPlanStatus.MatchingProviders;
+
+        _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanUpdated, new OptimizationPlanUpdatedEvent
+        {
+            Plan = context.Plan
+        });
+
         foreach (var processStep in context.ProcessSteps)
         {
             // Find providers that can perform this process
@@ -42,14 +57,15 @@ public class ProviderMatchingStep : IWorkflowStep
             processStep.MatchedProviders = matchedProviders;
 
             if (processStep.MatchedProviders.Count == 0)
-            {
-                throw new InvalidOperationException($"No providers found for step {processStep.StepNumber} ({processStep.Process}) requiring '{processStep.Process}' capability with sufficient technical capabilities");
-            }
+                throw new OptimizationException($"No providers available for process '{processStep.Process}' (step {processStep.StepNumber}) with required technical capabilities. Please ensure providers are registered and meet the specifications.");
         }
     }
 
     private static bool MeetsTechnicalRequirements(ProviderEntity provider, OptimizationRequestModel request)
     {
+        if (provider.TechnicalCapabilities == null)
+            return false;
+
         // Provider must be able to handle the motor's power and size
         bool canHandlePower = provider.TechnicalCapabilities.Power == 0 || provider.TechnicalCapabilities.Power >= request.MotorSpecs.PowerKW;
         bool canHandleSize = provider.TechnicalCapabilities.AxisHeight == 0 || provider.TechnicalCapabilities.AxisHeight >= request.MotorSpecs.AxisHeightMM;

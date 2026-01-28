@@ -1,4 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
@@ -9,4 +10,9 @@ namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
 public class ConfirmProcessProposalCommand : BaseRequestReplyCommand
 {
     public Guid ProposalId { get; set; }
+    
+    /// <summary>
+    /// The selected time slot for this process.
+    /// </summary>
+    public TimeWindowModel? AllocatedSlot { get; set; }
 }

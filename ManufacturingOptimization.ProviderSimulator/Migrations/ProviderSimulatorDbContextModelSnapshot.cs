@@ -17,16 +17,70 @@ namespace ManufacturingOptimization.ProviderSimulator.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.12");
 
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AllocatedSlots");
+                });
+
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.TimeSegmentEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AllocatedSlotId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SegmentOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SegmentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AllocatedSlotId", "SegmentOrder")
+                        .IsUnique();
+
+                    b.ToTable("TimeSegments");
+                });
+
             modelBuilder.Entity("ManufacturingOptimization.ProviderSimulator.Data.Entities.PlannedProcessEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid>("AllocatedSlotId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("ProposalId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AllocatedSlotId")
+                        .IsUnique();
 
                     b.HasIndex("ProposalId")
                         .IsUnique();
@@ -40,11 +94,12 @@ namespace ManufacturingOptimization.ProviderSimulator.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<decimal>("Cost")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<string>("AvailableTimeSlotsJson")
+                        .HasColumnType("TEXT");
 
-                    b.Property<long>("DurationTicks")
-                        .HasColumnType("INTEGER");
+                    b.Property<decimal>("Cost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
 
                     b.Property<double>("EmissionsKgCO2")
                         .HasColumnType("REAL");
@@ -101,13 +156,32 @@ namespace ManufacturingOptimization.ProviderSimulator.Migrations
                     b.ToTable("Proposals", (string)null);
                 });
 
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.TimeSegmentEntity", b =>
+                {
+                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", "AllocatedSlot")
+                        .WithMany("Segments")
+                        .HasForeignKey("AllocatedSlotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AllocatedSlot");
+                });
+
             modelBuilder.Entity("ManufacturingOptimization.ProviderSimulator.Data.Entities.PlannedProcessEntity", b =>
                 {
+                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", "AllocatedSlot")
+                        .WithOne()
+                        .HasForeignKey("ManufacturingOptimization.ProviderSimulator.Data.Entities.PlannedProcessEntity", "AllocatedSlotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("ManufacturingOptimization.ProviderSimulator.Data.Entities.ProposalEntity", "Proposal")
                         .WithOne("PlannedProcess")
                         .HasForeignKey("ManufacturingOptimization.ProviderSimulator.Data.Entities.PlannedProcessEntity", "ProposalId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AllocatedSlot");
 
                     b.Navigation("Proposal");
                 });
@@ -160,6 +234,11 @@ namespace ManufacturingOptimization.ProviderSimulator.Migrations
 
                     b.Navigation("MotorSpecs")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.AllocatedSlotEntity", b =>
+                {
+                    b.Navigation("Segments");
                 });
 
             modelBuilder.Entity("ManufacturingOptimization.ProviderSimulator.Data.Entities.ProposalEntity", b =>

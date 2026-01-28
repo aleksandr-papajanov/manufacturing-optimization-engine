@@ -53,8 +53,7 @@ builder.Services.AddSingleton<IMessageSubscriber>(sp => sp.GetRequiredService<Ra
 // Message dispatching
 builder.Services.AddSingleton<IMessageDispatcher, MessageDispatcher>();
 builder.Services.AddScoped<IMessageHandler<ProviderRegisteredEvent>, ProviderRegisteredHandler>();
-builder.Services.AddScoped<IMessageHandler<OptimizationPlanReadyEvent>, OptimizationPlanReadyHandler>();
-builder.Services.AddScoped<IMessageHandler<MultipleStrategiesReadyEvent>, StrategiesReadyHandler>();
+builder.Services.AddScoped<IMessageHandler<OptimizationPlanUpdatedEvent>, OptimizationPlanUpdatedHandler>();
 
 // System readiness coordination
 builder.Services.Configure<SystemReadinessSettings>(o => o.ServiceName = "Gateway");

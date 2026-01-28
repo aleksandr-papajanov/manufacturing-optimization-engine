@@ -92,6 +92,7 @@ async Task SubmitOptimizationRequest()
     // Generate random MotorRequest
     var random = new Random();
     var efficiencyClasses = new[] { MotorEfficiencyClass.IE1, MotorEfficiencyClass.IE2, MotorEfficiencyClass.IE3, MotorEfficiencyClass.IE4 };
+    var startTime = DateTime.Now.AddDays(random.Next(1, 100));
 
     var motorRequestDto = new OptimizationRequestDto
     {
@@ -107,7 +108,10 @@ async Task SubmitOptimizationRequest()
         Constraints = new OptimizationRequestConstraintsDto
         {
             MaxBudget = random.Next(0, 3) == 0 ? null : random.Next(5000, 20000),
-            RequiredDeadline = random.Next(0, 3) == 0 ? null : DateTime.Now.AddDays(random.Next(30, 90))
+            TimeWindow = new TimeWindowDto {
+                StartTime = startTime,
+                EndTime = startTime.AddHours(random.Next(100, 300))
+            }
         }
     };
 
@@ -125,7 +129,7 @@ async Task SubmitOptimizationRequest()
     table.AddRow("Target Efficiency", motorRequestDto.MotorSpecs.TargetEfficiency.ToString());
     table.AddRow("Malfunction", motorRequestDto.MotorSpecs.MalfunctionDescription ?? "-");
     table.AddRow("Max Budget", motorRequestDto.Constraints.MaxBudget.HasValue ? $"€{motorRequestDto.Constraints.MaxBudget.Value:N2}" : "No limit");
-    table.AddRow("Required Deadline", motorRequestDto.Constraints.RequiredDeadline?.ToString("yyyy-MM-dd") ?? "No deadline");
+    table.AddRow("Time Window", $"{motorRequestDto.Constraints.TimeWindow.StartTime:yyyy-MM-dd HH:mm} to {motorRequestDto.Constraints.TimeWindow.EndTime:yyyy-MM-dd HH:mm}");
 
     AnsiConsole.Write(table);
     AnsiConsole.WriteLine();
@@ -141,6 +145,7 @@ async Task SubmitOptimizationRequest()
     // Submit request to Gateway
     Guid requestId = Guid.Empty;
     List<OptimizationStrategyDto>? strategies = null;
+    OptimizationPlanDto? plan = null;
 
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -148,7 +153,7 @@ async Task SubmitOptimizationRequest()
         {
             try
             {
-                var response = await httpClient.PostAsJsonAsync("/api/optimization/request", motorRequestDto);
+                var response = await httpClient.PostAsJsonAsync("/api/optimization-requests", motorRequestDto);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -158,12 +163,15 @@ async Task SubmitOptimizationRequest()
                     AnsiConsole.MarkupLine($"[dim]Request ID: {requestId}[/]");
                     AnsiConsole.WriteLine();
 
-                    // Poll for strategies
-                    ctx.Status("[yellow]Waiting for optimization strategies...[/]");
+                    // Poll for plan status
+                    ctx.Status("[yellow]Waiting for optimization plan...[/]");
+                    
+                    // Initial delay to give Engine time to start processing
+                    await Task.Delay(TimeSpan.FromSeconds(1));
                     
                     var startTime = DateTime.UtcNow;
                     var timeout = TimeSpan.FromMinutes(10);
-                    var pollInterval = TimeSpan.FromSeconds(3);
+                    var pollInterval = TimeSpan.FromSeconds(2);
                     
                     while (DateTime.UtcNow - startTime < timeout)
                     {
@@ -171,31 +179,64 @@ async Task SubmitOptimizationRequest()
                         
                         try
                         {
-                            var statusResponse = await httpClient.GetAsync($"/api/optimization/strategies/{requestId}");
-                            if (statusResponse.IsSuccessStatusCode)
+                            var planResponse = await httpClient.GetAsync($"/api/optimization-requests/{requestId}/plan");
+                            if (planResponse.IsSuccessStatusCode)
                             {
-                                strategies = await statusResponse.Content.ReadFromJsonAsync<List<OptimizationStrategyDto>>();
-                                if (strategies != null && strategies.Any())
+                                plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlanDto>();
+                                if (plan != null)
                                 {
-                                    ctx.Status("[green]✓ Strategies ready![/]");
-                                    break;
+                                    // Display status progress
+                                    var statusMessage = plan.Status switch
+                                    {
+                                        "Draft" => "[cyan]Starting optimization...[/]",
+                                        "MatchingProviders" => "[blue]Matching providers...[/]",
+                                        "EstimatingCosts" => "[blue]Getting cost estimates...[/]",
+                                        "GeneratingStrategies" => "[blue]Generating strategies...[/]",
+                                        "AwaitingStrategySelection" => "[green]✓ Strategies ready![/]",
+                                        "Failed" => "[red]✗ Optimization failed[/]",
+                                        _ => $"[yellow]{plan.Status}...[/]"
+                                    };
+                                    
+                                    ctx.Status($"{statusMessage} (elapsed: {(DateTime.UtcNow - startTime).TotalSeconds:F0}s)");
+                                    
+                                    if (plan.Status == "AwaitingStrategySelection")
+                                    {
+                                        // Strategies are in plan.Strategies
+                                        strategies = plan.Strategies;
+                                        break;
+                                    }
+                                    else if (plan.Status == "Failed")
+                                    {
+                                        AnsiConsole.MarkupLine("[red]✗ Optimization failed[/]");
+                                        break;
+                                    }
+                                    // Continue polling for other statuses
                                 }
                             }
-                            if (statusResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                            else if (planResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
                             {
-                                // Strategies not ready yet, continue polling
+                                // Plan not created yet, continue polling
+                                ctx.Status($"[yellow]Starting... (elapsed: {(DateTime.UtcNow - startTime).TotalSeconds:F0}s)[/]");
+                                continue;
+                            }
+                            else
+                            {
+                                // Other error, log and continue
+                                ctx.Status($"[yellow]Waiting (status {planResponse.StatusCode})...[/]");
                                 continue;
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Continue polling
+                            // Continue polling on any error
+                            ctx.Status($"[yellow]Retrying... ({ex.Message.Split('\n')[0]})[/]");
+                            continue;
                         }
                     }
                     
-                    if (strategies == null)
+                    if (plan == null)
                     {
-                        AnsiConsole.MarkupLine("[red]✗ Timeout waiting for strategies[/]");
+                        AnsiConsole.MarkupLine("[red]✗ Timeout waiting for optimization plan[/]");
                     }
                 }
                 else
@@ -211,6 +252,23 @@ async Task SubmitOptimizationRequest()
                 AnsiConsole.WriteException(ex);
             }
         });
+
+    // Check if optimization failed
+    if (plan != null && plan.Status == "Failed")
+    {
+        AnsiConsole.WriteLine();
+        var errorPanel = new Panel($"[red]{Markup.Escape(plan.ErrorMessage ?? "Unknown error")}[/]")
+            .Border(BoxBorder.Rounded)
+            .BorderColor(Color.Red)
+            .Header("[red]Optimization Error[/]", Justify.Center);
+        AnsiConsole.Write(errorPanel);
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[yellow]Possible reasons:[/]");
+        AnsiConsole.MarkupLine("[dim]- No providers available with required capabilities[/]");
+        AnsiConsole.MarkupLine("[dim]- Providers did not respond within timeout[/]");
+        AnsiConsole.MarkupLine("[dim]- No feasible solutions found for the given constraints[/]");
+        return;
+    }
 
     if (strategies == null || !strategies.Any())
     {
@@ -264,7 +322,7 @@ async Task SubmitOptimizationRequest()
     var selectedStrategy = strategies[selectedIndex - 1];
 
     // Send selection to Gateway and retrieve plan
-    OptimizationPlanDto? plan = null;
+    plan = null;
     
     await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
@@ -273,7 +331,7 @@ async Task SubmitOptimizationRequest()
 
             try
             {
-                var response = await httpClient.PostAsync($"/api/optimization/strategies/{requestId}/select/{selectedStrategy.Id}", null);
+                var response = await httpClient.PutAsJsonAsync($"/api/optimization-requests/{requestId}/strategy", selectedStrategy.Id);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -292,10 +350,18 @@ async Task SubmitOptimizationRequest()
                         
                         try
                         {
-                            var planResponse = await httpClient.GetAsync($"/api/optimization/plan/{requestId}");
+                            var planResponse = await httpClient.GetAsync($"/api/optimization-requests/{requestId}/plan");
                             if (planResponse.IsSuccessStatusCode)
                             {
                                 plan = await planResponse.Content.ReadFromJsonAsync<OptimizationPlanDto>();
+                                
+                                // Check if plan indicates an error
+                                if (plan?.Status == "Failed")
+                                {
+                                    ctx.Status($"[red]✗ Optimization failed {plan.ErrorMessage} [/]");
+                                    break;
+                                }
+                                
                                 ctx.Status("[green]✓ Optimization plan retrieved![/]");
                                 break;
                             }
@@ -338,6 +404,26 @@ async Task SubmitOptimizationRequest()
 
 void DisplayOptimizationPlan(OptimizationPlanDto plan)
 {
+    // Check if optimization failed
+    if (plan.Status == "Failed")
+    {
+        AnsiConsole.Write(new Panel(new Markup("""
+            [red]✗ Optimization Failed[/]
+            
+            The optimization process could not complete successfully.
+            
+            [yellow]Possible reasons:[/]
+            • No providers available for required processes
+            • Constraints cannot be satisfied
+            • System error during optimization
+            
+            [dim]Please try again later or adjust your requirements.[/]
+            """))
+            .Header("[red]Optimization Error[/]")
+            .BorderColor(Color.Red));
+        return;
+    }
+    
     if (plan.SelectedStrategy == null)
     {
         AnsiConsole.MarkupLine("[red]✗ Plan has no selected strategy[/]");
@@ -354,7 +440,7 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
         .AddColumn("[yellow]Property[/]")
         .AddColumn("[green]Value[/]");
     
-    overviewTable.AddRow("Plan ID", $"[bold]{plan.PlanId}[/]");
+    overviewTable.AddRow("Plan ID", $"[bold]{plan.Id}[/]");
     overviewTable.AddRow("Request ID", plan.RequestId.ToString());
     overviewTable.AddRow("Strategy", $"[bold]{plan.SelectedStrategy.StrategyName}[/]");
     overviewTable.AddRow("Priority", plan.SelectedStrategy.Priority.ToString());
@@ -387,7 +473,6 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
             .AddColumn("[yellow]Provider[/]")
             .AddColumn(new TableColumn("[yellow]Provider ID[/]").Centered())
             .AddColumn(new TableColumn("[yellow]Cost[/]").RightAligned())
-            .AddColumn(new TableColumn("[yellow]Duration[/]").RightAligned())
             .AddColumn(new TableColumn("[yellow]Quality[/]").RightAligned())
             .AddColumn(new TableColumn("[yellow]CO₂[/]").RightAligned());
         
@@ -399,7 +484,6 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
                 $"[bold]{step.SelectedProviderName}[/]",
                 step.SelectedProviderId.ToString()[..8] + "...",
                 $"€{step.Estimate.Cost:N2}",
-                $"{step.Estimate.Duration.TotalHours:N1}h",
                 $"{step.Estimate.QualityScore:P0}",
                 $"{step.Estimate.EmissionsKgCO2:N2} kg"
             );
@@ -410,13 +494,16 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
             .BorderColor(Color.Blue));
         
         AnsiConsole.WriteLine();
+        
+        // Display Timeline if available
+        DisplayTimeline(plan.SelectedStrategy.Steps);
     }
     
     // Success summary
     AnsiConsole.Write(new Panel($"""
         [green]✓ Your optimization plan is ready for execution![/]
         
-        [bold]Plan ID:[/] [cyan]{plan.PlanId}[/]
+        [bold]Plan ID:[/] [cyan]{plan.Id}[/]
         [bold]Strategy:[/] {plan.SelectedStrategy.StrategyName}
         
         [dim]{plan.SelectedStrategy.Description}[/]
@@ -424,7 +511,7 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
         [yellow]Next steps:[/]
         • Providers will be notified to prepare for execution
         • You will receive updates as work progresses
-        • Track progress via Plan ID: {plan.PlanId}
+        • Track progress via Plan ID: {plan.Id}
         """)
         .Header("[green]Plan Confirmed[/]")
         .BorderColor(Color.Green)
@@ -440,10 +527,10 @@ void DisplayOptimizationPlan(OptimizationPlanDto plan)
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     });
     
-    AnsiConsole.Write(new Panel(Markup.Escape(json))
-        .Header("[yellow]Complete Optimization Plan (JSON)[/]")
-        .BorderColor(Color.Yellow)
-        .Expand());
+    //AnsiConsole.Write(new Panel(Markup.Escape(json))
+    //    .Header("[yellow]Complete Optimization Plan (JSON)[/]")
+    //    .BorderColor(Color.Yellow)
+    //    .Expand());
 }
 
 string GetStatusColor(string status)
@@ -508,4 +595,191 @@ async Task GetProviders()
                 AnsiConsole.MarkupLine($"[red]✗ Error: {ex.Message}[/]");
             }
         });
+}
+
+void DisplayTimeline(List<ProcessStepDto> steps)
+{
+    // Check if any steps have timeline data
+    if (!steps.Any(s => s.AllocatedSlot != null))
+    {
+        AnsiConsole.MarkupLine("[dim]No timeline data available (time window was not specified)[/]");
+        return;
+    }
+    
+    AnsiConsole.Write(new Rule("[cyan]Execution Timeline[/]").RuleStyle("cyan"));
+    AnsiConsole.WriteLine();
+    
+    var orderedSteps = steps.OrderBy(s => s.StepNumber).ToList();
+    
+    // Timeline table
+    var timelineTable = new Table()
+        .Border(TableBorder.Rounded)
+        .BorderColor(Color.Aqua)
+        .AddColumn(new TableColumn("[yellow]Step[/]").Centered())
+        .AddColumn("[yellow]Process[/]")
+        .AddColumn("[yellow]Provider[/]")
+        .AddColumn("[yellow]Scheduled Time[/]")
+        .AddColumn(new TableColumn("[yellow]Duration[/]").RightAligned());
+    
+    foreach (var step in orderedSteps)
+    {
+        var slotStr = step.AllocatedSlot != null
+            ? $"{step.AllocatedSlot.StartTime:yyyy-MM-dd HH:mm} - {step.AllocatedSlot.EndTime:HH:mm}"
+            : "[dim]Not scheduled[/]";
+            
+        var duration = step.AllocatedSlot != null
+            ? $"{(step.AllocatedSlot.EndTime - step.AllocatedSlot.StartTime).TotalHours:N1}h"
+            : "-";
+        
+        timelineTable.AddRow(
+            step.StepNumber.ToString(),
+            $"[bold]{step.Process}[/]",
+            step.SelectedProviderName,
+            slotStr,
+            duration
+        );
+    }
+    
+    AnsiConsole.Write(new Panel(timelineTable)
+        .Header("[cyan]Process Schedule[/]")
+        .BorderColor(Color.Aqua));
+
+    
+    AnsiConsole.WriteLine();
+    
+    // Gantt-style visualization
+    if (orderedSteps.All(s => s.AllocatedSlot != null))
+    {
+        DisplayGanttChart(orderedSteps);
+    }
+    
+    // Display available time slots for each step
+    DisplayAvailableTimeSlots(orderedSteps);
+}
+
+void DisplayGanttChart(List<ProcessStepDto> steps)
+{
+    var allSlots = steps.Where(s => s.AllocatedSlot != null).Select(s => s.AllocatedSlot!).ToList();
+    var minStart = allSlots.Min(s => s.StartTime);
+    var maxEnd = allSlots.Max(s => s.EndTime);
+    var totalDuration = maxEnd - minStart;
+    
+    AnsiConsole.Write(new Rule("[green]Gantt Chart[/]").RuleStyle("green"));
+    AnsiConsole.WriteLine();
+    
+    var ganttTable = new Table()
+        .Border(TableBorder.None)
+        .HideHeaders()
+        .AddColumn(new TableColumn("").Width(20))
+        .AddColumn(new TableColumn("").Width(60));
+    
+    const int chartWidth = 50;
+    
+    foreach (var step in steps.OrderBy(s => s.StepNumber))
+    {
+        if (step.AllocatedSlot == null) continue;
+        
+        var slot = step.AllocatedSlot;
+        var label = $"{step.Process} ({step.StepNumber})";
+        
+        // Build bar with segments (work = green, break = red)
+        var bar = "";
+        if (slot.Segments != null && slot.Segments.Any())
+        {
+            foreach (var segment in slot.Segments.OrderBy(s => s.SegmentOrder))
+            {
+                var segmentStartOffset = (segment.StartTime - minStart).TotalHours / totalDuration.TotalHours;
+                var segmentDuration = (segment.EndTime - segment.StartTime).TotalHours / totalDuration.TotalHours;
+                
+                var segmentStartPos = (int)(segmentStartOffset * chartWidth);
+                var segmentLength = Math.Max(1, (int)(segmentDuration * chartWidth));
+                
+                // Pad to start position (only if not first segment of this step)
+                if (bar.Length < segmentStartPos)
+                {
+                    bar += new string(' ', segmentStartPos - bar.Length);
+                }
+                
+                var isWork = segment.SegmentType == "WorkingTime";
+                var color = isWork ? "green" : "red";
+                var barChars = new string('█', segmentLength);
+                bar += $"[{color}]{barChars}[/]";
+            }
+        }
+        else
+        {
+            // Fallback: no segments, show entire slot as one bar
+            var startOffset = (slot.StartTime - minStart).TotalHours / totalDuration.TotalHours;
+            var duration = (slot.EndTime - slot.StartTime).TotalHours / totalDuration.TotalHours;
+            
+            var startPos = (int)(startOffset * chartWidth);
+            var barLength = Math.Max(1, (int)(duration * chartWidth));
+            
+            var barChars = new string(' ', startPos) + new string('█', barLength);
+            bar = $"[cyan]{barChars.PadRight(chartWidth)}[/]";
+        }
+        
+        ganttTable.AddRow(
+            label.Length > 18 ? label[..18] + ".." : label,
+            bar
+        );
+    }
+    
+    AnsiConsole.Write(new Panel(ganttTable)
+        .Header($"[green]Timeline: {minStart:MMM dd HH:mm} → {maxEnd:MMM dd HH:mm} ({totalDuration.TotalDays:N1} days) | [green]█[/] Work [yellow]█[/] Break[/]")
+        .BorderColor(Color.Green));
+    
+    AnsiConsole.WriteLine();
+}
+
+void DisplayAvailableTimeSlots(List<ProcessStepDto> steps)
+{
+    // Check if any steps have available time slots
+    if (!steps.Any(s => s.Estimate.AvailableTimeSlots?.Any() == true))
+    {
+        return;
+    }
+    
+    AnsiConsole.Write(new Rule("[yellow]Available Time Slots[/]").RuleStyle("yellow"));
+    AnsiConsole.WriteLine();
+    
+    foreach (var step in steps.OrderBy(s => s.StepNumber))
+    {
+        if (step.Estimate.AvailableTimeSlots?.Any() != true)
+            continue;
+        
+        var slotsTable = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Yellow)
+            .AddColumn(new TableColumn("[yellow]Slot #[/]").Centered())
+            .AddColumn("[yellow]Start Time[/]")
+            .AddColumn("[yellow]End Time[/]")
+            .AddColumn(new TableColumn("[yellow]Duration[/]").RightAligned())
+            .AddColumn(new TableColumn("[yellow]Selected[/]").Centered());
+        
+        int slotNum = 1;
+        foreach (var slot in step.Estimate.AvailableTimeSlots)
+        {
+            var isSelected = step.AllocatedSlot != null &&
+                           slot.StartTime >= step.AllocatedSlot.StartTime &&
+                           slot.EndTime <= step.AllocatedSlot.EndTime;
+            
+            var duration = slot.EndTime - slot.StartTime;
+            
+            slotsTable.AddRow(
+                slotNum.ToString(),
+                slot.StartTime.ToString("yyyy-MM-dd HH:mm"),
+                slot.EndTime.ToString("yyyy-MM-dd HH:mm"),
+                $"{duration.TotalHours:N1}h",
+                isSelected ? "[green]✓[/]" : ""
+            );
+            slotNum++;
+        }
+        
+        AnsiConsole.Write(new Panel(slotsTable)
+            .Header($"[yellow]Step {step.StepNumber}: {step.Process} - {step.SelectedProviderName}[/]")
+            .BorderColor(Color.Yellow));
+        
+        AnsiConsole.WriteLine();
+    }
 }

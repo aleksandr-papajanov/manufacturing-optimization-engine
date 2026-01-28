@@ -20,6 +20,8 @@ public class GatewayDbContext : DbContext, IOptimizationDbContext, IProviderDbCo
     public DbSet<ProcessEstimateEntity> ProcessEstimates => Set<ProcessEstimateEntity>();
     public DbSet<OptimizationMetricsEntity> OptimizationMetrics => Set<OptimizationMetricsEntity>();
     public DbSet<WarrantyTermsEntity> WarrantyTerms => Set<WarrantyTermsEntity>();
+    public DbSet<AllocatedSlotEntity> AllocatedSlots => Set<AllocatedSlotEntity>();
+    public DbSet<TimeSegmentEntity> TimeSegments => Set<TimeSegmentEntity>();
 
     public GatewayDbContext(DbContextOptions<GatewayDbContext> options) : base(options)
     {
@@ -35,6 +37,8 @@ public class GatewayDbContext : DbContext, IOptimizationDbContext, IProviderDbCo
         modelBuilder.ApplyConfiguration(new OptimizationPlanConfiguration());
         modelBuilder.ApplyConfiguration(new OptimizationStrategyConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessStepConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocatedSlotConfiguration());
+        modelBuilder.ApplyConfiguration(new TimeSegmentConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessEstimateConfiguration());
         modelBuilder.ApplyConfiguration(new OptimizationMetricsConfiguration());
         modelBuilder.ApplyConfiguration(new WarrantyTermsConfiguration());

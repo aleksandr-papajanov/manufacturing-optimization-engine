@@ -14,4 +14,5 @@ public class ProposeProcessToProviderCommand : BaseRequestReplyCommand
     public Guid ProviderId { get; set; }
     public ProcessType Process { get; set; }
     public MotorSpecificationsModel MotorSpecs { get; set; } = new();
+    public TimeWindowModel? RequestedTimeWindow { get; set; }
 }
