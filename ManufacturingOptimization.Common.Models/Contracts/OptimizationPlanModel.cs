@@ -11,12 +11,18 @@ public class OptimizationPlanModel
     /// <summary>
     /// Unique identifier for this plan.
     /// </summary>
-    public Guid PlanId { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; }
     
     /// <summary>
     /// Original customer request ID.
     /// </summary>
     public Guid RequestId { get; set; }
+    
+    /// <summary>
+    /// Available optimization strategies generated for this plan.
+    /// Multiple strategies with different optimization priorities.
+    /// </summary>
+    public List<OptimizationStrategyModel> Strategies { get; set; } = [];
     
     /// <summary>
     /// The strategy selected by the customer.
@@ -43,5 +49,10 @@ public class OptimizationPlanModel
     /// Timestamp when the plan was confirmed and sent to providers.
     /// </summary>
     public DateTime? ConfirmedAt { get; set; }
+    
+    /// <summary>
+    /// Error message if optimization failed.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
 }
 

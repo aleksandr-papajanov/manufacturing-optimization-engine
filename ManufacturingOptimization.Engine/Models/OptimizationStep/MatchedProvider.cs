@@ -1,6 +1,6 @@
 using ManufacturingOptimization.Common.Models.Contracts;
 
-namespace ManufacturingOptimization.Engine.Models;
+namespace ManufacturingOptimization.Engine.Models.OptimizationStep;
 
 /// <summary>
 /// Provider matched to a specific process step.
@@ -18,4 +18,10 @@ public class MatchedProvider
     /// Provider's estimate for this process (cost, time, quality, emissions).
     /// </summary>
     public ProcessEstimateModel Estimate { get; set; } = new();
+    
+    /// <summary>
+    /// Indexed time slots for MIP optimization.
+    /// Converted from AvailableTimeSlots with hours relative to reference time.
+    /// </summary>
+    public List<IndexedTimeSlot> IndexedSlots { get; set; } = new();
 }

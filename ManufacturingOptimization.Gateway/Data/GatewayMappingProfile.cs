@@ -19,6 +19,13 @@ namespace ManufacturingOptimization.Gateway.Data
 
             CreateMap<OptimizationRequestConstraintsModel, OptimizationRequestConstraintsDto>().ReverseMap();
 
+            CreateMap<TimeWindowModel, TimeWindowDto>().ReverseMap();
+
+            CreateMap<TimeSegmentModel, TimeSegmentDto>()
+                .ForMember(dest => dest.SegmentType, opt => opt.MapFrom(src => src.SegmentType.ToString()));
+            CreateMap<TimeSegmentDto, TimeSegmentModel>()
+                .ForMember(dest => dest.SegmentType, opt => opt.MapFrom(src => Enum.Parse<SegmentType>(src.SegmentType)));
+
             CreateMap<MotorSpecificationsModel, MotorSpecificationsDto>()
                 .ForMember(dest => dest.CurrentEfficiency, opt => opt.MapFrom(src => src.CurrentEfficiency.ToString()))
                 .ForMember(dest => dest.TargetEfficiency, opt => opt.MapFrom(src => src.TargetEfficiency.ToString()));
@@ -37,6 +44,8 @@ namespace ManufacturingOptimization.Gateway.Data
                 .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => Enum.Parse<OptimizationPriority>(src.Priority)));
 
             CreateMap<OptimizationMetricsModel, OptimizationMetricsDto>().ReverseMap();
+
+            CreateMap<AllocatedSlotModel, AllocatedSlotDto>().ReverseMap();
 
             CreateMap<ProcessStepModel, ProcessStepDto>()
                 .ForMember(dest => dest.Process, opt => opt.MapFrom(src => src.Process.ToString()));

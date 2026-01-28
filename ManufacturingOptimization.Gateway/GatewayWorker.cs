@@ -54,19 +54,12 @@ public class GatewayWorker : BackgroundService
         _messagingInfrastructure.BindQueue("gateway.provider.events", Exchanges.Provider, ProviderRoutingKeys.Registered);
         _messagingInfrastructure.PurgeQueue("gateway.provider.events");
 
-        // Listen to optimization responses
-        //_messagingInfrastructure.DeclareExchange(Exchanges.Optimization);
-        _messagingInfrastructure.DeclareQueue("gateway.optimization.responses");
-        _messagingInfrastructure.BindQueue("gateway.optimization.responses", Exchanges.Optimization, OptimizationRoutingKeys.PlanReady);
-        _messagingInfrastructure.PurgeQueue("gateway.optimization.responses");
-
-        // Listen to strategies ready events (US-07)
-        _messagingInfrastructure.DeclareQueue("gateway.strategies.ready");
-        _messagingInfrastructure.BindQueue("gateway.strategies.ready", Exchanges.Optimization, OptimizationRoutingKeys.StrategiesReady);
-        _messagingInfrastructure.PurgeQueue("gateway.strategies.ready");
+        // Listen to plan status updates
+        _messagingInfrastructure.DeclareQueue("gateway.plan.status.updates");
+        _messagingInfrastructure.BindQueue("gateway.plan.status.updates", Exchanges.Optimization, OptimizationRoutingKeys.PlanUpdated);
+        _messagingInfrastructure.PurgeQueue("gateway.plan.status.updates");
 
         _messageSubscriber.Subscribe<ProviderRegisteredEvent>("gateway.provider.events", e => _dispatcher.DispatchAsync(e));
-        _messageSubscriber.Subscribe<OptimizationPlanReadyEvent>("gateway.optimization.responses", e => _dispatcher.DispatchAsync(e));
-        _messageSubscriber.Subscribe<MultipleStrategiesReadyEvent>("gateway.strategies.ready", e => _dispatcher.DispatchAsync(e));
+        _messageSubscriber.Subscribe<OptimizationPlanUpdatedEvent>("gateway.plan.status.updates", e => _dispatcher.DispatchAsync(e));
     }
 }

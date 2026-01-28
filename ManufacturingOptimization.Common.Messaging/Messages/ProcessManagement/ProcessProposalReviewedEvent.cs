@@ -1,4 +1,5 @@
 using ManufacturingOptimization.Common.Messaging.Abstractions;
+using ManufacturingOptimization.Common.Models.Contracts;
 using ManufacturingOptimization.Common.Models.Enums;
 
 namespace ManufacturingOptimization.Common.Messaging.Messages.ProcessManagement;
@@ -11,4 +12,5 @@ public class ProcessProposalReviewedEvent : BaseEvent
     public Guid ProposalId { get; set; }
     public bool IsAccepted { get; set; }
     public string? DeclineReason { get; set; }
+    public AllocatedSlotModel? AllocatedSlot { get; set; }
 }

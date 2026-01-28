@@ -12,9 +12,14 @@ public class OptimizationPlanConfiguration : IEntityTypeConfiguration<Optimizati
         entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
         entity.Property(e => e.CreatedAt).IsRequired();
 
-        entity.HasOne(e => e.SelectedStrategy)
+        entity.HasMany(e => e.Strategies)
             .WithOne(s => s.Plan)
-            .HasForeignKey<OptimizationStrategyEntity>(s => s.PlanId)
+            .HasForeignKey(s => s.PlanId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasOne(e => e.SelectedStrategy)
+            .WithOne()
+            .HasForeignKey<OptimizationPlanEntity>(p => p.SelectedStrategyId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

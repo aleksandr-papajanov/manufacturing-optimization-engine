@@ -6,18 +6,10 @@ namespace ManufacturingOptimization.ProviderSimulator.Abstractions;
 
 public interface IProviderSimulator
 {
-    /// <summary>
-    /// Provider information with all capabilities and specifications.
-    /// </summary>
     ProviderModel Provider { get; }
-    
-    /// <summary>
-    /// Handle a process proposal - provider can accept with estimates or decline.
-    /// </summary>
-    ProposalModel HandleProposal(ProposeProcessToProviderCommand proposal);
 
-    /// <summary>
-    /// Handle final confirmation of an accepted proposal.
-    /// </summary>
+    Task<ProposalModel> HandleProposalAsync(ProposeProcessToProviderCommand proposal);
     void HandleConfirmation(ProposalEntity proposalEntity);
+    Task<List<TimeWindowModel>> GetWorkingSegmentsAsync(TimeWindowModel allocatedSlot);
+    Task<List<TimeSegmentModel>> GetAllSegmentsAsync(TimeWindowModel allocatedSlot);
 }

@@ -5,44 +5,14 @@ namespace ManufacturingOptimization.Common.Models.Enums;
 /// </summary>
 public enum OptimizationPlanStatus
 {
-    /// <summary>
-    /// Plan is being created, strategies are being generated.
-    /// </summary>
     Draft,
-    
-    /// <summary>
-    /// Strategies ready, waiting for customer selection.
-    /// </summary>
-    AwaitingSelection,
-    
-    /// <summary>
-    /// Customer has selected a strategy, awaiting confirmation.
-    /// </summary>
-    Selected,
-    
-    /// <summary>
-    /// Plan confirmed, sent to providers for execution.
-    /// </summary>
+    MatchingWorkflow,
+    MatchingProviders,
+    EstimatingCosts,
+    GeneratingStrategies,
+    AwaitingStrategySelection,
+    StrategySelected,
     Confirmed,
-    
-    /// <summary>
-    /// Manufacturing is in progress.
-    /// </summary>
-    InProgress,
-    
-    /// <summary>
-    /// All steps completed successfully.
-    /// </summary>
-    Completed,
-    
-    /// <summary>
-    /// Plan was cancelled.
-    /// </summary>
-    Cancelled,
-    
-    /// <summary>
-    /// Plan failed during execution.
-    /// </summary>
     Failed
 }
 

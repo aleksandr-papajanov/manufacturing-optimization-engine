@@ -7,7 +7,6 @@ public class OptimizationStrategyDto
 {
     public Guid Id { get; set; }
     public Guid? PlanId { get; set; }
-    public Guid? RequestId { get; set; }
     public string StrategyName { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
     public string WorkflowType { get; set; } = string.Empty;

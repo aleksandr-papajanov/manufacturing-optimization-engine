@@ -11,17 +11,15 @@ public class ProcessEstimateModel
     /// </summary>
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    /// <summary>
+    /// Gets or sets the unique identifier for the proposal.
+    /// </summary>
     public Guid ProposalId { get; set; }
 
     /// <summary>
     /// Estimated cost in currency.
     /// </summary>
     public decimal Cost { get; set; }
-    
-    /// <summary>
-    /// Estimated time to complete the process.
-    /// </summary>
-    public TimeSpan Duration { get; set; }
     
     /// <summary>
     /// Quality score (0.0 - 1.0).
@@ -34,4 +32,10 @@ public class ProcessEstimateModel
     /// Calculated as: EnergyConsumption (kWh) × CarbonIntensity (kg CO2/kWh).
     /// </summary>
     public double EmissionsKgCO2 { get; set; }
+    
+    /// <summary>
+    /// Available time slots when the provider can execute the process.
+    /// Empty list means no available slots within the requested time window.
+    /// </summary>
+    public List<TimeWindowModel> AvailableTimeSlots { get; set; } = new();
 }

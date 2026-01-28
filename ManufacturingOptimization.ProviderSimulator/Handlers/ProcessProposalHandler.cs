@@ -34,7 +34,7 @@ public class ProcessProposalHandler : IMessageHandler<ProposeProcessToProviderCo
 
     public async Task HandleAsync(ProposeProcessToProviderCommand proposal)
     {
-        var proposalModel = _providerLogic.HandleProposal(proposal);
+        var proposalModel = await _providerLogic.HandleProposalAsync(proposal);
         
         var proposalEntity = _mapper.Map<ProposalEntity>(proposalModel);
         

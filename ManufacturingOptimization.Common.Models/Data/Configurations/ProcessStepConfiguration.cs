@@ -12,10 +12,16 @@ public class ProcessStepConfiguration : IEntityTypeConfiguration<ProcessStepEnti
         entity.Property(e => e.Process).IsRequired().HasMaxLength(50);
         entity.Property(e => e.SelectedProviderId).IsRequired();
         entity.Property(e => e.SelectedProviderName).IsRequired().HasMaxLength(200);
+        entity.Property(e => e.AllocatedSlotId).IsRequired(false);
 
         entity.HasOne(e => e.Estimate)
             .WithOne(est => est.ProcessStep)
             .HasForeignKey<ProcessEstimateEntity>(est => est.ProcessStepId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasOne(e => e.AllocatedSlot)
+            .WithOne()
+            .HasForeignKey<ProcessStepEntity>(e => e.AllocatedSlotId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -2,24 +2,17 @@ using ManufacturingOptimization.Common.Models.Data.Abstractions;
 using ManufacturingOptimization.Common.Models.Data.Configurations;
 using ManufacturingOptimization.Common.Models.Data.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace ManufacturingOptimization.Engine.Data;
 
 /// <summary>
 /// Database context for Engine service.
 /// </summary>
-public class EngineDbContext : DbContext, IOptimizationDbContext, IProviderDbContext
+public class EngineDbContext : DbContext, IProviderDbContext
 {
     public DbSet<ProviderEntity> Providers => Set<ProviderEntity>();
     public DbSet<ProcessCapabilityEntity> ProcessCapabilities => Set<ProcessCapabilityEntity>();
     public DbSet<TechnicalCapabilitiesEntity> TechnicalCapabilities => Set<TechnicalCapabilitiesEntity>();
-    public DbSet<OptimizationPlanEntity> OptimizationPlans => Set<OptimizationPlanEntity>();
-    public DbSet<OptimizationStrategyEntity> OptimizationStrategies => Set<OptimizationStrategyEntity>();
-    public DbSet<ProcessStepEntity> ProcessSteps => Set<ProcessStepEntity>();
-    public DbSet<ProcessEstimateEntity> ProcessEstimates => Set<ProcessEstimateEntity>();
-    public DbSet<OptimizationMetricsEntity> OptimizationMetrics => Set<OptimizationMetricsEntity>();
-    public DbSet<WarrantyTermsEntity> WarrantyTerms => Set<WarrantyTermsEntity>();
 
     public EngineDbContext(DbContextOptions<EngineDbContext> options) : base(options)
     {
@@ -32,11 +25,5 @@ public class EngineDbContext : DbContext, IOptimizationDbContext, IProviderDbCon
         modelBuilder.ApplyConfiguration(new ProviderConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessCapabilityConfiguration());
         modelBuilder.ApplyConfiguration(new TechnicalCapabilitiesConfiguration());
-        modelBuilder.ApplyConfiguration(new OptimizationPlanConfiguration());
-        modelBuilder.ApplyConfiguration(new OptimizationStrategyConfiguration());
-        modelBuilder.ApplyConfiguration(new ProcessStepConfiguration());
-        modelBuilder.ApplyConfiguration(new ProcessEstimateConfiguration());
-        modelBuilder.ApplyConfiguration(new OptimizationMetricsConfiguration());
-        modelBuilder.ApplyConfiguration(new WarrantyTermsConfiguration());
     }
 }

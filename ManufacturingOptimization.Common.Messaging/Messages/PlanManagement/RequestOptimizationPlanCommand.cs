@@ -5,8 +5,6 @@ namespace ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
 
 public class RequestOptimizationPlanCommand : BaseCommand
 {
-    /// <summary>
-    /// Motor request submitted by customer.
-    /// </summary>
-    public OptimizationRequestModel Request { get; set; } = new();
+    public OptimizationRequestModel Request { get; set; } = null!;
+    public OptimizationPlanModel Plan { get; set; } = null!;
 }

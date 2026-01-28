@@ -17,115 +17,6 @@ namespace ManufacturingOptimization.Engine.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.12");
 
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationMetricsEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("AverageQuality")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("ObjectiveValue")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("SolverStatus")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("StrategyId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<decimal>("TotalCost")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("TotalEmissionsKgCO2")
-                        .HasColumnType("REAL");
-
-                    b.Property<long>("TotalTime")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StrategyId")
-                        .IsUnique();
-
-                    b.ToTable("OptimizationMetrics");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationPlanEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("ConfirmedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("RequestId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("SelectedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("OptimizationPlans");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("GeneratedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("PlanId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Priority")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("RequestId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StrategyName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("WorkflowType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlanId")
-                        .IsUnique();
-
-                    b.ToTable("OptimizationStrategies");
-                });
-
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessCapabilityEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -164,68 +55,6 @@ namespace ManufacturingOptimization.Engine.Migrations
                     b.HasIndex("ProviderId");
 
                     b.ToTable("ProcessCapabilities");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessEstimateEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<decimal>("Cost")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("Duration")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("EmissionsKgCO2")
-                        .HasColumnType("REAL");
-
-                    b.Property<Guid>("ProcessStepId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("QualityScore")
-                        .HasColumnType("REAL");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProcessStepId")
-                        .IsUnique();
-
-                    b.ToTable("ProcessEstimates");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessStepEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Process")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("SelectedProviderId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SelectedProviderName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("StepNumber")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("StrategyId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StrategyId");
-
-                    b.ToTable("ProcessSteps");
                 });
 
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProviderEntity", b =>
@@ -278,60 +107,6 @@ namespace ManufacturingOptimization.Engine.Migrations
                     b.ToTable("TechnicalCapabilities");
                 });
 
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.WarrantyTermsEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("DurationMonths")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IncludesInsurance")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("StrategyId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StrategyId")
-                        .IsUnique();
-
-                    b.ToTable("WarrantyTerms");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationMetricsEntity", b =>
-                {
-                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "Strategy")
-                        .WithOne("Metrics")
-                        .HasForeignKey("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationMetricsEntity", "StrategyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Strategy");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", b =>
-                {
-                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationPlanEntity", "Plan")
-                        .WithOne("SelectedStrategy")
-                        .HasForeignKey("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "PlanId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("Plan");
-                });
-
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessCapabilityEntity", b =>
                 {
                     b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.ProviderEntity", "Provider")
@@ -343,28 +118,6 @@ namespace ManufacturingOptimization.Engine.Migrations
                     b.Navigation("Provider");
                 });
 
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessEstimateEntity", b =>
-                {
-                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.ProcessStepEntity", "ProcessStep")
-                        .WithOne("Estimate")
-                        .HasForeignKey("ManufacturingOptimization.Common.Models.Data.Entities.ProcessEstimateEntity", "ProcessStepId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProcessStep");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessStepEntity", b =>
-                {
-                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "Strategy")
-                        .WithMany("Steps")
-                        .HasForeignKey("StrategyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Strategy");
-                });
-
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.TechnicalCapabilitiesEntity", b =>
                 {
                     b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.ProviderEntity", "Provider")
@@ -374,36 +127,6 @@ namespace ManufacturingOptimization.Engine.Migrations
                         .IsRequired();
 
                     b.Navigation("Provider");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.WarrantyTermsEntity", b =>
-                {
-                    b.HasOne("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", "Strategy")
-                        .WithOne("Warranty")
-                        .HasForeignKey("ManufacturingOptimization.Common.Models.Data.Entities.WarrantyTermsEntity", "StrategyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Strategy");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationPlanEntity", b =>
-                {
-                    b.Navigation("SelectedStrategy");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.OptimizationStrategyEntity", b =>
-                {
-                    b.Navigation("Metrics");
-
-                    b.Navigation("Steps");
-
-                    b.Navigation("Warranty");
-                });
-
-            modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProcessStepEntity", b =>
-                {
-                    b.Navigation("Estimate");
                 });
 
             modelBuilder.Entity("ManufacturingOptimization.Common.Models.Data.Entities.ProviderEntity", b =>

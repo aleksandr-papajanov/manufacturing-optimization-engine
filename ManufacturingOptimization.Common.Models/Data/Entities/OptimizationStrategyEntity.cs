@@ -6,7 +6,6 @@ namespace ManufacturingOptimization.Common.Models.Data.Entities;
 public class OptimizationStrategyEntity
 {
     public Guid Id { get; set; }
-    public Guid RequestId { get; set; }
     public Guid? PlanId { get; set; }
     public string StrategyName { get; set; } = string.Empty;
     public string WorkflowType { get; set; } = string.Empty;

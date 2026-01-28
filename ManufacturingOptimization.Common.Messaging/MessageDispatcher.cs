@@ -32,12 +32,11 @@ public class MessageDispatcher : IMessageDispatcher
         {
             using var scope = _scopeFactory.CreateScope();
             var handler = scope.ServiceProvider.GetRequiredService<IMessageHandler<TMessage>>();
-            
+
             await handler.HandleAsync(message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to dispatch message of type {MessageType}", typeof(TMessage).Name);
             throw;
         }
     }

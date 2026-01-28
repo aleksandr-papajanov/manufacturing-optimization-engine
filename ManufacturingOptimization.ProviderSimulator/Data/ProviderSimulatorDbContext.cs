@@ -1,4 +1,6 @@
 using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Configurations;
+using ManufacturingOptimization.Common.Models.Data.Entities;
 using ManufacturingOptimization.ProviderSimulator.Data.Configurations;
 using ManufacturingOptimization.ProviderSimulator.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -12,8 +14,10 @@ namespace ManufacturingOptimization.ProviderRegistry.Data;
 public class ProviderSimulatorDbContext : DbContext, IProviderSimulatorDbContext
 {
     public DbSet<PlannedProcessEntity> PlannedProcesses => Set<PlannedProcessEntity>();
+    public DbSet<AllocatedSlotEntity> AllocatedSlots => Set<AllocatedSlotEntity>();
+    public DbSet<TimeSegmentEntity> TimeSegments => Set<TimeSegmentEntity>();
     public DbSet<ProposalEntity> Proposals => Set<ProposalEntity>();
-    public DbSet<ProcessEstimateEntity> ProcessEstimates => Set<ProcessEstimateEntity>();
+    public DbSet<ProviderSimulator.Data.Entities.ProcessEstimateEntity> ProcessEstimates => Set<ProviderSimulator.Data.Entities.ProcessEstimateEntity>();
 
     public ProviderSimulatorDbContext(DbContextOptions<ProviderSimulatorDbContext> options) : base(options)
     {
@@ -24,8 +28,10 @@ public class ProviderSimulatorDbContext : DbContext, IProviderSimulatorDbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new PlannedProcessConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocatedSlotConfiguration());
+        modelBuilder.ApplyConfiguration(new TimeSegmentConfiguration());
         modelBuilder.ApplyConfiguration(new ProposalConfiguration());
-        modelBuilder.ApplyConfiguration(new ProcessEstimateConfiguration());
+        modelBuilder.ApplyConfiguration(new ProviderSimulator.Data.Configurations.ProcessEstimateConfiguration());
     }
 }
 

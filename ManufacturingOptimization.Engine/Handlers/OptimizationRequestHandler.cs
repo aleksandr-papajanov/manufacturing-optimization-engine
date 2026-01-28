@@ -1,7 +1,14 @@
+using AutoMapper;
 using ManufacturingOptimization.Common.Messaging.Abstractions;
 using ManufacturingOptimization.Common.Messaging.Messages;
+using ManufacturingOptimization.Common.Messaging.Messages.OptimizationManagement;
 using ManufacturingOptimization.Common.Messaging.Messages.PlanManagement;
+using ManufacturingOptimization.Common.Models.Contracts;
+using ManufacturingOptimization.Common.Models.Data.Abstractions;
+using ManufacturingOptimization.Common.Models.Data.Entities;
+using ManufacturingOptimization.Common.Models.Enums;
 using ManufacturingOptimization.Engine.Abstractions;
+using ManufacturingOptimization.Engine.Exceptions;
 using ManufacturingOptimization.Engine.Models;
 
 namespace ManufacturingOptimization.Engine.Handlers;
@@ -14,27 +21,49 @@ public class OptimizationRequestHandler : IMessageHandler<RequestOptimizationPla
 {
     private readonly IWorkflowPipelineFactory _pipelineFactory;
     private readonly ISystemReadinessService _readinessService;
+    private readonly IMessagePublisher _messagePublisher;
+    private readonly IMapper _mapper;
     private readonly ILogger<OptimizationRequestHandler> _logger;
 
     public OptimizationRequestHandler(
         IWorkflowPipelineFactory pipelineFactory,
         ISystemReadinessService readinessService,
+        IMessagePublisher messagePublisher,
+        IMapper mapper,
         ILogger<OptimizationRequestHandler> logger)
     {
         _pipelineFactory = pipelineFactory;
         _readinessService = readinessService;
+        _messagePublisher = messagePublisher;
+        _mapper = mapper;
         _logger = logger;
     }
 
     public async Task HandleAsync(RequestOptimizationPlanCommand command)
-    {
+    {        
         // Wait for system to be ready before processing
         await _readinessService.WaitForSystemReadyAsync();
         await _readinessService.WaitForProvidersReadyAsync();
 
-        var pipeline = _pipelineFactory.CreateWorkflowPipeline();
-        var context = new WorkflowContext { Request = command.Request };
+        var context = new WorkflowContext
+        {
+            Request = command.Request,
+            Plan = command.Plan
+        };
 
-        await pipeline.ExecuteAsync(context);
+        try
+        {
+            var pipeline = _pipelineFactory.CreateWorkflowPipeline();
+            await pipeline.ExecuteAsync(context);
+        }
+        catch (Exception ex)
+        {
+            context.Plan.ErrorMessage = ex.Message;
+            context.Plan.Status = OptimizationPlanStatus.Failed;
+            _messagePublisher.Publish(Exchanges.Optimization, OptimizationRoutingKeys.PlanUpdated, new OptimizationPlanUpdatedEvent
+            {
+                Plan = context.Plan
+            });
+        }
     }
 }

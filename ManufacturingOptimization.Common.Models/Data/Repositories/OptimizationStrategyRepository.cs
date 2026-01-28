@@ -14,27 +14,16 @@ public class OptimizationStrategyRepository : Repository<OptimizationStrategyEnt
     {
     }
 
-    public async Task AddForRequestAsync(Guid requestId, List<OptimizationStrategyEntity> strategies)
-    {
-        _dbSet.AddRange(strategies);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task<List<OptimizationStrategyEntity>?> GetForRequestAsync(Guid requestId)
+    public override async Task<OptimizationStrategyEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .Include(s => s.Steps)
                 .ThenInclude(st => st.Estimate)
+            .Include(s => s.Steps)
+                .ThenInclude(st => st.AllocatedSlot)
+                    .ThenInclude(slot => slot!.Segments)
             .Include(s => s.Metrics)
             .Include(s => s.Warranty)
-            .Where(s => s.RequestId == requestId && s.PlanId == null) // Strategies not yet assigned to a plan
-            .ToListAsync();
-    }
-
-    public async Task RemoveForRequestAsync(Guid requestId)
-    {
-        var entities = await _dbSet.Where(s => s.Plan == null).ToListAsync();
-        _dbSet.RemoveRange(entities);
-        await _context.SaveChangesAsync();
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 }
