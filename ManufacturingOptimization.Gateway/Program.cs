@@ -7,6 +7,7 @@ using ManufacturingOptimization.Common.Models.Data.Mappings;
 using ManufacturingOptimization.Common.Models.Data.Repositories;
 using ManufacturingOptimization.Gateway.Abstractions;
 using ManufacturingOptimization.Gateway.Data;
+using ManufacturingOptimization.Gateway.Extensions;
 using ManufacturingOptimization.Gateway.Handlers;
 using ManufacturingOptimization.Gateway.Middleware;
 using ManufacturingOptimization.Gateway.Services;
@@ -23,6 +24,9 @@ builder.Services.AddScoped<IOptimizationStrategyRepository, OptimizationStrategy
 
 // Database lifecycle management
 builder.Services.AddHostedService<DatabaseManagementService>();
+
+// Add CORS
+builder.Services.AddCorsConfiguration();
 
 // Add Services
 builder.Services.AddControllers();
@@ -70,6 +74,9 @@ var app = builder.Build();
 // Configure Pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Add CORS middleware (must be before other middleware)
+app.UseCors("AllowFrontend");
 
 // Add middleware
 app.UseExceptionHandling();
