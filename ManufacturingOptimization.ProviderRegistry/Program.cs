@@ -48,6 +48,10 @@ builder.Services.AddHostedService(sp => (SystemReadinessService)sp.GetRequiredSe
 // Provider orchestration services
 builder.Services.AddSingleton<IProviderValidationService, ProviderValidationService>();
 
+// Registers the handlers so they can be injected when a message arrives
+builder.Services.AddScoped<QuoteRequestHandler>(); 
+builder.Services.AddScoped<ExecuteProcessCommandHandler>();
+
 // Register appropriate orchestrator based on mode
 var orchestrationMode = builder.Configuration["Orchestration:Mode"] ?? "Production";
 if (orchestrationMode == "Production")
